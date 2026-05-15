@@ -58,6 +58,8 @@ import {
   Bookmark,
   Target,
   Hexagon,
+  Video,
+  Mail,
   Home,
   Book,
   HelpCircle,
@@ -623,6 +625,7 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
     setIsLoading(true);
 
     try {
+      // NOTE: When deploying to Vercel, ensure GEMINI_API_KEY is set in your Vercel Project Environment Variables.
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
       const response = await ai.models.generateContent({
         model: 'gemini-1.5-flash',
@@ -1280,6 +1283,8 @@ function LibraryItem({ title, type, date, color, isDownloaded, onDownload, theme
     <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 active:bg-gray-800/50' : 'bg-white border-slate-200 active:bg-slate-50 shadow-sm'} rounded-[24px] p-4 flex items-center border gap-4 transition-all cursor-pointer group`}>
       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${color} shadow-inner`}>
         {type === 'pdf' && <ScrollText size={22} />}
+        {type === 'video' && <Video size={22} />}
+        {type === 'text' && <FileText size={22} />}
         {type === 'image' && <Layers size={22} />}
         {type === 'book' && <Library size={22} />}
         {type === 'doc' && <Bookmark size={22} />}
@@ -1351,38 +1356,30 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
     setResult(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const prompt = `You are a professional dictionary for Malawian students preparing for MSCE exams.
-Provide a very simple, clear definition in English. Avoid complex jargon. 
-Provide 1-2 examples relevant to local context if possible.
-Return ONLY a JSON object with this structure:
-{
-  "word": "word",
-  "phonetic": "/phonetic/",
-  "meanings": [
-    {
-      "partOfSpeech": "noun/verb/etc",
-      "definitions": [
-        {
-          "definition": "simple definition",
-          "example": "simple example"
-        }
-      ]
-    }
-  ]
-}
-Define: ${query}`;
-
-      const response = await ai.models.generateContent({ 
-        model: 'gemini-1.5-flash',
-        config: { responseMimeType: "application/json" },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      });
-      
-      const content = JSON.parse(response.text || '{}');
-      setResult(content);
+      // 1. Try Free Dictionary API
+      const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${query.toLowerCase()}`);
+      if (dictRes.ok) {
+        const data = await dictRes.json();
+        const entry = data[0];
+        
+        // Transform to our format
+        const formattedResult = {
+          word: entry.word,
+          phonetic: entry.phonetic || entry.phonetics?.find((p: any) => p.text)?.text || '',
+          meanings: entry.meanings.map((m: any) => ({
+             partOfSpeech: m.partOfSpeech,
+             definitions: m.definitions.slice(0, 2).map((d: any) => ({
+                definition: d.definition,
+                example: d.example
+             }))
+          }))
+        };
+        setResult(formattedResult);
+      } else {
+        setError('Could not find definition. Try another word.');
+      }
     } catch (err: any) {
-      setError('Could not find definition. Try another word.');
+      setError('Check your connection and try again.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -1423,42 +1420,46 @@ Define: ${query}`;
         )}
 
         {result && (
-          <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100 shadow-sm'} rounded-[32px] p-8 border`}>
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h3 className={`font-black text-4xl ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 capitalize tracking-tighter`}>{result.word}</h3>
-                {result.phonetic && <p className="text-sm text-indigo-400 font-black tracking-[0.2em] uppercase">{result.phonetic}</p>}
-              </div>
-              <button 
-                onClick={() => speak(result.word)}
-                className="w-14 h-14 bg-indigo-600 text-white flex items-center justify-center rounded-2xl shadow-xl shadow-indigo-600/30 active:scale-90 transition-transform"
-              >
-                <Volume2 size={28} />
-              </button>
-            </div>
-
-            <div className="space-y-8">
-              {result.meanings.map((meaning: any, i: number) => (
-                <div key={i}>
-                  <div className="flex items-center gap-4 mb-4">
-                     <span className="font-black text-indigo-500 text-sm italic uppercase tracking-widest">{meaning.partOfSpeech}</span>
-                     <div className={`h-[1px] ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'} flex-1`}></div>
-                  </div>
-                  <ul className="space-y-6">
-                    {meaning.definitions.slice(0, 3).map((def: any, idx: number) => (
-                      <li key={idx} className={`${theme === 'dark' ? 'text-gray-200' : 'text-slate-800'} text-lg leading-relaxed font-bold border-l-4 border-indigo-500/30 pl-6 py-1`}>
-                        {def.definition}
-                        {def.example && (
-                          <div className={`mt-4 p-5 rounded-3xl ${theme === 'dark' ? 'bg-indigo-900/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'} text-[15px] font-bold leading-relaxed`}>
-                            <div className="text-[10px] uppercase font-black tracking-widest opacity-40 mb-2">Usage Example</div>
-                            "{def.example}"
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+          <div className="animate-in fade-in slide-in-from-bottom duration-500">
+            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100 shadow-sm'} rounded-[32px] p-8 border mb-6`}>
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h3 className={`font-black text-4xl ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 capitalize tracking-tighter`}>{result.word}</h3>
+                  {result.phonetic && <p className="text-sm text-indigo-400 font-black tracking-[0.2em] uppercase">{result.phonetic}</p>}
                 </div>
-              ))}
+                <div className="flex gap-2">
+                   <button 
+                    onClick={() => speak(result.word)}
+                    className="w-14 h-14 bg-indigo-600 text-white flex items-center justify-center rounded-2xl shadow-xl shadow-indigo-600/30 active:scale-90 transition-transform"
+                  >
+                    <Volume2 size={28} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                {result.meanings.map((meaning: any, i: number) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-4 mb-4">
+                       <span className="font-black text-indigo-500 text-sm italic uppercase tracking-widest">{meaning.partOfSpeech}</span>
+                       <div className={`h-[1px] ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'} flex-1`}></div>
+                    </div>
+                    <ul className="space-y-6">
+                      {meaning.definitions.slice(0, 3).map((def: any, idx: number) => (
+                        <li key={idx} className={`${theme === 'dark' ? 'text-gray-200' : 'text-slate-800'} text-lg leading-relaxed font-bold border-l-4 border-indigo-500/30 pl-6 py-1`}>
+                          {def.definition}
+                          {def.example && (
+                            <div className={`mt-4 p-5 rounded-3xl ${theme === 'dark' ? 'bg-indigo-900/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'} text-[14px] font-bold leading-relaxed border border-indigo-500/5`}>
+                              <div className="text-[10px] uppercase font-black tracking-widest opacity-40 mb-2">Usage Context</div>
+                              "{def.example}"
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -2385,7 +2386,6 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
 }
 
 function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
-  const [method, setMethod] = useState<'email'|'phone'>('email');
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -2399,22 +2399,14 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.username || !formData.password) {
-        setError('Name and password are required');
-        return;
-    }
-    if (method === 'email' && !formData.email) {
-        setError('Email is required');
-        return;
-    }
-    if (method === 'phone' && !formData.phone) {
-        setError('Phone number is required');
+    if (!formData.username || !formData.password || (!formData.email && !formData.phone)) {
+        setError('Please fill in all required fields');
         return;
     }
     setLoading(true);
     try {
       let emailToUse = formData.email;
-      if (method === 'phone') {
+      if (!emailToUse && formData.phone) {
         const digits = formData.phone.replace(/\D/g, '');
         emailToUse = `${digits}@educatemw.app`;
       }
@@ -2436,6 +2428,7 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
         referralCode: 'MW-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
         createdAt: serverTimestamp()
       });
+      onBack();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -2444,82 +2437,58 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
   };
 
   return (
-    <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-16 animate-in slide-in-from-right duration-500 overflow-y-auto`}>
-      <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-slate-100 border-slate-200 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 mb-8 border active:scale-95 transition-transform relative z-10`}>
-        <ChevronLeft size={24} />
-      </button>
-
-      <div className="mb-10">
-        <h1 className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight leading-tight uppercase`}>New<br/><span className="text-indigo-500">Student</span></h1>
-        <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-3">Join the future of learning</p>
+    <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300 overflow-y-auto hide-scrollbar pb-12`}>
+      <div className="pt-14 pb-8 px-8 flex items-center justify-between">
+         <button onClick={onBack} className={`w-12 h-12 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}>
+            <ChevronLeft size={24} strokeWidth={3} />
+         </button>
+         <div className="text-right">
+            <h2 className="text-2xl font-black tracking-tighter uppercase leading-tight">Join<br/><span className="text-indigo-500">Educate</span></h2>
+         </div>
       </div>
 
-      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} rounded-[40px] p-8 border relative`}>
-        <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200'} flex p-1 rounded-2xl mb-6 border`}>
-          <button 
-            type="button" 
-            onClick={() => setMethod('email')} 
-            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${method === 'email' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
-          >
-            Email
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setMethod('phone')} 
-            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${method === 'phone' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
-          >
-            Phone
-          </button>
+      <div className="px-8 mt-4">
+        <div className="mb-10 text-center">
+           <div className="w-16 h-16 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-indigo-600/40 rotate-6">
+              <Sparkles size={32} />
+           </div>
+           <h3 className="text-2xl font-black mb-2">Create Account</h3>
+           <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Malawi's Elite Study Platform</p>
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-5">
+        <form onSubmit={handleRegister} className="space-y-6">
           <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Full Name</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Student Name</label>
+            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
               <User size={18} className="text-gray-600 mr-3" />
               <input 
                 type="text" 
                 value={formData.username}
                 onChange={(e) => setFormData({...formData, username: e.target.value})}
-                placeholder="John Doe" 
+                placeholder="Full Name" 
                 className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
               />
             </div>
           </div>
 
-          {method === 'email' ? (
-            <div className="space-y-1.5 animate-in fade-in">
-              <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Email Address</label>
-              <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-                <Sparkles size={18} className="text-gray-600 mr-3" />
-                <input 
-                  type="email" 
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  placeholder="student@example.com" 
-                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
-                />
-              </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Authentication</label>
+            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+              <Mail size={18} className="text-gray-600 mr-3" />
+              <input 
+                type="email" 
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                placeholder="Email or Phone Number" 
+                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
+              />
             </div>
-          ) : (
-            <div className="space-y-1.5 animate-in fade-in">
-              <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Phone Number</label>
-              <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-                <Smartphone size={18} className="text-gray-600 mr-3" />
-                <input 
-                  type="tel" 
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  placeholder="099..." 
-                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
-                />
-              </div>
-            </div>
-          )}
+            <p className="text-[8px] text-gray-500 font-bold uppercase ml-1">Use email or phone digits (e.g. 099...)</p>
+          </div>
 
           <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Password</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Password</label>
+            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
               <Lock size={18} className="text-gray-600 mr-3" />
               <input 
                 type="password" 
@@ -2531,51 +2500,53 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Gender</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200'} rounded-2xl flex items-center border p-1`}>
-              <button 
-                type="button" 
-                onClick={() => setFormData({...formData, gender: 'male'})} 
-                className={`flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${formData.gender === 'male' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
-              >
-                Male
-              </button>
-              <button 
-                type="button" 
-                onClick={() => setFormData({...formData, gender: 'female'})} 
-                className={`flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${formData.gender === 'female' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'text-gray-500'}`}
-              >
-                Female
-              </button>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Gender</label>
+                <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200 shadow-inner'} rounded-2xl flex items-center border p-1`}>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormData({...formData, gender: 'male'})} 
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.gender === 'male' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
+                  >
+                    M
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormData({...formData, gender: 'female'})} 
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.gender === 'female' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'text-gray-500'}`}
+                  >
+                    F
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Level</label>
+                <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border relative`}>
+                    <select 
+                        value={formData.level}
+                        onChange={(e) => setFormData({...formData, level: e.target.value})}
+                        className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-xs font-black appearance-none relative z-10 w-full uppercase tracking-widest`}
+                    >
+                        <option value="Form 1">Form 1</option>
+                        <option value="Form 2">Form 2</option>
+                        <option value="Form 3">Form 3</option>
+                        <option value="Form 4">Form 4</option>
+                    </select>
+                    <ChevronDown size={14} className="text-gray-600 absolute right-4" />
+                </div>
+              </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Level</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all relative`}>
-                <select 
-                    value={formData.level}
-                    onChange={(e) => setFormData({...formData, level: e.target.value})}
-                    className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold appearance-none relative z-10 w-full`}
-                >
-                    <option value="Form 1" style={{color: theme === 'dark' ? '#fff' : '#000', backgroundColor: theme === 'dark' ? '#111827' : '#fff'}}>Form 1</option>
-                    <option value="Form 2" style={{color: theme === 'dark' ? '#fff' : '#000', backgroundColor: theme === 'dark' ? '#111827' : '#fff'}}>Form 2</option>
-                    <option value="Form 3" style={{color: theme === 'dark' ? '#fff' : '#000', backgroundColor: theme === 'dark' ? '#111827' : '#fff'}}>Form 3</option>
-                    <option value="Form 4" style={{color: theme === 'dark' ? '#fff' : '#000', backgroundColor: theme === 'dark' ? '#111827' : '#fff'}}>Form 4</option>
-                </select>
-                <ChevronDown size={14} className="text-gray-600 absolute right-4" />
-            </div>
-          </div>
-
-          {error && <p className="text-red-500 text-[9px] font-black uppercase text-center">{error}</p>}
+          {error && <p className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl text-red-500 text-[9px] font-black uppercase text-center">{error}</p>}
 
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all mt-4 disabled:opacity-50"
+            className="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all mt-4 disabled:opacity-50 text-base uppercase tracking-widest"
           >
-            {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'CREATE ACCOUNT'}
+            {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Create Account'}
           </button>
         </form>
       </div>
@@ -2651,6 +2622,12 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   const [newMaterial, setNewMaterial] = useState({ title: '', content: '', type: 'text' as 'text' | 'pdf' | 'video' });
   const [notification, setNotification] = useState({ title: '', body: '' });
 
+  const stats = {
+    total: students.length,
+    pro: students.filter(s => s.isPro).length,
+    form4: students.filter(s => s.level === 'Form 4').length
+  };
+
   const handlePublishNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notification.title || !notification.body) return;
@@ -2662,7 +2639,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
         createdAt: serverTimestamp()
       });
       setNotification({ title: '', body: '' });
-      alert("Notification published successfully!");
+      alert("Notification published!");
     } catch (err) {
       console.error(err);
     } finally {
@@ -2671,18 +2648,17 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   };
 
   useEffect(() => {
-    // Stream students
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    // 1. Snapshot for recent students
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setStudents(data);
       setLoading(false);
     }, (error) => {
-      if (!error.message.includes('offline')) {
-        console.error("Admin dashboard stream error:", error);
-      }
+      console.error("Admin dashboard stream error:", error);
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -2736,7 +2712,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             onClick={() => setActiveTab('students')}
             className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
         >
-            Students
+            Users
         </button>
         <button 
             onClick={() => setActiveTab('content')}
@@ -2748,17 +2724,31 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             onClick={() => setActiveTab('notifications')}
             className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
         >
-            Push Alerts
+            Alerts
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar">
         {activeTab === 'students' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center px-1">
-                <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-700'} font-black text-xs uppercase tracking-widest`}>Active Students ({students.length})</h3>
-                <span className="text-[9px] text-gray-500 font-bold uppercase">Real-time update</span>
+          <div className="space-y-8">
+            <div className="grid grid-cols-3 gap-3">
+               {[
+                 { label: 'Users', val: stats.total, color: 'text-indigo-400' },
+                 { label: 'PRO', val: stats.pro, color: 'text-amber-400' },
+                 { label: 'Form 4', val: stats.form4, color: 'text-emerald-400' }
+               ].map((s, i) => (
+                 <div key={i} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-3xl border flex flex-col items-center`}>
+                    <div className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{s.val}</div>
+                    <div className={`text-[8px] font-black uppercase tracking-widest mt-1 ${s.color}`}>{s.label}</div>
+                 </div>
+               ))}
             </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-1">
+                  <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-700'} font-black text-xs uppercase tracking-widest`}>Recent Students</h3>
+                  <span className="text-[9px] text-gray-500 font-bold uppercase">Last 50 Entries</span>
+              </div>
             
             {loading ? (
                 <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
@@ -2797,7 +2787,8 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                 ))
             )}
           </div>
-        )}
+        </div>
+      )}
 
         {activeTab === 'content' && (
           <div className="space-y-6">
