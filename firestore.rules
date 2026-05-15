@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'petedianotech@gmail.com' ||
+        request.auth.token.email == 'mscepreparation@gmail.com'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Collections ---
+
+    // Users
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               data.email is string && data.email.size() <= 100 &&
+               data.role in ['admin', 'student'] &&
+               (data.get('points', 0) is number) &&
+               (data.get('isPro', false) is bool);
+      }
+
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Admin can see all students
+      
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
+                      request.resource.data.isPro == false &&
+                      request.resource.data.role == 'student' &&
+                      isValidId(userId);
+                      
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'level', 'points', 'referralCode'])
+                       ) || isAdmin();
+    }
+
+    // Materials
+    match /materials/{materialId} {
+      function isValidMaterial(data) {
+        return data.title is string && data.title.size() <= 200 &&
+               data.content is string && data.content.size() <= 1000000 &&
+               data.type in ['pdf', 'video', 'text'] &&
+               data.authorId == request.auth.uid;
+      }
+
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidMaterial(request.resource.data) && isValidId(materialId);
+    }
+  }
+}

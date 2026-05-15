@@ -1,0 +1,8 @@
+{
+  "name": "Educate MW",
+  "description": "An educational app for students with daily goals, quizzes, and an AI assistant.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

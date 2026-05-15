@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and status",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "level": { "type": "string" },
+        "points": { "type": "number" },
+        "isPro": { "type": "boolean" },
+        "referralCode": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "student"] }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Educational materials published by admin",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["pdf", "video", "text"] },
+        "level": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "content", "type", "authorId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Store user accounts and pro status"
+    },
+    "/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Store published educational materials"
+    }
+  }
+}
