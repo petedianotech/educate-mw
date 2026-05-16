@@ -1,5 +1,5 @@
 {
-  "name": "Educate MW",
+  "name": "educate mw",
   "description": "An educational app for students with daily goals, quizzes, and an AI assistant.",
   "requestFramePermissions": [
     "microphone"

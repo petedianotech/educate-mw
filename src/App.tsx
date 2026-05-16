@@ -144,18 +144,17 @@ export default function App() {
   const adminEmails = ['petedianotech@gmail.com', 'mscepreparation@gmail.com'];
 
   useEffect(() => {
-    // Preload Emi AI Avatar to ensure it's cached
-    const img = new Image();
-    img.src = 'https://i.ibb.co/6cfxqxgn/emiai-ai.jpg';
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/terms') setCurrentView('terms');
+      else if (path === '/privacy') setCurrentView('privacy');
+      else if (path === '/') setCurrentView('home');
+    };
+    handlePopState();
+    window.addEventListener('popstate', handlePopState);
     
     document.documentElement.classList.toggle('dark', theme === 'dark');
-
-    const path = window.location.pathname;
-    if (path === '/terms') {
-      setCurrentView('terms');
-    } else if (path === '/privacy') {
-      setCurrentView('privacy');
-    }
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [theme]);
 
   useEffect(() => {
@@ -1506,28 +1505,80 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
 }
 
 function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
-  const [step, setStep] = useState<'welcome' | 'chat'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'grades' | 'chat'>('welcome');
+  const [grades, setGrades] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const subjects = [
+    'English', 'Mathematics', 'Biology', 'Physical Science', 
+    'Geography', 'Agriculture', 'History', 'Chichewa', 
+    'Social & Religious Studies', 'Additional Mathematics', 'Computer Studies'
+  ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (step === 'chat') scrollToBottom();
+  }, [messages, step]);
 
-  const startChat = () => {
+  const calculatePoints = (): number | null => {
+    const gradeValues = Object.values(grades).filter((g): g is number => typeof g === 'number' && g > 0 && g <= 9);
+    if (gradeValues.length < 6) return null;
+    const sorted = [...gradeValues].sort((a, b) => a - b);
+    return sorted.slice(0, 6).reduce((sum, g) => sum + g, 0);
+  };
+
+  const points = calculatePoints();
+
+  const startConsultation = async () => {
     setStep('chat');
+    setLoading(true);
+
+    const initialText = points 
+      ? `Hello! I've analyzed your MSCE results. You've scored ${points} points. Based on this, I have some excellent recommendations for programs at Malawian universities. What specific fields interest you?`
+      : "Hello! I'm your Career Advisor. I specialize in helping Malawian students navigate opportunities at UNIMA, MUBAS, LUANAR, and beyond. What subjects do you enjoy most in school?";
+
     setMessages([{
       id: '1',
       sender: 'ai',
-      text: "Hello! I'm your Career Advisor. I specialize in helping Malawian students navigate opportunities at UNIMA, MUBAS, LUANAR, and beyond. What subjects do you enjoy most in school?",
+      text: initialText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }]);
+
+    if (points) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+        const prompt = `You are an expert Career Advisor for students in Malawi. 
+        The student has an MSCE score of ${points} points with the following grades: ${Object.entries(grades).map(([s, g]) => `${s}: ${g}`).join(', ')}.
+        Provide 3 specific university program recommendations (at UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST, or Lilongwe University) that match these grades.
+        Briefly explain why they are a good fit.
+        Keep the tone encouraging.`;
+
+        const response = await ai.models.generateContent({ 
+          model: 'gemini-3.1-flash-lite',
+          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        });
+        
+        const aiMsg = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ai',
+          text: response.text || 'I have some ideas for you. Let\'s discuss your interests further.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, aiMsg]);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
   };
 
   const handleSend = async () => {
@@ -1546,8 +1597,10 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const points = calculatePoints();
       const prompt = `You are an expert Career Advisor for students in Malawi. 
 Your goal is to guide them based on their interests and school performance.
+Current student context: ${points ? `MSCE Points: ${points}. Grades: ${JSON.stringify(grades)}.` : 'Grades not provided yet.'}
 Provide advice about:
 1. Suitable programs at Malawian Universities (UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST).
 2. Career paths in the current Malawian economy (Agriculture, Health, ICT, Engineering, Education).
@@ -1579,7 +1632,7 @@ User: ${input}`;
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
-        <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
+        <button onClick={() => step === 'welcome' ? onBack() : setStep('welcome')} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
         <div className="ml-4">
@@ -1600,55 +1653,114 @@ User: ${input}`;
             </p>
             
             <div className="grid grid-cols-1 gap-4 w-full max-w-xs mb-12">
-               {[
-                 { icon: Briefcase, label: 'Job Markets', color: 'text-blue-400' },
-                 { icon: GraduationCap, label: 'Universities', color: 'text-amber-400' },
-                 { icon: Target, label: 'Success Plan', color: 'text-emerald-400' }
-               ].map((item, i) => (
-                 <div key={i} className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} p-4 rounded-3xl flex items-center gap-4 border ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'}`}>
-                   <div className={`${item.color} w-10 h-10 rounded-2xl bg-gray-950/20 flex items-center justify-center`}>
-                     <item.icon size={20} />
-                   </div>
-                   <span className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{item.label}</span>
+               <button 
+                 onClick={() => setStep('grades')}
+                 className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/50' : 'bg-white border-indigo-200 shadow-sm'} p-6 rounded-3xl flex flex-col items-center gap-3 border-2 transition-all hover:scale-105 active:scale-95 group`}
+               >
+                 <div className="text-indigo-400 w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                   <Target size={28} />
                  </div>
-               ))}
+                 <div className="flex flex-col items-center">
+                    <span className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Check Eligibility</span>
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Enter MSCE Grades</span>
+                 </div>
+               </button>
+
+               <button 
+                 onClick={startConsultation}
+                 className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-3xl flex flex-col items-center gap-3 border-2 transition-all hover:scale-105 active:scale-95 group`}
+               >
+                 <div className="text-emerald-400 w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                   <MessageSquareText size={28} />
+                 </div>
+                 <div className="flex flex-col items-center">
+                    <span className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Talk to Advisor</span>
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Ask anything</span>
+                 </div>
+               </button>
             </div>
 
-            <button 
-              onClick={startChat}
-              className="w-full max-w-xs py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all flex items-center justify-center gap-3"
-            >
-              Start Consultation <ArrowRight size={20} strokeWidth={3} />
-            </button>
+            <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] opacity-40">Consult Malawian University Experts</p>
+          </div>
+        ) : step === 'grades' ? (
+          <div className="p-6 pb-20">
+            <div className="mb-8">
+               <h3 className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight`}>Enter MSCE Results</h3>
+               <p className="text-xs text-gray-500 font-bold mt-1">Select your grades for best 6 subjects (1-9)</p>
+            </div>
+
+            <div className="space-y-3 mb-8">
+              {subjects.map(subject => (
+                <div key={subject} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex items-center justify-between transition-all hover:border-indigo-500/30`}>
+                  <span className={`font-bold text-[13px] ${theme === 'dark' ? 'text-gray-200' : 'text-slate-700'}`}>{subject}</span>
+                  <div className="flex items-center gap-2">
+                    <select 
+                      className={`bg-transparent outline-none text-sm font-black ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'} cursor-pointer`}
+                      value={grades[subject] || 0}
+                      onChange={(e) => setGrades({...grades, [subject]: parseInt(e.target.value)})}
+                    >
+                      <option value="0">-</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="sticky bottom-4 left-0 right-0 px-2 mt-10">
+              <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/20' : 'bg-white border-indigo-200 shadow-2xl'} p-6 rounded-[32px] border-2 backdrop-blur-xl`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Total Points</p>
+                    <p className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{points || '--'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Eligibility</p>
+                    <p className={`text-sm font-black ${points && points <= 24 ? 'text-emerald-500' : points && points <= 36 ? 'text-amber-500' : 'text-gray-500'}`}>
+                      {points ? (points <= 24 ? 'High Chance' : points <= 36 ? 'Limited' : 'Low Chance') : 'Enter 6 Grades'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={startConsultation}
+                  disabled={points === null}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/30 active:scale-95 transition-all text-xs tracking-widest uppercase disabled:opacity-50"
+                >
+                  Analyze & Recommend
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col h-full bg-inherit">
              <div className="flex-1 p-5 space-y-6 overflow-y-auto hide-scrollbar">
                {messages.map(msg => (
                  <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                   <div className={`${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : (theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-200' : 'bg-white border-slate-200 text-slate-800 shadow-sm')} p-5 rounded-[2rem] border max-w-[85%] font-bold text-[15px] leading-relaxed whitespace-pre-wrap`}>
+                   <div className={`${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm shadow-indigo-500/20 shadow-lg' : (theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-200' : 'bg-white border-slate-200 text-slate-800 shadow-sm')} p-5 rounded-[2rem] border max-w-[85%] font-bold text-[15px] leading-relaxed whitespace-pre-wrap animate-in slide-in-from-bottom-2 duration-300`}>
                      {msg.text}
                    </div>
                  </div>
                ))}
                {loading && (
                  <div className="flex justify-start">
-                   <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-4 rounded-3xl border flex gap-2`}>
-                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100" />
-                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200" />
+                   <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-5 rounded-[2rem] border flex gap-1.5`}>
+                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
+                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce delay-100" />
+                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce delay-200" />
                    </div>
                  </div>
                )}
                <div ref={messagesEndRef} />
              </div>
              
-             <div className={`p-4 ${theme === 'dark' ? 'bg-gray-900/50' : 'bg-white/50'} backdrop-blur-md border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'}`}>
-                <div className="flex gap-2">
+             <div className={`p-4 ${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-md border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'} sticky bottom-0`}>
+                <div className="flex gap-2 max-w-md mx-auto">
                    <input 
                     type="text" 
-                    placeholder="Ask about careers..." 
-                    className={`flex-1 ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'} border rounded-2xl px-5 py-3 outline-none font-bold text-sm focus:border-indigo-500`}
+                    placeholder="Ask about universities, criteria..." 
+                    className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900 shadow-inner'} border rounded-[2rem] px-6 py-4 outline-none font-bold text-sm focus:border-indigo-500 transition-colors`}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -1656,7 +1768,7 @@ User: ${input}`;
                    <button 
                     onClick={handleSend}
                     disabled={!input.trim() || loading}
-                    className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all disabled:opacity-50"
+                    className="w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all disabled:opacity-50 shrink-0"
                    >
                      <Send size={20} strokeWidth={3} />
                    </button>
@@ -2409,10 +2521,18 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
             Create New Account
           </button>
           <p className="text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-            By continuing, you agree to our <button onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms of Service</button> and <button onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy Policy</button>.
+            By continuing, you agree to our <a href="/terms" className="text-indigo-400 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-indigo-400 hover:underline">Privacy Policy</a>.
           </p>
         </div>
       </div>
+      
+      <footer className="mt-12 py-8 flex flex-col items-center gap-3">
+         <div className="flex gap-6">
+            <a href="/terms" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Terms</a>
+            <a href="/privacy" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Privacy</a>
+         </div>
+         <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] opacity-30">© 2026 educate mw</p>
+      </footer>
     </div>
   );
 }
@@ -2585,9 +2705,17 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
         </form>
 
         <p className="mt-8 text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-          By signing up, you agree to our <button type="button" onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms of Service</button> and <button type="button" onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy Policy</button>.
+          By signing up, you agree to our <a href="/terms" className="text-indigo-400 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-indigo-400 hover:underline">Privacy Policy</a>.
         </p>
       </div>
+
+      <footer className="mt-auto py-8 flex flex-col items-center gap-3">
+         <div className="flex gap-6">
+            <a href="/terms" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Terms</a>
+            <a href="/privacy" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Privacy</a>
+         </div>
+         <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] opacity-30">© 2026 educate mw</p>
+      </footer>
     </div>
   );
 }
