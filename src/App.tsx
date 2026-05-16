@@ -27,7 +27,8 @@ import {
   addDoc,
   getDocs,
   orderBy,
-  limit
+  limit,
+  deleteDoc
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from './lib/firebase';
 import { Avatar, getAvatarGradient, FEMININE_GRADIENTS, MASCULINE_GRADIENTS } from './components/Avatar';
@@ -397,7 +398,7 @@ export default function App() {
                       <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
                          <Sparkles size={16} />
                       </div>
-                      <span className="text-xs font-bold text-gray-200">Educate Pro</span>
+                      <span className="text-xs font-bold text-gray-200">Educate MW</span>
                    </div>
                    <button className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Upgrade</button>
                 </div>
@@ -628,7 +629,7 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
       // NOTE: When deploying to Vercel, ensure GEMINI_API_KEY is set in your Vercel Project Environment Variables.
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: [...messages, userMessage].map(m => ({
           role: m.sender === 'user' ? 'user' : 'model',
           parts: [{ text: m.text }]
@@ -868,7 +869,7 @@ function CallingView({ onEnd }: { onEnd: () => void }) {
         streamRef.current = stream;
 
         const sessionPromise = ai.live.connect({
-          model: "models/gemini-2.0-flash-exp",
+          model: "gemini-3.1-flash-live-preview",
           callbacks: {
             onopen: () => {
               setIsConnected(true);
@@ -1177,10 +1178,18 @@ function LibraryView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
   });
 
   useEffect(() => {
+    // Fast loading: load from cache first
+    const cachedMaterials = localStorage.getItem('mw_library_materials_cache');
+    if (cachedMaterials) {
+      setMaterials(JSON.parse(cachedMaterials));
+      setLoading(false);
+    }
+
     const q = query(collection(db, 'materials'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMaterials(data);
+      localStorage.setItem('mw_library_materials_cache', JSON.stringify(data));
       setLoading(false);
     }, (error) => {
       if (!error.message.includes('offline')) {
@@ -1529,7 +1538,7 @@ Context so far: ${messages.map(m => `${m.sender}: ${m.text}`).join('\n')}
 User: ${input}`;
 
       const response = await ai.models.generateContent({ 
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
       
@@ -1667,7 +1676,7 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
       ]`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.1-flash-lite',
         config: { responseMimeType: "application/json" },
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
@@ -2122,7 +2131,7 @@ function ProfileView({
            <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl transition-transform group-hover:scale-110"></div>
            <div className="relative z-10">
               <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg mb-2 tracking-tight`}>Invite your Classmates</h4>
-              <p className={`text-xs ${theme === 'dark' ? 'text-indigo-200/70' : 'text-slate-600'} font-semibold mb-6 leading-relaxed max-w-[220px]`}>Help friends join Educate Pro and get 500 XP exclusive bonus.</p>
+              <p className={`text-xs ${theme === 'dark' ? 'text-indigo-200/70' : 'text-slate-600'} font-semibold mb-6 leading-relaxed max-w-[220px]`}>Help friends join Educate MW and get 500 XP exclusive bonus.</p>
               <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-indigo-500/30' : 'bg-white border-slate-200 shadow-xl'} backdrop-blur-md p-2 rounded-2xl border flex items-center justify-between`}>
                  <span className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm tracking-widest pl-4 uppercase`}>{profile.referralCode}</span>
                  <button onClick={handleCopyLink} className={`${isCopied ? 'bg-emerald-500' : 'bg-indigo-600'} text-white p-3.5 rounded-xl shadow-lg active:scale-90 transition-all hover:opacity-90`}>
@@ -2254,6 +2263,7 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLegal, setShowLegal] = useState<'none' | 'terms' | 'privacy'>('none');
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -2294,10 +2304,10 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-20 animate-in fade-in duration-500 overflow-y-auto`}>
       <div className="flex flex-col items-center mb-12">
-        <div className="w-20 h-20 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-indigo-600/40 mb-6">
-          <GraduationCap size={40} className="text-white" fill="currentColor" />
+        <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-indigo-800 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-indigo-600/40 mb-6 p-4">
+          <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Edu MW" className="w-full h-full object-cover rounded-2xl" />
         </div>
-        <h1 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight uppercase`}>Educate Pro</h1>
+        <h1 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight uppercase`}>Educate MW</h1>
         <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Empowering Students</p>
       </div>
 
@@ -2377,10 +2387,11 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
             Create New Account
           </button>
           <p className="text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-            By continuing, you agree to our <span className="text-indigo-400">Terms</span> and <span className="text-indigo-400">Privacy</span>.
+            By continuing, you agree to our <button onClick={() => setShowLegal('terms')} className="text-indigo-400">Terms</button> and <button onClick={() => setShowLegal('privacy')} className="text-indigo-400">Privacy</button>.
           </p>
         </div>
       </div>
+      {showLegal !== 'none' && <LegalOverlay type={showLegal} theme={theme} onClose={() => setShowLegal('none')} />}
     </div>
   );
 }
@@ -2396,6 +2407,7 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showLegal, setShowLegal] = useState<'none' | 'terms' | 'privacy'>('none');
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2449,8 +2461,10 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
 
       <div className="px-8 mt-4">
         <div className="mb-10 text-center">
-           <div className="w-16 h-16 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-indigo-600/40 rotate-6">
-              <Sparkles size={32} />
+           <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-indigo-600/40 rotate-3 p-1.5">
+              <div className="w-full h-full rounded-[1.4rem] overflow-hidden border-2 border-white/20">
+                <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Logo" className="w-full h-full object-cover" />
+              </div>
            </div>
            <h3 className="text-2xl font-black mb-2">Create Account</h3>
            <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Malawi's Elite Study Platform</p>
@@ -2549,6 +2563,36 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
             {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Create Account'}
           </button>
         </form>
+
+        <p className="mt-8 text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
+          By signing up, you agree to our <button onClick={() => setShowLegal('terms')} className="text-indigo-400">Terms</button> and <button onClick={() => setShowLegal('privacy')} className="text-indigo-400">Privacy</button>.
+        </p>
+      </div>
+      {showLegal !== 'none' && <LegalOverlay type={showLegal} theme={theme} onClose={() => setShowLegal('none')} />}
+    </div>
+  );
+}
+
+function LegalOverlay({ type, theme, onClose }: { type: 'terms' | 'privacy', theme: 'light' | 'dark', onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-in zoom-in-95 duration-200">
+      <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} w-full max-w-sm rounded-[3rem] p-8 max-h-[80vh] overflow-y-auto hide-scrollbar relative border border-white/5 shadow-2xl`}>
+        <button 
+          onClick={onClose}
+          className="absolute top-6 right-6 w-10 h-10 bg-gray-800 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform"
+        >
+          <X size={20} />
+        </button>
+        <h3 className={`text-2xl font-black mb-6 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          {type === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+        </h3>
+        <div className={`prose prose-sm ${theme === 'dark' ? 'prose-invert text-gray-400' : 'text-slate-600'} font-medium space-y-4`}>
+          <p>Last updated: May 15, 2026</p>
+          <p>Educate MW is committed to helping students in Malawi succeed. By using our platform, you agree to follow our guidelines and respect other learners.</p>
+          <p>We do not sell your personal data. Your progress and study history are stored securely on Firebase to provide you with a personalized experience.</p>
+          <p>Emi AI uses advanced machine learning. While we strive for accuracy, always double-check important exam information with official MSCE sources.</p>
+          <p>Happy studying and good luck with your exams!</p>
+        </div>
       </div>
     </div>
   );
@@ -2621,6 +2665,8 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   const [publishing, setPublishing] = useState(false);
   const [newMaterial, setNewMaterial] = useState({ title: '', content: '', type: 'text' as 'text' | 'pdf' | 'video' });
   const [notification, setNotification] = useState({ title: '', body: '' });
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
 
   const stats = {
     total: students.length,
@@ -2648,19 +2694,51 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   };
 
   useEffect(() => {
-    // 1. Snapshot for recent students
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // 1. Load from cache for fast startup
+    const cachedStudents = localStorage.getItem('mw_admin_students_cache');
+    if (cachedStudents) {
+      setStudents(JSON.parse(cachedStudents));
+      setLoading(false);
+    }
+
+    // 2. Snapshot for recent students
+    const qStudents = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
+    const unsubscribeStudents = onSnapshot(qStudents, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setStudents(data);
+      localStorage.setItem('mw_admin_students_cache', JSON.stringify(data));
       setLoading(false);
     }, (error) => {
       console.error("Admin dashboard stream error:", error);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    const qMaterials = query(collection(db, 'materials'), orderBy('createdAt', 'desc'), limit(20));
+    const unsubscribeMaterials = onSnapshot(qMaterials, (snapshot) => {
+      setMaterials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const qNotifications = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(20));
+    const unsubscribeNotifications = onSnapshot(qNotifications, (snapshot) => {
+      setNotificationsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+        unsubscribeStudents();
+        unsubscribeMaterials();
+        unsubscribeNotifications();
+    };
   }, []);
+
+  const deleteMaterial = async (id: string) => {
+      if (!window.confirm("Are you sure you want to delete this material?")) return;
+      try { await deleteDoc(doc(db, 'materials', id)); } catch(err) { console.error(err); }
+  };
+
+  const deleteNotification = async (id: string) => {
+      if (!window.confirm("Are you sure you want to delete this notification?")) return;
+      try { await deleteDoc(doc(db, 'notifications', id)); } catch(err) { console.error(err); }
+  };
 
   const togglePro = async (student: any) => {
     try {
@@ -2838,6 +2916,21 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                     </button>
                 </form>
             </div>
+
+            <div className="space-y-4">
+                <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-700'} font-black text-xs uppercase tracking-widest px-1`}>Recent Materials</h3>
+                {materials.map((mat) => (
+                    <div key={mat.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-4 rounded-3xl border flex items-center justify-between`}>
+                        <div>
+                            <h4 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{mat.title}</h4>
+                            <span className="text-[10px] font-black uppercase text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">{mat.type}</span>
+                        </div>
+                        <button onClick={() => deleteMaterial(mat.id)} className="p-3 text-red-500 bg-red-500/10 rounded-xl hover:bg-red-500/20">
+                            <X size={16} />
+                        </button>
+                    </div>
+                ))}
+            </div>
           </div>
         )}
 
@@ -2876,6 +2969,21 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                         {publishing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Send Announcement <Send size={16} /></>}
                     </button>
                 </form>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-700'} font-black text-xs uppercase tracking-widest px-1`}>Recent Alerts</h3>
+                {notificationsList.map((notif) => (
+                    <div key={notif.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-4 rounded-3xl border flex items-center justify-between`}>
+                        <div className="flex-1 mr-4">
+                            <h4 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight`}>{notif.title}</h4>
+                            <p className="text-[10px] items-center text-gray-500 line-clamp-1 mt-1 font-medium">{notif.body}</p>
+                        </div>
+                        <button onClick={() => deleteNotification(notif.id)} className="p-3 text-red-500 bg-red-500/10 rounded-xl hover:bg-red-500/20 shrink-0">
+                            <X size={16} />
+                        </button>
+                    </div>
+                ))}
             </div>
           </div>
         )}
@@ -2954,7 +3062,7 @@ function AppSettingsModal({ isOpen, onClose, theme, onThemeToggle }: { isOpen: b
 
           <div className="mt-8 text-center">
              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-loose">
-                Educate Pro v2.4.0<br/>Build 2026.05.15<br/>Made with ❤️ for Malawi
+                Educate MW v2.4.0<br/>Build 2026.05.15<br/>Made with ❤️ for Malawi
              </p>
           </div>
        </div>
@@ -2974,7 +3082,7 @@ function AppSettingsModal({ isOpen, onClose, theme, onThemeToggle }: { isOpen: b
                </h3>
                <div className={`prose prose-sm ${theme === 'dark' ? 'prose-invert text-gray-400' : 'text-slate-600'} font-medium space-y-4`}>
                  <p>Last updated: May 15, 2026</p>
-                 <p>Educate Pro is committed to helping students in Malawi succeed. By using our platform, you agree to follow our guidelines and respect other learners.</p>
+                 <p>Educate MW is committed to helping students in Malawi succeed. By using our platform, you agree to follow our guidelines and respect other learners.</p>
                  <p>We do not sell your personal data. Your progress and study history are stored securely on Firebase to provide you with a personalized experience.</p>
                  <p>Emi AI uses advanced machine learning. While we strive for accuracy, always double-check important exam information with official MSCE sources.</p>
                  <p>Happy studying and good luck with your exams!</p>
