@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { 
   onAuthStateChanged, 
@@ -121,10 +122,14 @@ import {
   Moon,
   Trash2,
   Square,
-  Clock
+  Clock,
+  ArrowLeft,
+  Crown,
+  CheckCircle2,
+  Shield
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy';
+export type ViewState = 'home' | 'emi' | 'library' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -293,7 +298,8 @@ export default function App() {
           ) : (
             <>
               {currentView === 'home' && <HomeView onNavigate={setCurrentView} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} />}
-              {currentView === 'emi' && <EmiChatView onBack={() => setCurrentView('home')} theme={theme} />}
+              {currentView === 'emi' && <EmiChatView onBack={() => setCurrentView('home')} theme={theme} profile={userProfile} onGoPro={() => setCurrentView('subscription')} />}
+              {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => setCurrentView('home')} />}
               {currentView === 'library' && <LibraryView onBack={() => setCurrentView('home')} theme={theme} />}
               {currentView === 'dictionary' && <DictionaryView onBack={() => setCurrentView('home')} theme={theme} />}
               {currentView === 'quizzes' && (
@@ -383,7 +389,7 @@ export default function App() {
                   <Avatar user={userProfile} className="w-full h-full text-xl" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white text-lg leading-tight">{userProfile.name}</h3>
+                  <h3 className="font-black text-white text-lg leading-tight">{userProfile?.name || 'Student'}</h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`w-2 h-2 rounded-full shadow-lg ${isOnline ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-amber-500 shadow-amber-500/50'}`}></span>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isOnline ? 'Online' : 'Offline'}</span>
@@ -412,7 +418,7 @@ export default function App() {
                       </div>
                       <span className="text-xs font-bold text-gray-200">Educate MW</span>
                    </div>
-                   <button className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Upgrade</button>
+                   <button onClick={() => { setCurrentView('subscription'); setIsSidebarOpen(false); }} className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300 transition-colors">Upgrade</button>
                 </div>
               </div>
             </div>
@@ -614,11 +620,12 @@ const initialMessages: Message[] = [
   }
 ];
 
-function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
+function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, theme: 'light' | 'dark', profile: any, onGoPro: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCalling, setIsCalling] = useState(false);
+  const [useSearch, setUseSearch] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -629,9 +636,37 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
     scrollToBottom();
   }, [messages]);
 
+  const speakText = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const handleSend = async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    // --- CHECK LIMITS ---
+    const today = new Date().toISOString().split('T')[0];
+    const isPro = profile?.isPro;
+    const aiPointsLastReset = profile?.aiPointsLastReset || '';
+    let currentPoints = aiPointsLastReset === today ? (profile?.aiPoints ?? 4) : 4; // Max 4 points for Free
     
+    if (!isPro && currentPoints < 2) {
+      // Show go pro message
+      const errorMsg: Message = {
+         id: Date.now().toString() + '-err',
+         sender: 'ai',
+         text: "Oops! You've used up your free AI questions for today. Upgrade to PRO for unlimited questions!",
+         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      return;
+    }
+    // --- END LIMITS ---
+
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: 'user',
@@ -644,23 +679,39 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
     setIsLoading(true);
 
     try {
-      // NOTE: When deploying to Vercel, ensure GEMINI_API_KEY is set in your Vercel Project Environment Variables.
+      if (!isPro && auth.currentUser) {
+         currentPoints -= 2; // costs 2 point per question
+         const userRef = doc(db, 'users', auth.currentUser.uid);
+         await updateDoc(userRef, { aiPoints: currentPoints, aiPointsLastReset: today });
+      }
+
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const config: any = {
+        systemInstruction: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE). 2. Use simple English that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. If the user question requires real-time information or factual data, synthesize the searched information smoothly into your response."
+      };
+      
+      if (useSearch) {
+        config.tools = [{ googleSearch: {} }];
+      }
+
       const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite',
         contents: [...messages, userMessage].map(m => ({
           role: m.sender === 'user' ? 'user' : 'model',
           parts: [{ text: m.text }]
         })),
-        config: {
-          systemInstruction: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts."
-        }
+        config
       });
       
+      let responseText = response.text || 'Sorry, I couldn\'t find an answer to that.';
+      // Fallback clean up to ensure absolutely no asterisks or dollar signs
+      responseText = responseText.replace(/\*/g, '');
+      responseText = responseText.replace(/\$/g, '');
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: response.text || 'Sorry, I couldn\'t find an answer to that.',
+        text: responseText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       
@@ -680,7 +731,7 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
   };
 
   if (isCalling) {
-    return <CallingView onEnd={() => setIsCalling(false)} />;
+    return <CallingView onEnd={() => setIsCalling(false)} profile={profile} onGoPro={onGoPro} />;
   }
 
   return (
@@ -711,7 +762,7 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-28 space-y-7 hide-scrollbar">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-7 hide-scrollbar">
         {/* Intro Card */}
         {messages.length === 0 && (
           <div className={`${theme === 'dark' ? 'bg-gradient-to-br from-indigo-900/30 to-gray-900 border-indigo-500/20' : 'bg-white border-indigo-100 shadow-sm'} rounded-3xl p-6 border flex flex-col gap-4 text-center items-center mt-4`}>
@@ -776,6 +827,15 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
               )}
               <div className={`max-w-[85%] relative group`}>
                 <div className={`p-4 shadow-sm relative ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm' : 'bg-gray-900 border border-gray-800 rounded-2xl rounded-tl-sm text-gray-200 font-medium'}`}>
+                  {msg.sender === 'ai' && (
+                    <button 
+                      onClick={() => speakText(msg.text)} 
+                      className={`mb-2 w-8 h-8 rounded-full flex justify-center items-center ${theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'} transition-colors`}
+                      title="Read aloud"
+                    >
+                      <Volume2 size={16} />
+                    </button>
+                  )}
                   <p className={`text-[14.5px] leading-relaxed whitespace-pre-wrap ${msg.sender === 'user' ? 'text-white' : 'text-gray-200'}`}>{msg.text}</p>
                   <div className={`flex items-center gap-1.5 mt-2 text-[10px] font-bold ${msg.sender === 'user' ? 'justify-end text-white/70' : 'text-gray-400'}`}>
                     <span>{msg.timestamp}</span>
@@ -785,8 +845,7 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
                 
                 {msg.sender === 'ai' && (
                   <div className="flex gap-4 mt-2 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="text-gray-400 hover:text-indigo-400"><Copy size={14} /></button>
-                    <button className="text-gray-400 hover:text-indigo-400"><Volume2 size={14} /></button>
+                    <button onClick={() => { navigator.clipboard.writeText(msg.text); }} className="text-gray-400 hover:text-indigo-400"><Copy size={14} /></button>
                     <button className="text-gray-400 hover:text-indigo-400"><ThumbsUp size={14} /></button>
                     <button className="text-gray-400 hover:text-indigo-400"><ThumbsDown size={14} /></button>
                   </div>
@@ -815,6 +874,14 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
 
       {/* Input Area */}
       <div className={`absolute bottom-0 left-0 right-0 z-40 ${theme === 'dark' ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} backdrop-blur-xl border-t pb-safe-4`}>
+        <div className="flex px-4 pt-2 gap-2">
+          <button 
+            onClick={() => setUseSearch(!useSearch)}
+            className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-colors ${useSearch ? (theme === 'dark' ? 'bg-indigo-900 text-indigo-300 border-indigo-700' : 'bg-indigo-100 text-indigo-700 border-indigo-200') : (theme === 'dark' ? 'bg-transparent text-gray-500 border-gray-700' : 'bg-transparent text-gray-500 border-gray-300')}`}
+          >
+            <Search size={12} /> {useSearch ? 'Live Search On' : 'Live Search Off'}
+          </button>
+        </div>
         <div className="p-4 pt-3">
           <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-slate-50 border-slate-100 shadow-inner'} rounded-[2rem] p-2 pl-4 flex items-center border`}>
           <input 
@@ -841,7 +908,7 @@ function EmiChatView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
   );
 }
 
-function CallingView({ onEnd }: { onEnd: () => void }) {
+function CallingView({ onEnd, profile, onGoPro }: { onEnd: () => void, profile: any, onGoPro: () => void }) {
   const [seconds, setSeconds] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [voiceName, setVoiceName] = useState<string>(localStorage.getItem('emi_voice') || 'Aoede');
@@ -871,12 +938,39 @@ function CallingView({ onEnd }: { onEnd: () => void }) {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isConnected) {
-      timer = setInterval(() => setSeconds(s => s + 1), 1000);
+      timer = setInterval(() => {
+        setSeconds(s => {
+           const newS = s + 1;
+           // Enforce 5-minute limit (300 seconds) for free users
+           if (!profile?.isPro && newS >= 300) {
+              onEnd();
+           }
+           return newS;
+        });
+      }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isConnected]);
+  }, [isConnected, profile?.isPro]);
 
   useEffect(() => {
+    // Check call limits
+    const today = new Date().toISOString().split('T')[0];
+    const isPro = profile?.isPro;
+    const aiCallsLastReset = profile?.aiCallsLastReset || '';
+    let currentCalls = aiCallsLastReset === today ? (profile?.aiCallsCount ?? 0) : 0;
+    
+    if (!isPro && currentCalls >= 2) {
+      setErrorMsg("You've reached your free daily limit of 2 calls. Upgrade to Pro for unlimited access!");
+      setTimeout(onGoPro, 3000);
+      return;
+    }
+
+    if (!isPro && auth.currentUser && currentCalls < 2) {
+       currentCalls += 1;
+       const userRef = doc(db, 'users', auth.currentUser.uid);
+       updateDoc(userRef, { aiCallsCount: currentCalls, aiCallsLastReset: today });
+    }
+
     let active = true;
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -887,7 +981,7 @@ function CallingView({ onEnd }: { onEnd: () => void }) {
         streamRef.current = stream;
 
         const sessionPromise = ai.live.connect({
-          model: "gemini-3.0-flash",
+          model: "gemini-3.1-flash-live-preview",
           callbacks: {
             onopen: () => {
               setIsConnected(true);
@@ -1510,6 +1604,7 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [useSearch, setUseSearch] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const subjects = [
@@ -1525,6 +1620,15 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
   useEffect(() => {
     if (step === 'chat') scrollToBottom();
   }, [messages, step]);
+
+  const speakText = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   const calculatePoints = (): number | null => {
     const gradeValues = Object.values(grades).filter((g): g is number => typeof g === 'number' && g > 0 && g <= 9);
@@ -1557,17 +1661,26 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
         The student has an MSCE score of ${points} points with the following grades: ${Object.entries(grades).map(([s, g]) => `${s}: ${g}`).join(', ')}.
         Provide 3 specific university program recommendations (at UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST, or Lilongwe University) that match these grades.
         Briefly explain why they are a good fit.
+        IMPORTANT RULES: 1. Do NOT use asterisks (*) or any markdown symbols for formatting. Use ALL CAPS for emphasis. 2. Do NOT use dollar signs ($) for mathematical equations; write them in plain text. 3. Do NOT use emojis. 4. Use simple clear English.
         Keep the tone encouraging.`;
+
+        const config: any = {};
+        if (useSearch) config.tools = [{ googleSearch: {} }];
 
         const response = await ai.models.generateContent({ 
           model: 'gemini-3.1-flash-lite',
-          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config
         });
         
+        let responseText = response.text || 'I have some ideas for you. Let\'s discuss your interests further.';
+        responseText = responseText.replace(/\*/g, '');
+        responseText = responseText.replace(/\$/g, '');
+
         const aiMsg = {
           id: (Date.now() + 1).toString(),
           sender: 'ai',
-          text: response.text || 'I have some ideas for you. Let\'s discuss your interests further.',
+          text: responseText,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setMessages(prev => [...prev, aiMsg]);
@@ -1605,19 +1718,28 @@ Provide advice about:
 1. Suitable programs at Malawian Universities (UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST).
 2. Career paths in the current Malawian economy (Agriculture, Health, ICT, Engineering, Education).
 3. Requirements (MSCE points, subject combinations).
+IMPORTANT RULES: 1. Do NOT use asterisks (*) or any markdown symbols for formatting. Use ALL CAPS for emphasis. 2. Do NOT use dollar signs ($) for mathematical equations; write them in plain text. 3. Do NOT use emojis. 4. Use simple clear English.
 Keep your tone encouraging and professional.
 Context so far: ${messages.map(m => `${m.sender}: ${m.text}`).join('\n')}
 User: ${input}`;
 
+      const config: any = {};
+      if (useSearch) config.tools = [{ googleSearch: {} }];
+
       const response = await ai.models.generateContent({ 
         model: 'gemini-3.1-flash-lite',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config
       });
       
+      let responseText = response.text || 'I am sorry, I could not generate a response.';
+      responseText = responseText.replace(/\*/g, '');
+      responseText = responseText.replace(/\$/g, '');
+
       const aiMsg = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: response.text || 'I am sorry, I could not generate a response.',
+        text: responseText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -1739,6 +1861,15 @@ User: ${input}`;
                {messages.map(msg => (
                  <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                    <div className={`${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm shadow-indigo-500/20 shadow-lg' : (theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-200' : 'bg-white border-slate-200 text-slate-800 shadow-sm')} p-5 rounded-[2rem] border max-w-[85%] font-bold text-[15px] leading-relaxed whitespace-pre-wrap animate-in slide-in-from-bottom-2 duration-300`}>
+                     {msg.sender === 'ai' && (
+                       <button 
+                         onClick={() => speakText(msg.text)} 
+                         className={`mb-2 w-8 h-8 rounded-full flex justify-center items-center ${theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'} transition-colors`}
+                         title="Read aloud"
+                       >
+                         <Volume2 size={16} />
+                       </button>
+                     )}
                      {msg.text}
                    </div>
                  </div>
@@ -1756,6 +1887,14 @@ User: ${input}`;
              </div>
              
              <div className={`p-4 ${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-md border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'} sticky bottom-0`}>
+                <div className="flex gap-2 max-w-md mx-auto mb-2">
+                  <button 
+                    onClick={() => setUseSearch(!useSearch)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-colors ${useSearch ? (theme === 'dark' ? 'bg-indigo-900 text-indigo-300 border-indigo-700' : 'bg-indigo-100 text-indigo-700 border-indigo-200') : (theme === 'dark' ? 'bg-transparent text-gray-500 border-gray-700' : 'bg-transparent text-gray-500 border-gray-300')}`}
+                  >
+                    <Search size={12} /> {useSearch ? 'Live Search On' : 'Live Search Off'}
+                  </button>
+                </div>
                 <div className="flex gap-2 max-w-md mx-auto">
                    <input 
                     type="text" 
@@ -1796,6 +1935,7 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
       Generate exactly ${numQuestions} multiple-choice questions.
       Each question must have 4 options and one correct answer.
       Provide a "summary" field explaining why the correct answer is right.
+      IMPORTANT: Do NOT use asterisks (*) or dollar signs ($), use simple plain text.
       Return ONLY a JSON array of objects with this structure:
       [
         {
@@ -2154,9 +2294,25 @@ function ProfileView({
 }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [tempName, setTempName] = useState(profile.name);
+  const [tempName, setTempName] = useState(profile?.name || '');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLevelPicker, setShowLevelPicker] = useState(false);
+
+  // Sync tempName if profile loads late
+  useEffect(() => {
+    if (profile?.name && !tempName) {
+      setTempName(profile.name);
+    }
+  }, [profile?.name]);
+
+  if (!profile) {
+    return (
+      <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
+        <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
+        <p className="text-gray-500 font-black uppercase text-[10px] tracking-widest">Loading Profile...</p>
+      </div>
+    );
+  }
 
   const referralLink = `${window.location.origin}/${profile.referralCode}`;
 
@@ -2533,6 +2689,186 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
          </div>
          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] opacity-30">© 2026 educate mw</p>
       </footer>
+    </div>
+  );
+}
+
+function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, profile: any, theme: 'light' | 'dark' }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showCelebrate, setShowCelebrate] = useState(false);
+
+  // We should actually verify the PayChangu payment if we are redirected back, 
+  // but usually PayChangu has an inline script. Let's use PayChangu inline script
+  React.useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://inlines.paychangu.com/js/popup.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const handleSubscribe = async () => {
+    if (!profile) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const txRef = `tx-${profile.id || Date.now()}-${Date.now()}`;
+      
+      // Setup paychangu
+      // @ts-ignore
+      PaychanguCheckout({
+        public_key: import.meta.env.VITE_PAYCHANGU_PUBLIC_KEY || "YOUR_PUBLIC_KEY",
+        tx_ref: txRef,
+        amount: 500,
+        currency: "MWK",
+        callback_url: "", // We handle using the callback function
+        return_url: "",
+        customer: {
+          email: profile.email || "support@educatemw.app",
+          first_name: profile.name || "Student",
+          last_name: "",
+        },
+        customization: {
+          title: "Emi AI Pro",
+          description: "Unlimited AI Tutor Access",
+        },
+        callback: async (response: any) => {
+          if (response.status === 'success') {
+            // Verify payment on the server
+            try {
+              const res = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tx_ref: response.tx_ref })
+              });
+              const verifyData = await res.json();
+              if (verifyData.success) {
+                // Payment verified! Apply Pro!
+                if (auth.currentUser) {
+                  const userRef = doc(db, 'users', auth.currentUser.uid);
+                  await updateDoc(userRef, { isPro: true });
+                }
+                setShowCelebrate(true);
+                setTimeout(() => onBack(), 4000);
+              } else {
+                setError('Payment verification failed. Please contact support on 0987066051 via WhatsApp.');
+              }
+            } catch (err) {
+              setError('Server error during verification. Support: 0987066051');
+            }
+          } else {
+             setError('Payment failed or canceled. Support: 0987066051');
+          }
+          setLoading(false);
+        },
+        onclose: () => {
+          setLoading(false);
+          // user closed window
+          setError('Payment popup closed. Support: 0987066051 on WhatsApp if issues persist.');
+        }
+      });
+    } catch (err: any) {
+      setError('Could not initiate payment. Are you connected to the internet? Support: 0987066051');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} overflow-y-auto`}>
+      {/* Header */}
+      <div className={`p-5 flex items-center justify-between sticky top-0 z-20 ${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl border-b ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'}`}>
+        <button onClick={onBack} className={`w-10 h-10 rounded-full flex items-center justify-center border transition-colors ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white hover:bg-gray-800' : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100'}`}>
+          <ArrowLeft size={20} />
+        </button>
+        <div className="flex flex-col items-center">
+             <h2 className="text-sm font-black uppercase tracking-widest">Subscription</h2>
+             <p className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Upgrade Plan</p>
+        </div>
+        <div className="w-10" />
+      </div>
+
+      <div className="flex-1 p-5 pb-20 space-y-6">
+        {/* Celebration Animation */}
+        {showCelebrate && (
+           <motion.div 
+             initial={{ scale: 0, opacity: 0 }}
+             animate={{ scale: 1, opacity: 1 }}
+             className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-indigo-600/90 backdrop-blur-sm"
+           >
+              <Crown size={80} className="text-yellow-400 mb-4 animate-bounce" />
+              <h1 className="text-3xl font-black text-white uppercase tracking-widest mb-2">You are Pro!</h1>
+              <p className="text-white/80 font-bold max-w-xs text-center">Your Emi AI is now unlimited. Time to achieve those MSCE goals.</p>
+           </motion.div>
+        )}
+
+        <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/30' : 'bg-white border-indigo-200 shadow-xl shadow-indigo-600/10'} rounded-3xl p-6 border-2 relative overflow-hidden`}>
+          <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3 rounded-bl-xl">Popular</div>
+          
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
+              <Crown size={28} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black">Emi AI Pro</h3>
+              <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Bypass all limits</p>
+            </div>
+          </div>
+
+          <div className="mb-6">
+             <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black">K500</span>
+             </div>
+             <p className={`text-xs mt-1 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>One-time access fee</p>
+          </div>
+
+          <div className="space-y-4 mb-8">
+            <div className="flex items-start gap-3">
+               <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
+               <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Emi AI Text Questions</p>
+            </div>
+            <div className="flex items-start gap-3">
+               <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
+               <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Voice Call duration</p>
+            </div>
+            <div className="flex items-start gap-3">
+               <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
+               <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Priority servers for faster responses</p>
+            </div>
+          </div>
+
+          <button 
+             onClick={handleSubscribe}
+             disabled={loading || profile?.isPro}
+             className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95'}`}
+          >
+             {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : 'Pay via PayChangu')}
+          </button>
+          
+          {error && (
+            <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center leading-relaxed">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-3xl p-6 border`}>
+           <h4 className="font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+             <Shield size={16} /> Free Tier Limits
+           </h4>
+           <div className="space-y-3">
+              <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} leading-relaxed`}>• <span className="text-indigo-400">4 Points</span> / 2 Emi AI text questions per day.</p>
+              <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} leading-relaxed`}>• <span className="text-indigo-400">2 Calls</span> / 5 min limit each per day.</p>
+              <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} leading-relaxed`}>• Resets daily globally.</p>
+           </div>
+        </div>
+
+        <div className="text-center pt-4 opacity-60">
+           <p className="text-[10px] font-black uppercase tracking-widest">Support: 0987066051 (WhatsApp)</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2978,7 +3314,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             {loading ? (
                 <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
             ) : (
-                students.map((student) => (
+                students.filter(s => s !== null).map((student) => (
                     <div key={student.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-3xl flex items-center justify-between group hover:border-indigo-500/30 transition-colors border`}>
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl relative">

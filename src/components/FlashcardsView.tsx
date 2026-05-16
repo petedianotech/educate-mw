@@ -56,7 +56,7 @@ export function FlashcardsView({ onBack }: { onBack: () => void }) {
       try {
          const response = await ai.models.generateContent({
              model: 'gemini-2.5-flash',
-             contents: `Generate 5 flashcards about: ${topic}. Return ONLY a JSON array with objects containing 'question' and 'answer' strings. No markdown, no text outside the JSON array.`,
+             contents: `Generate 5 flashcards about: ${topic}. Return ONLY a JSON array with objects containing 'question' and 'answer' strings. No markdown, no text outside the JSON array. Do NOT use asterisks (*) or dollar signs ($), keep answers in simple plain text.`,
              config: {
                  responseMimeType: 'application/json',
              }
