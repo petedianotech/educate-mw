@@ -124,7 +124,7 @@ import {
   Clock
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking';
+export type ViewState = 'home' | 'emi' | 'library' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -149,6 +149,13 @@ export default function App() {
     img.src = 'https://i.ibb.co/6cfxqxgn/emiai-ai.jpg';
     
     document.documentElement.classList.toggle('dark', theme === 'dark');
+
+    const path = window.location.pathname;
+    if (path === '/terms') {
+      setCurrentView('terms');
+    } else if (path === '/privacy') {
+      setCurrentView('privacy');
+    }
   }, [theme]);
 
   useEffect(() => {
@@ -261,7 +268,13 @@ export default function App() {
 
         {/* Scrollable Main Content */}
         <div className={`flex-1 overflow-x-hidden overflow-y-auto hide-scrollbar ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
-          {isLoading ? (
+          {currentView === 'terms' ? (
+            <LegalPageView type="terms" theme={theme} onBack={() => { setCurrentView('home'); window.history.pushState({}, '', '/'); }} />
+          ) : currentView === 'privacy' ? (
+            <LegalPageView type="privacy" theme={theme} onBack={() => { setCurrentView('home'); window.history.pushState({}, '', '/'); }} />
+          ) : currentView === 'videos' ? (
+            <VideosView theme={theme} onBack={() => setCurrentView('home')} />
+          ) : isLoading ? (
             <div className="h-full flex flex-col items-center justify-center p-10 text-center">
               <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
               <p className="text-gray-500 font-black uppercase text-[10px] tracking-widest">Loading Education...</p>
@@ -332,7 +345,7 @@ export default function App() {
         </div>
 
         {/* Bottom Navigation */}
-        {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin'].includes(currentView) && (
+        {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos'].includes(currentView) && (
           <div className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === 'dark' ? 'bg-gray-950 border-gray-900' : 'bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} border-t pb-safe pt-2 px-1`}>
             <div className="flex justify-around items-center w-full max-w-md mx-auto">
               <NavItem icon={<Home size={26} fill={currentView === 'home' ? 'currentColor' : 'none'} />} label="Home" active={currentView === 'home'} onClick={() => setCurrentView('home')} theme={theme} />
@@ -567,6 +580,12 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
               bgColor="bg-indigo-500" 
               title="Career" 
               onClick={() => onNavigate('career')}
+            />
+            <FeatureCard 
+              icon={<Video size={24} fill="white" className="text-blue-50" />} 
+              bgColor="bg-blue-600" 
+              title="Videos" 
+              onClick={() => onNavigate('videos')}
             />
           </div>
       </div>
@@ -869,7 +888,7 @@ function CallingView({ onEnd }: { onEnd: () => void }) {
         streamRef.current = stream;
 
         const sessionPromise = ai.live.connect({
-          model: "gemini-3.1-flash-live-preview",
+          model: "gemini-3.0-flash",
           callbacks: {
             onopen: () => {
               setIsConnected(true);
@@ -2263,7 +2282,6 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showLegal, setShowLegal] = useState<'none' | 'terms' | 'privacy'>('none');
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -2304,8 +2322,8 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-20 animate-in fade-in duration-500 overflow-y-auto`}>
       <div className="flex flex-col items-center mb-12">
-        <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-indigo-800 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-indigo-600/40 mb-6 p-4">
-          <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Edu MW" className="w-full h-full object-cover rounded-2xl" />
+        <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/40 mb-6 p-4">
+          <GraduationCap size={44} className="text-white" fill="white" fillOpacity={0.2} />
         </div>
         <h1 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight uppercase`}>Educate MW</h1>
         <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Empowering Students</p>
@@ -2387,11 +2405,10 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
             Create New Account
           </button>
           <p className="text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-            By continuing, you agree to our <button onClick={() => setShowLegal('terms')} className="text-indigo-400">Terms</button> and <button onClick={() => setShowLegal('privacy')} className="text-indigo-400">Privacy</button>.
+            By continuing, you agree to our <button onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms</button> and <button onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy</button>.
           </p>
         </div>
       </div>
-      {showLegal !== 'none' && <LegalOverlay type={showLegal} theme={theme} onClose={() => setShowLegal('none')} />}
     </div>
   );
 }
@@ -2407,7 +2424,6 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showLegal, setShowLegal] = useState<'none' | 'terms' | 'privacy'>('none');
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2461,9 +2477,9 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
 
       <div className="px-8 mt-4">
         <div className="mb-10 text-center">
-           <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-indigo-600/40 rotate-3 p-1.5">
-              <div className="w-full h-full rounded-[1.4rem] overflow-hidden border-2 border-white/20">
-                <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Logo" className="w-full h-full object-cover" />
+           <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-blue-500/40 rotate-3 p-1.5">
+              <div className="w-full h-full rounded-[1.4rem] flex items-center justify-center border-2 border-white/20 bg-white/5 backdrop-blur-sm">
+                <GraduationCap size={40} className="text-white" fill="white" fillOpacity={0.2} />
               </div>
            </div>
            <h3 className="text-2xl font-black mb-2">Create Account</h3>
@@ -2565,34 +2581,8 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
         </form>
 
         <p className="mt-8 text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-          By signing up, you agree to our <button onClick={() => setShowLegal('terms')} className="text-indigo-400">Terms</button> and <button onClick={() => setShowLegal('privacy')} className="text-indigo-400">Privacy</button>.
+          By signing up, you agree to our <button type="button" onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms</button> and <button type="button" onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy</button>.
         </p>
-      </div>
-      {showLegal !== 'none' && <LegalOverlay type={showLegal} theme={theme} onClose={() => setShowLegal('none')} />}
-    </div>
-  );
-}
-
-function LegalOverlay({ type, theme, onClose }: { type: 'terms' | 'privacy', theme: 'light' | 'dark', onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-in zoom-in-95 duration-200">
-      <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} w-full max-w-sm rounded-[3rem] p-8 max-h-[80vh] overflow-y-auto hide-scrollbar relative border border-white/5 shadow-2xl`}>
-        <button 
-          onClick={onClose}
-          className="absolute top-6 right-6 w-10 h-10 bg-gray-800 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <X size={20} />
-        </button>
-        <h3 className={`text-2xl font-black mb-6 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-          {type === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
-        </h3>
-        <div className={`prose prose-sm ${theme === 'dark' ? 'prose-invert text-gray-400' : 'text-slate-600'} font-medium space-y-4`}>
-          <p>Last updated: May 15, 2026</p>
-          <p>Educate MW is committed to helping students in Malawi succeed. By using our platform, you agree to follow our guidelines and respect other learners.</p>
-          <p>We do not sell your personal data. Your progress and study history are stored securely on Firebase to provide you with a personalized experience.</p>
-          <p>Emi AI uses advanced machine learning. While we strive for accuracy, always double-check important exam information with official MSCE sources.</p>
-          <p>Happy studying and good luck with your exams!</p>
-        </div>
       </div>
     </div>
   );
@@ -2660,11 +2650,12 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 
 function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
   const [students, setStudents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'videos'>('students');
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [newMaterial, setNewMaterial] = useState({ title: '', content: '', type: 'text' as 'text' | 'pdf' | 'video' });
   const [notification, setNotification] = useState({ title: '', body: '' });
+  const [newVideo, setNewVideo] = useState({ title: '', url: '', desc: '' });
   const [materials, setMaterials] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
 
@@ -2686,6 +2677,24 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
       });
       setNotification({ title: '', body: '' });
       alert("Notification published!");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handlePublishVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVideo.title || !newVideo.url) return;
+    setPublishing(true);
+    try {
+      await addDoc(collection(db, 'videos'), {
+        ...newVideo,
+        createdAt: serverTimestamp()
+      });
+      setNewVideo({ title: '', url: '', desc: '' });
+      alert("Video published successfully!");
     } catch (err) {
       console.error(err);
     } finally {
@@ -2803,6 +2812,12 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
         >
             Alerts
+        </button>
+        <button 
+            onClick={() => setActiveTab('videos')}
+            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'videos' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+        >
+            Videos
         </button>
       </div>
 
@@ -2987,14 +3002,60 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             </div>
           </div>
         )}
+
+        {activeTab === 'videos' && (
+          <div className="space-y-6">
+            <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-[32px] relative overflow-hidden">
+                <Video className="absolute right-[-5%] top-[-10%] w-24 h-24 text-blue-500/5 -rotate-12" />
+                <h3 className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-1`}>Publish Video</h3>
+                <p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest leading-tight">Add a YouTube tutorial</p>
+                
+                <form onSubmit={handlePublishVideo} className="mt-8 space-y-5 relative z-10">
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Video Title</label>
+                        <input 
+                            value={newVideo.title}
+                            onChange={e => setNewVideo({...newVideo, title: e.target.value})}
+                            placeholder="e.g. Algebra Basics" 
+                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500/50 border`}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">YouTube URL</label>
+                        <input 
+                            value={newVideo.url}
+                            onChange={e => setNewVideo({...newVideo, url: e.target.value})}
+                            placeholder="https://youtube.com/watch?v=..." 
+                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500/50 border`}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Short Description (Optional)</label>
+                        <textarea 
+                            value={newVideo.desc}
+                            onChange={e => setNewVideo({...newVideo, desc: e.target.value})}
+                            rows={2}
+                            placeholder="Briefly describe what this video covers..." 
+                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500/50 resize-none border`}
+                        />
+                    </div>
+                    <button 
+                        type="submit" 
+                        disabled={publishing}
+                        className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all text-xs flex items-center justify-center gap-2"
+                    >
+                        {publishing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Publish Video <Play size={16} /></>}
+                    </button>
+                </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 function AppSettingsModal({ isOpen, onClose, theme, onThemeToggle }: { isOpen: boolean, onClose: () => void, theme: 'light' | 'dark', onThemeToggle: () => void }) {
-  const [showLegal, setShowLegal] = useState<'none' | 'terms' | 'privacy'>('none');
-
   if (!isOpen) return null;
 
   return (
@@ -3043,14 +3104,14 @@ function AppSettingsModal({ isOpen, onClose, theme, onThemeToggle }: { isOpen: b
                 <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 pl-1 ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Legal & About</h4>
                 <div className="space-y-2">
                    <button 
-                    onClick={() => setShowLegal('terms')}
+                    onClick={() => { onClose(); window.history.pushState({}, '', '/terms'); window.dispatchEvent(new Event('popstate')); window.location.reload(); }}
                     className={`w-full text-left p-4 rounded-2xl ${theme === 'dark' ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-slate-50 text-slate-600'} transition-colors font-bold text-sm flex items-center justify-between`}
                    >
                      Terms of Service
                      <ArrowRight size={14} className="opacity-40" />
                    </button>
                    <button 
-                    onClick={() => setShowLegal('privacy')}
+                    onClick={() => { onClose(); window.history.pushState({}, '', '/privacy'); window.dispatchEvent(new Event('popstate')); window.location.reload(); }}
                     className={`w-full text-left p-4 rounded-2xl ${theme === 'dark' ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-slate-50 text-slate-600'} transition-colors font-bold text-sm flex items-center justify-between`}
                    >
                      Privacy Policy
@@ -3060,36 +3121,123 @@ function AppSettingsModal({ isOpen, onClose, theme, onThemeToggle }: { isOpen: b
              </div>
           </div>
 
-          <div className="mt-8 text-center">
-             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-loose">
-                Educate MW v2.4.0<br/>Build 2026.05.15<br/>Made with ❤️ for Malawi
-             </p>
+          <div className="mt-12 mb-8 bg-gradient-to-br from-blue-500/10 to-indigo-500/5 p-6 rounded-[2rem] border border-blue-500/10 flex flex-col items-center">
+              <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
+                 <GraduationCap size={32} className="text-white" />
+              </div>
+              <h4 className={`text-sm font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} uppercase tracking-widest`}>Educate MW</h4>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight mt-1 opacity-60 italic">Your learning, redefined.</p>
           </div>
        </div>
+    </div>
+  );
+}
 
-       {/* Legal Overlay */}
-       {showLegal !== 'none' && (
-         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-in zoom-in-95 duration-200">
-            <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} w-full max-w-sm rounded-[3rem] p-8 max-h-[80vh] overflow-y-auto hide-scrollbar relative border border-white/5 shadow-2xl`}>
-               <button 
-                onClick={() => setShowLegal('none')}
-                className="absolute top-6 right-6 w-10 h-10 bg-gray-800 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform"
-               >
-                 <X size={20} />
-               </button>
-               <h3 className={`text-2xl font-black mb-6 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                 {showLegal === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
-               </h3>
-               <div className={`prose prose-sm ${theme === 'dark' ? 'prose-invert text-gray-400' : 'text-slate-600'} font-medium space-y-4`}>
-                 <p>Last updated: May 15, 2026</p>
-                 <p>Educate MW is committed to helping students in Malawi succeed. By using our platform, you agree to follow our guidelines and respect other learners.</p>
-                 <p>We do not sell your personal data. Your progress and study history are stored securely on Firebase to provide you with a personalized experience.</p>
-                 <p>Emi AI uses advanced machine learning. While we strive for accuracy, always double-check important exam information with official MSCE sources.</p>
-                 <p>Happy studying and good luck with your exams!</p>
-               </div>
-            </div>
+function LegalPageView({ type, theme, onBack }: { type: 'terms' | 'privacy', theme: 'light' | 'dark', onBack: () => void }) {
+  return (
+    <div className={`min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-12 animate-in fade-in duration-500`}>
+      <div className="flex items-center gap-4 mb-8">
+         <button onClick={onBack} className={`w-12 h-12 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}>
+            <ChevronLeft size={24} strokeWidth={3} />
+         </button>
+         <h1 className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} uppercase tracking-tight`}>
+           {type === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+         </h1>
+      </div>
+      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} rounded-[2.5rem] p-8 border shadow-xl`}>
+         <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert text-gray-400' : 'text-slate-600'} font-medium space-y-6 leading-relaxed`}>
+           <p className="text-xs uppercase tracking-widest font-black text-indigo-400">Last updated: May 15, 2026</p>
+           <p>Educate MW is committed to helping students in Malawi succeed. By using our platform, you agree to follow our guidelines and respect other learners.</p>
+           <p>We do not sell your personal data. Your progress and study history are stored securely on Firebase to provide you with a personalized experience.</p>
+           <p>Emi AI uses advanced machine learning. While we strive for accuracy, always double-check important exam information with official MSCE sources.</p>
+           {type === 'terms' && (
+             <>
+               <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mt-8 mb-4 uppercase tracking-widest`}>User Conduct</h3>
+               <p>As a student, you must respect others in the community, avoid cheating, and contribute positively.</p>
+             </>
+           )}
+           {type === 'privacy' && (
+             <>
+               <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mt-8 mb-4 uppercase tracking-widest`}>Data Collection</h3>
+               <p>We only collect data necessary to provide you with a tailored educational experience, such as test scores and study habits.</p>
+             </>
+           )}
+           <p className="font-bold text-indigo-500 mt-8">Happy studying and good luck with your exams!</p>
          </div>
-       )}
+      </div>
+    </div>
+  );
+}
+
+function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => void }) {
+  const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const qVideos = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(qVideos, (snapshot) => {
+      setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return (
+    <div className={`min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-12 animate-in fade-in duration-500 pb-20`}>
+      <div className="flex items-center gap-4 mb-8">
+         <button onClick={onBack} className={`w-12 h-12 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}>
+            <ChevronLeft size={24} strokeWidth={3} />
+         </button>
+         <div>
+            <h1 className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} uppercase tracking-tight`}>Learn via Video</h1>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Video Tutorials & Notes</p>
+         </div>
+      </div>
+      
+      {loading ? (
+        <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
+      ) : videos.length === 0 ? (
+        <div className="text-center py-20">
+          <div className={`w-20 h-20 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white shadow-sm'} rounded-3xl flex items-center justify-center mx-auto mb-6 text-gray-500 border border-gray-200 dark:border-gray-800 rotate-3`}>
+             <Video size={36} strokeWidth={1.5} />
+          </div>
+          <p className={`text-base font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} uppercase tracking-widest`}>No Videos Yet</p>
+          <p className="text-[11px] text-gray-500 max-w-[200px] mx-auto mt-3 leading-relaxed font-semibold">Our teachers are working on new video lessons. Check back later!</p>
+        </div>
+      ) : (
+        <div className="space-y-6 pb-20">
+          {videos.map(video => {
+            const videoId = video.url.includes('v=') ? video.url.split('v=')[1].substring(0, 11) : video.url.split('/').pop()?.substring(0, 11);
+            return (
+              <div key={video.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} rounded-3xl overflow-hidden border shadow-xl`}>
+                <div className="aspect-video bg-black relative">
+                  {videoId ? (
+                    <iframe 
+                      width="100%" 
+                      height="100%" 
+                      src={`https://www.youtube.com/embed/${videoId}`} 
+                      title={video.title} 
+                      frameBorder="0" 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      allowFullScreen
+                      className="absolute inset-0"
+                    ></iframe>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 flex-col">
+                       <Video size={32} className="mb-2 opacity-50" />
+                       <span className="text-[10px] font-black uppercase tracking-widest">Invalid URL</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <h3 className={`font-black text-lg leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2`}>{video.title}</h3>
+                  {video.desc && <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} font-medium line-clamp-2`}>{video.desc}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

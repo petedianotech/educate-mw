@@ -60,12 +60,23 @@ service cloud.firestore {
       function isValidMaterial(data) {
         return data.title is string && data.title.size() <= 200 &&
                data.content is string && data.content.size() <= 1000000 &&
-               data.type in ['pdf', 'video', 'text'] &&
-               data.authorId == request.auth.uid;
+               data.type in ['pdf', 'video', 'text']; // Removed authorId check since admin can create it
       }
 
       allow read: if isSignedIn();
-      allow write: if isAdmin() && isValidMaterial(request.resource.data) && isValidId(materialId);
+      allow write: if isAdmin() && isValidId(materialId);
+    }
+
+    // Videos section
+    match /videos/{videoId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidId(videoId);
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidId(notificationId);
     }
   }
 }
