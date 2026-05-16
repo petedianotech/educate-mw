@@ -5,6 +5,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
+import SEO from './components/SEO';
+import { BlogView, BlogPostView } from './components/BlogSystem';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { 
   onAuthStateChanged, 
@@ -126,10 +128,11 @@ import {
   ArrowLeft,
   Crown,
   CheckCircle2,
-  Shield
+  Shield,
+  Newspaper
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription';
+export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -140,20 +143,73 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedBlogSlug, setSelectedBlogSlug] = useState('');
+  const [selectedLibrarySlug, setSelectedLibrarySlug] = useState('');
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [quizTopic, setQuizTopic] = useState('');
 
   const adminEmails = ['petedianotech@gmail.com', 'mscepreparation@gmail.com'];
+
+  const navigateTo = (view: ViewState, slug?: string) => {
+    setCurrentView(view);
+    if (view === 'blog-post' && slug) setSelectedBlogSlug(slug);
+    if (view === 'library-item' && slug) setSelectedLibrarySlug(slug);
+    
+    let path = '/';
+    switch (view) {
+      case 'home': path = '/'; break;
+      case 'blog': path = '/blog'; break;
+      case 'blog-post': path = `/blog/${slug}`; break;
+      case 'library': path = '/library'; break;
+      case 'library-item': path = `/library/${slug}`; break;
+      case 'terms': path = '/terms'; break;
+      case 'privacy': path = '/privacy'; break;
+      case 'emi': path = '/emi-ai'; break;
+      case 'quizzes': path = '/quizzes'; break;
+      case 'flashcards': path = '/flashcards'; break;
+      case 'community': path = '/community'; break;
+      case 'career': path = '/career'; break;
+      case 'profile': path = '/profile'; break;
+      case 'videos': path = '/videos'; break;
+      case 'subscription': path = '/subscription'; break;
+      default: path = `/${view}`;
+    }
+    window.history.pushState({}, '', path);
+  };
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
       if (path === '/terms') setCurrentView('terms');
       else if (path === '/privacy') setCurrentView('privacy');
+      else if (path === '/blog') setCurrentView('blog');
+      else if (path.startsWith('/blog/')) {
+        const slug = path.split('/blog/')[1];
+        if (slug) {
+          setSelectedBlogSlug(slug);
+          setCurrentView('blog-post');
+        }
+      }
+      else if (path === '/library') setCurrentView('library');
+      else if (path.startsWith('/library/')) {
+        const slug = path.split('/library/')[1];
+        if (slug) {
+          setSelectedLibrarySlug(slug);
+          setCurrentView('library-item');
+        }
+      }
+      else if (path === '/emi-ai') setCurrentView('emi');
+      else if (path === '/quizzes') setCurrentView('quizzes');
+      else if (path === '/career') setCurrentView('career');
+      else if (path === '/profile') setCurrentView('profile');
       else if (path === '/') setCurrentView('home');
+      else {
+        const view = path.substring(1) as ViewState;
+        if (view) setCurrentView(view);
+      }
     };
     handlePopState();
     window.addEventListener('popstate', handlePopState);
@@ -257,11 +313,83 @@ export default function App() {
   const handleLogout = async () => {
     await signOut(auth);
     setIsLoggedIn(false);
-    setCurrentView('home');
+    navigateTo('home');
   };
+
+  const getSeoData = () => {
+    const defaultOgImage = "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200&h=630&auto=format&fit=crop";
+    switch (currentView) {
+      case 'emi':
+        return {
+          title: "Emi AI Tutor - Personal MSCE Study Assistant",
+          description: "Chat with Emi, the AI tutor trained on the Malawi MSCE curriculum. Get instant answers to complex academic questions.",
+          canonical: "https://educatemw.app/emi-ai",
+          ogImage: defaultOgImage
+        };
+      case 'library':
+        return {
+          title: "MSCE Notes Library - Free Study Materials Malawi",
+          description: "Access a comprehensive library of MSCE notes for Form 1 to Form 4. Biology, Chemistry, Physics, Math, and more.",
+          canonical: "https://educatemw.app/library",
+          ogImage: defaultOgImage
+        };
+      case 'library-item':
+        return {
+          title: `${selectedLibrarySlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} | MSCE Library`,
+          description: "Download or study this MSCE material online.",
+          canonical: `https://educatemw.app/library/${selectedLibrarySlug}`,
+          ogImage: defaultOgImage
+        };
+      case 'dictionary':
+        return {
+          title: "Academic Dictionary - MSCE Terminology",
+          description: "Look up academic terms and definitions across all MSCE subjects. The ultimate dictionary for Malawian students.",
+          canonical: "https://educatemw.app/dictionary"
+        };
+      case 'quizzes':
+        return {
+          title: "Practice Quizzes - MSCE Exam Prep Malawi",
+          description: "Test your knowledge with MSCE-style quizzes. Instant feedback and detailed explanations for all subjects.",
+          canonical: "https://educatemw.app/quizzes"
+        };
+      case 'career':
+        return {
+          title: "Career Guidance - Future for Malawian Students",
+          description: "Discover career paths in Malawi. Requirements for UNIMA, MUBAS, and other Malawian universities.",
+          canonical: "https://educatemw.app/career"
+        };
+      case 'community':
+        return {
+          title: "Student Community - Connect with Malawian Students",
+          description: "Join the community of Malawian students. Share notes, ask questions, and grow together.",
+          canonical: "https://educatemw.app/community"
+        };
+      case 'blog':
+        return {
+          title: "Educate MW Blog - Malawi Education News & Study Tips",
+          description: "The latest news about the Malawi curriculum, MSCE study tips, and educational technology in Malawi.",
+          canonical: "https://educatemw.app/blog"
+        };
+      case 'blog-post':
+        return {
+          title: `${selectedBlogSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} | Educate MW`,
+          description: "Read the latest article on our education blog.",
+          canonical: `https://educatemw.app/blog/${selectedBlogSlug}`
+        };
+      default:
+        return {
+          title: "Educate MW - Free MSCE Notes & AI Tutor Malawi",
+          description: "The ultimate MSCE learning app for Malawi. Free notes, AI tutor, quizzes, and career guidance.",
+          canonical: "https://educatemw.app"
+        };
+    }
+  };
+
+  const seoData = getSeoData();
 
   return (
     <div className={`${theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-930'} min-h-screen flex justify-center font-sans selection:bg-indigo-900/30 selection:text-indigo-100`}>
+      <SEO {...seoData} />
       <div className={`w-full max-w-md h-[100dvh] ${theme === 'dark' ? 'bg-gray-900 sm:border-gray-800' : 'bg-white sm:border-slate-200'} shadow-2xl relative overflow-hidden flex flex-col sm:border-x`}>
         
         {!isOnline && (
@@ -273,43 +401,39 @@ export default function App() {
         {/* Scrollable Main Content */}
         <div className={`flex-1 overflow-x-hidden overflow-y-auto hide-scrollbar ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
           {currentView === 'terms' ? (
-            <LegalPageView type="terms" theme={theme} onBack={() => { setCurrentView('home'); window.history.pushState({}, '', '/'); }} />
+            <LegalPageView type="terms" theme={theme} onBack={() => navigateTo('home')} />
           ) : currentView === 'privacy' ? (
-            <LegalPageView type="privacy" theme={theme} onBack={() => { setCurrentView('home'); window.history.pushState({}, '', '/'); }} />
+            <LegalPageView type="privacy" theme={theme} onBack={() => navigateTo('home')} />
           ) : currentView === 'videos' ? (
-            <VideosView theme={theme} onBack={() => setCurrentView('home')} />
-          ) : isLoading ? (
-            <div className="h-full flex flex-col items-center justify-center p-10 text-center">
-              <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
-              <p className="text-gray-500 font-black uppercase text-[10px] tracking-widest">Loading Education...</p>
-            </div>
+            <VideosView theme={theme} onBack={() => navigateTo('home')} />
           ) : !isLoggedIn ? (
             currentView === 'register' ? (
               <RegisterView 
-                onBack={() => setCurrentView('home')} 
+                onBack={() => navigateTo('home')} 
                 theme={theme}
               />
             ) : (
               <AuthView 
-                onNavigateRegister={() => setCurrentView('register')}
+                onNavigateRegister={() => navigateTo('register')}
                 theme={theme}
               />
             )
           ) : (
             <>
-              {currentView === 'home' && <HomeView onNavigate={setCurrentView} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} />}
-              {currentView === 'emi' && <EmiChatView onBack={() => setCurrentView('home')} theme={theme} profile={userProfile} onGoPro={() => setCurrentView('subscription')} />}
-              {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => setCurrentView('home')} />}
-              {currentView === 'library' && <LibraryView onBack={() => setCurrentView('home')} theme={theme} />}
-              {currentView === 'dictionary' && <DictionaryView onBack={() => setCurrentView('home')} theme={theme} />}
+              {currentView === 'home' && <HomeView onNavigate={navigateTo} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} />}
+              {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} onGoPro={() => navigateTo('subscription')} />}
+              {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => navigateTo('home')} />}
+              {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} />}
+              {currentView === 'library-item' && <MaterialDetailView slug={selectedLibrarySlug} onBack={() => navigateTo('library')} theme={theme} />}
+              {currentView === 'dictionary' && <DictionaryView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'quizzes' && (
                 <QuizzesView 
-                  onBack={() => setCurrentView('home')} 
+                  onBack={() => navigateTo('home')} 
                   theme={theme} 
                   onStartQuiz={(questions, topic) => {
                     setQuizQuestions(questions);
                     setQuizTopic(topic);
-                    setCurrentView('quiz-taking');
+                    navigateTo('quiz-taking');
                   }}
                 />
               )}
@@ -317,17 +441,32 @@ export default function App() {
                 <QuizTakingView 
                   questions={quizQuestions} 
                   topic={quizTopic} 
-                  onEnd={() => setCurrentView('quizzes')} 
+                  onEnd={() => navigateTo('quizzes')} 
                   theme={theme} 
                 />
               )}
-              {currentView === 'flashcards' && <FlashcardsView onBack={() => setCurrentView('home')} />}
-              {currentView === 'community' && <CommunityView onBack={() => setCurrentView('home')} />}
-              {currentView === 'career' && <CareerView onBack={() => setCurrentView('home')} theme={theme} />}
-              {currentView === 'admin' && isAdmin && <AdminDashboard onBack={() => setCurrentView('home')} theme={theme} />}
+              {currentView === 'flashcards' && <FlashcardsView onBack={() => navigateTo('home')} />}
+              {currentView === 'community' && <CommunityView onBack={() => navigateTo('home')} />}
+              {currentView === 'career' && <CareerView onBack={() => navigateTo('home')} theme={theme} />}
+              {currentView === 'blog' && (
+                <BlogView 
+                  onBack={() => navigateTo('home')} 
+                  theme={theme}
+                  onPostClick={(slug) => navigateTo('blog-post', slug)}
+                />
+              )}
+              {currentView === 'blog-post' && (
+                <BlogPostView 
+                  slug={selectedBlogSlug}
+                  onBack={() => navigateTo('blog')}
+                  theme={theme}
+                  onPostClick={(slug) => navigateTo('blog-post', slug)}
+                />
+              )}
+              {currentView === 'admin' && isAdmin && <AdminDashboard onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'profile' && (
                 <ProfileView 
-                  onBack={() => setCurrentView('home')} 
+                  onBack={() => navigateTo('home')} 
                   profile={userProfile} 
                   onUpdate={async (newProfile: any) => {
                     if (user) {
@@ -340,23 +479,24 @@ export default function App() {
                   theme={theme}
                   onThemeToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
                   onShowNotifications={() => setShowNotifications(true)}
-                  onNavigate={setCurrentView}
+                  onNavigate={navigateTo}
                   onShowSettings={() => setShowSettings(true)}
                   isAdmin={isAdmin}
                 />
               )}
             </>
-          )}
+          )
+}
         </div>
 
         {/* Bottom Navigation */}
         {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos'].includes(currentView) && (
           <div className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === 'dark' ? 'bg-gray-950 border-gray-900' : 'bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} border-t pb-safe pt-2 px-1`}>
             <div className="flex justify-around items-center w-full max-w-md mx-auto">
-              <NavItem icon={<Home size={26} fill={currentView === 'home' ? 'currentColor' : 'none'} />} label="Home" active={currentView === 'home'} onClick={() => setCurrentView('home')} theme={theme} />
-              <NavItem icon={<Book size={26} fill={currentView === 'library' ? 'currentColor' : 'none'} />} label="Library" active={currentView === 'library'} onClick={() => setCurrentView('library')} theme={theme} />
+              <NavItem icon={<Home size={26} fill={currentView === 'home' ? 'currentColor' : 'none'} />} label="Home" active={currentView === 'home'} onClick={() => navigateTo('home')} theme={theme} />
+              <NavItem icon={<Book size={26} fill={currentView === 'library' ? 'currentColor' : 'none'} />} label="Library" active={currentView === 'library'} onClick={() => navigateTo('library')} theme={theme} />
               
-              <div className="flex flex-col items-center justify-center w-14 cursor-pointer pt-1 transition-all active:scale-95 group" onClick={() => setCurrentView('emi')}>
+              <div className="flex flex-col items-center justify-center w-14 cursor-pointer pt-1 transition-all active:scale-95 group" onClick={() => navigateTo('emi')}>
                 <div className={`mb-1 p-0.5 rounded-full border-2 ${currentView === 'emi' ? (theme === 'dark' ? 'border-white' : 'border-indigo-600') : 'border-transparent'}`}>
                   <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm">
                      <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi" className="w-full h-full object-cover" />
@@ -367,8 +507,8 @@ export default function App() {
                 </span>
               </div>
 
-              <NavItem icon={<CheckSquare size={26} fill={currentView === 'quizzes' ? 'currentColor' : 'none'} />} label="Quizzes" active={currentView === 'quizzes'} onClick={() => setCurrentView('quizzes')} theme={theme} />
-              <NavItem icon={<User size={26} fill={currentView === 'profile' ? 'currentColor' : 'none'} />} label="Profile" active={currentView === 'profile'} onClick={() => setCurrentView('profile')} theme={theme} />
+              <NavItem icon={<CheckSquare size={26} fill={currentView === 'quizzes' ? 'currentColor' : 'none'} />} label="Quizzes" active={currentView === 'quizzes'} onClick={() => navigateTo('quizzes')} theme={theme} />
+              <NavItem icon={<User size={26} fill={currentView === 'profile' ? 'currentColor' : 'none'} />} label="Profile" active={currentView === 'profile'} onClick={() => navigateTo('profile')} theme={theme} />
             </div>
           </div>
         )}
@@ -398,10 +538,11 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
-                <SidebarItem icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="Subscription & Pay" onClick={() => { alert('Payment integration coming soon!'); setIsSidebarOpen(false); }} />
+                <SidebarItem icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="Subscription & Pay" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
+                <SidebarItem icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Education Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
                 
                 {isAdmin && (
-                  <SidebarItem icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin Panel" onClick={() => { setCurrentView('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
+                  <SidebarItem icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin Panel" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
                 )}
 
                 <div className="flex-1" />
@@ -522,7 +663,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
             <div className="z-10 relative">
               <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg mb-3 border border-white/10">
                 <Sparkles size={12} className="text-indigo-200" fill="currentColor" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Powered by Gemini</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Powered by AI</span>
               </div>
               <h3 className="font-black text-2xl mb-1 flex items-center gap-2">Ask Emi AI</h3>
               <p className="text-indigo-100/80 text-xs font-semibold leading-relaxed max-w-[180px] mb-4">
@@ -549,7 +690,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
           </div>
 
           {/* Grid Menu */}
-          <div className="grid grid-cols-3 gap-3 content-start shrink-0">
+          <div className="grid grid-cols-3 gap-3 content-start shrink-0 mb-8">
             <FeatureCard 
               icon={<BookOpen size={24} fill="white" className="text-blue-50" />} 
               bgColor="bg-blue-500" 
@@ -587,14 +728,68 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
               onClick={() => onNavigate('career')}
             />
             <FeatureCard 
+              icon={<Newspaper size={24} fill="white" className="text-pink-50" />} 
+              bgColor="bg-pink-500" 
+              title="Blog" 
+              onClick={() => onNavigate('blog')}
+            />
+            <FeatureCard 
               icon={<Video size={24} fill="white" className="text-blue-50" />} 
               bgColor="bg-blue-600" 
               title="Videos" 
               onClick={() => onNavigate('videos')}
             />
           </div>
+
+          {/* Knowledge Hub Preview */}
+          <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h3 className={`font-black text-sm uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Knowledge Hub</h3>
+              <button onClick={() => onNavigate('blog')} className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">See All</button>
+            </div>
+            
+            <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5">
+               <BlogPreviewCard 
+                 title="MSCE Preparation Tips" 
+                 category="Study" 
+                 image="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400"
+                 onClick={() => onNavigate('blog')}
+                 theme={theme}
+               />
+               <BlogPreviewCard 
+                 title="Malawi Education Reform" 
+                 category="News" 
+                 image="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=400"
+                 onClick={() => onNavigate('blog')}
+                 theme={theme}
+               />
+               <BlogPreviewCard 
+                 title="Tech in Classroom" 
+                 category="Future" 
+                 image="https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=400"
+                 onClick={() => onNavigate('blog')}
+                 theme={theme}
+               />
+            </div>
+          </div>
       </div>
     </div>
+  );
+}
+
+function BlogPreviewCard({ title, category, image, onClick, theme }: { title: string, category: string, image: string, onClick: () => void, theme: 'light' | 'dark' }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`min-w-[200px] w-[200px] aspect-[4/5] rounded-[24px] overflow-hidden relative group active:scale-95 transition-all ${theme === 'dark' ? 'bg-gray-900' : 'bg-white shadow-sm'} border ${theme === 'dark' ? 'border-gray-800' : 'border-slate-100'}`}
+    >
+      <img src={image} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-500" alt={title} />
+      <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/20 to-transparent"></div>
+      <div className="absolute bottom-0 left-0 p-4 text-left">
+        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-white/10 mb-2 inline-block">{category}</span>
+        <h4 className="text-white font-black text-sm leading-tight line-clamp-2">{title}</h4>
+      </div>
+    </button>
   );
 }
 
@@ -659,10 +854,11 @@ function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, 
       const errorMsg: Message = {
          id: Date.now().toString() + '-err',
          sender: 'ai',
-         text: "Oops! You've used up your free AI questions for today. Upgrade to PRO for unlimited questions!",
+         text: "Oops! You've used up your free AI questions for today. Upgrading to PRO will give you unlimited questions!",
          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMsg]);
+      setTimeout(onGoPro, 3000);
       return;
     }
     // --- END LIMITS ---
@@ -756,6 +952,16 @@ function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, 
           </div>
         </div>
         <div className="flex items-center gap-2.5">
+          {profile?.isPro ? (
+            <div className="px-2 py-1 rounded-md bg-yellow-400 text-black text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 shadow-lg shadow-yellow-500/20">
+              <Crown size={12} /> PRO
+            </div>
+          ) : (
+            <div onClick={onGoPro} className="flex flex-col items-end mr-1 cursor-pointer group active:scale-95 transition-transform">
+              <span className={`text-[10px] font-black uppercase tracking-tighter ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Points</span>
+              <span className={`text-xs font-black leading-none ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>{profile?.aiPointsLastReset === new Date().toISOString().split('T')[0] ? (profile?.aiPoints ?? 4) : 4}</span>
+            </div>
+          )}
           <button onClick={() => setIsCalling(true)} className={`w-10 h-10 ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
             <Phone size={18} fill="currentColor" />
           </button>
@@ -1106,6 +1312,17 @@ function CallingView({ onEnd, profile, onGoPro }: { onEnd: () => void, profile: 
         <div className="flex items-center gap-2 mb-8 bg-white/5 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-600'}`}></div>
            <h2 className="text-[10px] font-black tracking-widest text-white/60 uppercase">Live Session</h2>
+           {!profile?.isPro && (
+             <>
+               <div className="w-[1px] h-3 bg-white/10 mx-1"></div>
+               <div className="flex items-center gap-1">
+                 <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">
+                   {profile?.aiPointsLastReset === new Date().toISOString().split('T')[0] ? (profile?.aiPoints ?? 4) : 4}
+                 </span>
+                 <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Pts</span>
+               </div>
+             </>
+           )}
         </div>
         
         <div className="mb-10 relative flex items-center justify-center">
@@ -1280,13 +1497,17 @@ function NavItem({ icon, label, active = false, onClick, theme }: { icon: React.
   );
 }
 
-function LibraryView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
+function LibraryView({ onBack, theme, onSelectItem }: { onBack: () => void, theme: 'light' | 'dark', onSelectItem: (slug: string) => void }) {
   const [filter, setFilter] = useState<'all' | 'offline'>('all');
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadedIds, setDownloadedIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('mw_downloaded_notes');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {
@@ -1314,15 +1535,16 @@ function LibraryView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
 
   const handleDownload = (id: string) => {
     setDownloadedIds(prev => {
-      const next = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
+      const current = prev || [];
+      const next = current.includes(id) ? current.filter(i => i !== id) : [...current, id];
       localStorage.setItem('mw_downloaded_notes', JSON.stringify(next));
       return next;
     });
   };
 
-  const visibleItems = filter === 'offline' 
-    ? materials.filter(item => downloadedIds.includes(item.id))
-    : materials;
+  const visibleItems = (materials || [])
+    .filter(item => item.type !== 'blog')
+    .filter(item => filter === 'offline' ? (downloadedIds || []).includes(item.id) : true);
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
@@ -1378,6 +1600,7 @@ function LibraryView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
                         color={item.type === 'pdf' ? "bg-red-500/20 text-red-500" : item.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-emerald-500/20 text-emerald-500"}
                         isDownloaded={downloadedIds.includes(item.id)} 
                         onDownload={() => handleDownload(item.id)}
+                        onClick={() => onSelectItem(item.slug || item.id)}
                         theme={theme}
                         />
                     </div>
@@ -1399,9 +1622,9 @@ function LibraryView({ onBack, theme }: { onBack: () => void, theme: 'light' | '
   );
 }
 
-function LibraryItem({ title, type, date, color, isDownloaded, onDownload, theme }: { title: string, type: string, date: string, color: string, isDownloaded?: boolean, onDownload?: () => void, theme: 'light' | 'dark' }) {
+function LibraryItem({ title, type, date, color, isDownloaded, onDownload, onClick, theme }: { title: string, type: string, date: string, color: string, isDownloaded?: boolean, onDownload?: () => void, onClick?: () => void, theme: 'light' | 'dark' }) {
   return (
-    <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 active:bg-gray-800/50' : 'bg-white border-slate-200 active:bg-slate-50 shadow-sm'} rounded-[24px] p-4 flex items-center border gap-4 transition-all cursor-pointer group`}>
+    <div onClick={onClick} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 active:bg-gray-800/50' : 'bg-white border-slate-200 active:bg-slate-50 shadow-sm'} rounded-[24px] p-4 flex items-center border gap-4 transition-all cursor-pointer group`}>
       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${color} shadow-inner`}>
         {type === 'pdf' && <ScrollText size={22} />}
         {type === 'video' && <Video size={22} />}
@@ -1440,19 +1663,19 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
     const setVoice = () => {
       const voices = window.speechSynthesis.getVoices();
       const maleVoice = voices.find(v => (
-        v.name.toLowerCase().includes('google us english male') ||
-        v.name.toLowerCase().includes('microsoft james') ||
-        v.name.toLowerCase().includes('guy') ||
-        v.name.toLowerCase().includes('david') ||
-        v.name.toLowerCase().includes('male') ||
-        v.name.toLowerCase().includes('daniel')
-      ) && v.lang.includes('en'));
+        v.name?.toLowerCase()?.includes('google us english male') ||
+        v.name?.toLowerCase()?.includes('microsoft james') ||
+        v.name?.toLowerCase()?.includes('guy') ||
+        v.name?.toLowerCase()?.includes('david') ||
+        v.name?.toLowerCase()?.includes('male') ||
+        v.name?.toLowerCase()?.includes('daniel')
+      ) && v.lang?.includes('en'));
       
       if (maleVoice) {
         utterance.voice = maleVoice;
       } else {
-        const fallbackMale = voices.find(v => v.name.toLowerCase().includes('male') && v.lang.includes('en'));
-        utterance.voice = fallbackMale || voices.find(v => v.lang.includes('en')) || voices[0];
+        const fallbackMale = voices.find(v => v.name?.toLowerCase()?.includes('male') && v.lang?.includes('en'));
+        utterance.voice = fallbackMale || voices.find(v => v.lang?.includes('en')) || voices[0];
       }
       
       utterance.pitch = 0.8;
@@ -2325,7 +2548,7 @@ function ProfileView({
   };
 
   const menuItems = [
-    { icon: CreditCard, label: 'Subscription & Pay', color: 'text-indigo-400', onClick: () => alert('Payment integration coming soon!') },
+    { icon: CreditCard, label: 'Subscription & Pay', color: 'text-indigo-400', onClick: () => onNavigate('subscription') },
     ...(isAdmin ? [{ icon: ShieldCheck, label: 'Admin Panel', color: 'text-amber-500', onClick: () => onNavigate('admin') }] : []),
     { icon: Settings, label: 'App Settings', color: 'text-gray-400', onClick: onShowSettings },
   ];
@@ -2382,8 +2605,13 @@ function ProfileView({
                 ) : (
                     <div className="flex flex-col items-center">
                         <h3 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} flex items-center gap-2 tracking-tight`} onClick={() => setIsEditingName(true)}>
-                            {profile.name} <Smile size={20} className="text-indigo-400 opacity-60" />
+                            {profile.name} {profile.isPro && <Crown size={22} className="text-yellow-400 drop-shadow-md" />} <Smile size={20} className="text-indigo-400 opacity-60" />
                         </h3>
+                        {profile.isPro && (
+                          <div className="mt-1 px-3 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded-full">
+                            <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">Pro Student</span>
+                          </div>
+                        )}
                          <button 
                             onClick={() => setShowLevelPicker(true)}
                             className={`mt-3 inline-flex items-center gap-2 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} px-4 py-1.5 rounded-full border active:scale-95 transition-all group shadow-sm`}
@@ -2700,13 +2928,23 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
 
   // We should actually verify the PayChangu payment if we are redirected back, 
   // but usually PayChangu has an inline script. Let's use PayChangu inline script
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+
   React.useEffect(() => {
+    const existingScript = document.getElementById('paychangu-script');
+    if (existingScript) {
+      setScriptLoaded(true);
+      return;
+    }
+
     const script = document.createElement('script');
+    script.id = 'paychangu-script';
     script.src = 'https://inlines.paychangu.com/js/popup.js';
     script.async = true;
+    script.onload = () => setScriptLoaded(true);
     document.body.appendChild(script);
     return () => {
-      document.body.removeChild(script);
+      // Keep it loaded to avoid re-loading issues
     };
   }, []);
 
@@ -2715,25 +2953,47 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
     setLoading(true);
     setError(null);
     try {
-      const txRef = `tx-${profile.id || Date.now()}-${Date.now()}`;
+      const txRef = `tx-${Math.random().toString(36).substring(2, 12)}`;
+      const publicKey = (import.meta as any).env.VITE_PAYCHANGU_PUBLIC_KEY;
       
-      // Setup paychangu
-      // @ts-ignore
-      PaychanguCheckout({
-        public_key: import.meta.env.VITE_PAYCHANGU_PUBLIC_KEY || "YOUR_PUBLIC_KEY",
+      if (!publicKey) {
+         setError("Missing PayChangu Public Key. Please add VITE_PAYCHANGU_PUBLIC_KEY to your environment variables.");
+         setLoading(false);
+         return;
+      }
+
+      // Robust check for PayChanguCheckout
+      const checkoutFunc = (window as any).PaychanguCheckout;
+      
+      if (!checkoutFunc) {
+        setError("PayChangu script is still loading. Please wait a few seconds and try again.");
+        setLoading(false);
+        // Try reload script if not present
+        if (!document.getElementById('paychangu-script')) {
+            const script = document.createElement('script');
+            script.id = 'paychangu-script';
+            script.src = 'https://inlines.paychangu.com/js/popup.js';
+            script.async = true;
+            document.body.appendChild(script);
+        }
+        return;
+      }
+
+      checkoutFunc({
+        public_key: publicKey,
         tx_ref: txRef,
         amount: 500,
         currency: "MWK",
-        callback_url: "", // We handle using the callback function
+        callback_url: "",
         return_url: "",
         customer: {
-          email: profile.email || "support@educatemw.app",
+          email: profile.email || "student@educatemw.app",
           first_name: profile.name || "Student",
           last_name: "",
         },
         customization: {
           title: "Emi AI Pro",
-          description: "Unlimited AI Tutor Access",
+          description: "K500 Access for Emi AI Only (Unlimited)",
         },
         callback: async (response: any) => {
           if (response.status === 'success') {
@@ -2841,10 +3101,10 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
 
           <button 
              onClick={handleSubscribe}
-             disabled={loading || profile?.isPro}
-             className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95'}`}
+             disabled={loading || profile?.isPro || !scriptLoaded}
+             className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : (!scriptLoaded ? 'bg-gray-700 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95')}`}
           >
-             {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : 'Pay via PayChangu')}
+             {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : (!scriptLoaded ? 'Initialising PayChangu...' : 'Pay via PayChangu'))}
           </button>
           
           {error && (
@@ -3118,12 +3378,18 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 
 function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
   const [students, setStudents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'videos'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications'>('students');
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
-  const [newMaterial, setNewMaterial] = useState({ title: '', content: '', type: 'text' as 'text' | 'pdf' | 'video' });
+  const [newMaterial, setNewMaterial] = useState({ 
+    title: '', 
+    content: '', 
+    excerpt: '',
+    image: '',
+    tags: '',
+    type: 'text' as 'text' | 'pdf' | 'video' | 'blog' 
+  });
   const [notification, setNotification] = useState({ title: '', body: '' });
-  const [newVideo, setNewVideo] = useState({ title: '', url: '', desc: '' });
   const [materials, setMaterials] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
 
@@ -3145,24 +3411,6 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
       });
       setNotification({ title: '', body: '' });
       alert("Notification published!");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  const handlePublishVideo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newVideo.title || !newVideo.url) return;
-    setPublishing(true);
-    try {
-      await addDoc(collection(db, 'videos'), {
-        ...newVideo,
-        createdAt: serverTimestamp()
-      });
-      setNewVideo({ title: '', url: '', desc: '' });
-      alert("Video published successfully!");
     } catch (err) {
       console.error(err);
     } finally {
@@ -3232,13 +3480,21 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
     if (!newMaterial.title || !newMaterial.content) return;
     setPublishing(true);
     try {
+      const slug = newMaterial.title.toLowerCase().replace(/[^\w]+/g, '-');
+      const author = auth.currentUser?.displayName || 'Educate MW Team';
+      
       await addDoc(collection(db, 'materials'), {
         ...newMaterial,
+        slug: slug,
+        author: newMaterial.type === 'blog' ? author : null,
+        tags: newMaterial.type === 'blog' ? newMaterial.tags.split(',').map(t => t.trim()) : [],
+        date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        readTime: newMaterial.type === 'blog' ? `${Math.ceil(newMaterial.content.split(' ').length / 200)} min read` : null,
         authorId: auth.currentUser?.uid,
         createdAt: serverTimestamp()
       });
-      setNewMaterial({ title: '', content: '', type: 'text' });
-      setActiveTab('students');
+      setNewMaterial({ title: '', content: '', excerpt: '', image: '', tags: '', type: 'text' });
+      alert(`${newMaterial.type} published successfully!`);
     } catch (err) {
       console.error(err);
     } finally {
@@ -3280,12 +3536,6 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
         >
             Alerts
-        </button>
-        <button 
-            onClick={() => setActiveTab('videos')}
-            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'videos' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
-        >
-            Videos
         </button>
       </div>
 
@@ -3374,22 +3624,61 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                             value={newMaterial.content}
                             onChange={e => setNewMaterial({...newMaterial, content: e.target.value})}
                             rows={4}
-                            placeholder="Provide details or link here..." 
+                            placeholder={newMaterial.type === 'blog' ? "Markdown article content..." : "Provide details or link here..."} 
                             className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 resize-none border`}
                         />
                     </div>
-                    <div className="flex gap-3">
-                        {(['text', 'pdf', 'video'] as const).map((type) => (
+
+                    {newMaterial.type === 'blog' && (
+                        <>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Excerpt (Short Summary)</label>
+                                <textarea 
+                                    value={newMaterial.excerpt}
+                                    onChange={e => setNewMaterial({...newMaterial, excerpt: e.target.value})}
+                                    rows={2}
+                                    placeholder="Brief summary for the blog list..." 
+                                    className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 resize-none border`}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Featured Image URL</label>
+                                <input 
+                                    value={newMaterial.image}
+                                    onChange={e => setNewMaterial({...newMaterial, image: e.target.value})}
+                                    placeholder="https://..." 
+                                    className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Tags (comma separated)</label>
+                                <input 
+                                    value={newMaterial.tags}
+                                    onChange={e => setNewMaterial({...newMaterial, tags: e.target.value})}
+                                    placeholder="MSCE, Biology, Tips" 
+                                    className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    <div className="flex gap-2 flex-wrap">
+                        {(['text', 'pdf', 'video', 'blog'] as const).map((type) => (
                             <button 
                                 key={type}
                                 type="button"
                                 onClick={() => setNewMaterial({...newMaterial, type})}
-                                className={`flex-1 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest border transition-all ${newMaterial.type === type ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : (theme === 'dark' ? 'bg-gray-950 border-gray-800 text-gray-500' : 'bg-slate-50 border-slate-200 text-slate-400')}`}
+                                className={`flex-1 py-3 px-2 rounded-xl font-bold text-[10px] uppercase tracking-widest border transition-all ${newMaterial.type === type ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : (theme === 'dark' ? 'bg-gray-950 border-gray-800 text-gray-500' : 'bg-slate-50 border-slate-200 text-slate-400')}`}
                             >
                                 {type}
                             </button>
                         ))}
                     </div>
+                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center">
+                        {newMaterial.type === 'blog' ? 'Destined for: Knowledge Hub / Blog' : 
+                         newMaterial.type === 'video' ? 'Destined for: Video Library' : 
+                         'Destined for: Study Library Vault'}
+                    </p>
                     <button 
                         type="submit" 
                         disabled={publishing}
@@ -3467,54 +3756,6 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                         </button>
                     </div>
                 ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'videos' && (
-          <div className="space-y-6">
-            <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-[32px] relative overflow-hidden">
-                <Video className="absolute right-[-5%] top-[-10%] w-24 h-24 text-blue-500/5 -rotate-12" />
-                <h3 className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-1`}>Publish Video</h3>
-                <p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest leading-tight">Add a YouTube tutorial</p>
-                
-                <form onSubmit={handlePublishVideo} className="mt-8 space-y-5 relative z-10">
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Video Title</label>
-                        <input 
-                            value={newVideo.title}
-                            onChange={e => setNewVideo({...newVideo, title: e.target.value})}
-                            placeholder="e.g. Algebra Basics" 
-                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500/50 border`}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">YouTube URL</label>
-                        <input 
-                            value={newVideo.url}
-                            onChange={e => setNewVideo({...newVideo, url: e.target.value})}
-                            placeholder="https://youtube.com/watch?v=..." 
-                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500/50 border`}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Short Description (Optional)</label>
-                        <textarea 
-                            value={newVideo.desc}
-                            onChange={e => setNewVideo({...newVideo, desc: e.target.value})}
-                            rows={2}
-                            placeholder="Briefly describe what this video covers..." 
-                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500/50 resize-none border`}
-                        />
-                    </div>
-                    <button 
-                        type="submit" 
-                        disabled={publishing}
-                        className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all text-xs flex items-center justify-center gap-2"
-                    >
-                        {publishing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Publish Video <Play size={16} /></>}
-                    </button>
-                </form>
             </div>
           </div>
         )}
@@ -3642,7 +3883,7 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const qVideos = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
+    const qVideos = query(collection(db, 'materials'), where('type', '==', 'video'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(qVideos, (snapshot) => {
       setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
@@ -3675,7 +3916,7 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
       ) : (
         <div className="space-y-6 pb-20">
           {videos.map(video => {
-            const videoId = video.url.includes('v=') ? video.url.split('v=')[1].substring(0, 11) : video.url.split('/').pop()?.substring(0, 11);
+            const videoId = video.url?.includes('v=') ? video.url.split('v=')[1].substring(0, 11) : video.url?.split('/').pop()?.substring(0, 11);
             return (
               <div key={video.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} rounded-3xl overflow-hidden border shadow-xl`}>
                 <div className="aspect-video bg-black relative">
@@ -3706,6 +3947,103 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function MaterialDetailView({ slug, onBack, theme }: { slug: string, onBack: () => void, theme: 'light' | 'dark' }) {
+  const [material, setMaterial] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch specifically by slug or ID
+    const q = query(collection(db, 'materials'), where('slug', '==', slug));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        setMaterial({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+      } else {
+        // Fallback for direct ID access
+        const fetchById = async () => {
+          const docRef = doc(db, 'materials', slug);
+          try {
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+               setMaterial({ id: docSnap.id, ...docSnap.data() });
+            }
+          } catch (e) {
+            console.error("Library material fetch error:", e);
+          }
+        };
+        fetchById();
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [slug]);
+
+  if (loading) return (
+    <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
+       <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!material) return (
+    <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center p-8 text-center ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+       <button onClick={onBack} className="mb-4 bg-gray-900 text-white p-2 rounded-lg">
+         <ChevronLeft size={24} />
+       </button>
+       <h2 className="text-xl font-bold mb-2 uppercase tracking-widest">Material Not Found</h2>
+       <p className="text-sm opacity-60 font-medium">The resource you are looking for does not exist or has been removed.</p>
+       <button onClick={onBack} className="mt-6 px-10 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-600/30">Explore Library</button>
+    </div>
+  );
+
+  return (
+    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+        <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-all`}>
+          <ChevronLeft size={24} strokeWidth={3} />
+        </button>
+        <div className="ml-4 flex-1 truncate">
+           <h2 className="font-black text-xs leading-tight uppercase tracking-widest truncate">{material.title}</h2>
+           <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">{material.type}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-6 py-8 hide-scrollbar">
+         <div className="space-y-6 max-w-2xl mx-auto">
+            <div className="flex items-center gap-2">
+               <span className="px-3 py-1 bg-indigo-600/10 text-indigo-400 text-[10px] font-black rounded-lg border border-indigo-500/20 uppercase tracking-widest">Library Vault</span>
+               <span className="text-[10px] font-bold text-gray-500">{material.createdAt?.toDate ? material.createdAt.toDate().toLocaleDateString() : 'New Release'}</span>
+            </div>
+
+            <h1 className="text-3xl font-black leading-[1.1] tracking-tight">{material.title}</h1>
+            
+            <div className={`flex items-center gap-4 py-8 border-y ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg">MW</div>
+                <div>
+                   <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Publisher</p>
+                   <p className="text-sm font-bold">Educate MW Academic Team</p>
+                </div>
+            </div>
+
+            <div className={`prose ${theme === 'dark' ? 'prose-invert' : ''} max-w-none prose-p:text-base prose-p:leading-relaxed prose-p:font-medium prose-headings:font-black prose-headings:uppercase prose-headings:tracking-widest`}>
+               {material.content?.split('\n').map((para: string, i: number) => (
+                  <p key={i} className="mb-4 text-justify whitespace-pre-wrap">{para}</p>
+               ))}
+            </div>
+
+            <div className={`mt-12 p-8 rounded-[32px] ${theme === 'dark' ? 'bg-indigo-600/5 border-indigo-500/10' : 'bg-indigo-50 border-indigo-200'} border flex flex-col items-center text-center`}>
+               <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center mb-6">
+                 <Trophy className="text-indigo-500" size={32} />
+               </div>
+               <h3 className="text-lg font-black uppercase mb-2">Mastered this topic?</h3>
+               <p className="text-sm opacity-60 font-medium mb-8">Great job on finishing your study! Take a quick quiz to cement this in your memory.</p>
+               <button onClick={onBack} className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-indigo-600/30 hover:scale-105 active:scale-95 transition-all">Start Subject Quiz</button>
+            </div>
+         </div>
+         <div className="h-20" />
+      </div>
     </div>
   );
 }
