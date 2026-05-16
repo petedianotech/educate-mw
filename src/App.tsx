@@ -2325,8 +2325,12 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
         <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/40 mb-6 p-4">
           <GraduationCap size={44} className="text-white" fill="white" fillOpacity={0.2} />
         </div>
-        <h1 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight uppercase`}>Educate MW</h1>
-        <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Empowering Students</p>
+        <h1 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight`}>educate mw</h1>
+        <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 mb-4">Empowering Students</p>
+        
+        <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} text-center max-w-xs font-medium leading-relaxed mb-4`}>
+          The ultimate learning platform for Malawian students. Access MSCE notes, interactive quizzes, video tutorials, a dictionary, and an intelligent AI assistant.
+        </p>
       </div>
 
       <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} rounded-[40px] p-8 border`}>
@@ -2405,7 +2409,7 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
             Create New Account
           </button>
           <p className="text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-            By continuing, you agree to our <button onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms</button> and <button onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy</button>.
+            By continuing, you agree to our <button onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms of Service</button> and <button onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy Policy</button>.
           </p>
         </div>
       </div>
@@ -2471,7 +2475,7 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
             <ChevronLeft size={24} strokeWidth={3} />
          </button>
          <div className="text-right">
-            <h2 className="text-2xl font-black tracking-tighter uppercase leading-tight">Join<br/><span className="text-indigo-500">Educate</span></h2>
+            <h2 className="text-2xl font-black tracking-tighter leading-tight">Join<br/><span className="text-indigo-500">educate mw</span></h2>
          </div>
       </div>
 
@@ -2581,7 +2585,7 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
         </form>
 
         <p className="mt-8 text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-          By signing up, you agree to our <button type="button" onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms</button> and <button type="button" onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy</button>.
+          By signing up, you agree to our <button type="button" onClick={() => window.location.href = '/terms'} className="text-indigo-400">Terms of Service</button> and <button type="button" onClick={() => window.location.href = '/privacy'} className="text-indigo-400">Privacy Policy</button>.
         </p>
       </div>
     </div>
