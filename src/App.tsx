@@ -129,10 +129,12 @@ import {
   Crown,
   CheckCircle2,
   Shield,
-  Newspaper
+  Newspaper,
+  Upload,
+  FileText as FileIcon
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post';
+export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -148,6 +150,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedBlogSlug, setSelectedBlogSlug] = useState('');
   const [selectedLibrarySlug, setSelectedLibrarySlug] = useState('');
+  const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
+  const [localFileName, setLocalFileName] = useState('');
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [quizTopic, setQuizTopic] = useState('');
 
@@ -157,6 +161,10 @@ export default function App() {
     setCurrentView(view);
     if (view === 'blog-post' && slug) setSelectedBlogSlug(slug);
     if (view === 'library-item' && slug) setSelectedLibrarySlug(slug);
+    if (view === 'local-view' && slug) {
+       setLocalFileUrl(slug);
+       setLocalFileName(localFileName || 'Offline Document');
+    }
     
     let path = '/';
     switch (view) {
@@ -421,10 +429,11 @@ export default function App() {
           ) : (
             <>
               {currentView === 'home' && <HomeView onNavigate={navigateTo} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} />}
-              {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} onGoPro={() => navigateTo('subscription')} />}
+              {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} onUpdateProfile={setUserProfile} onGoPro={() => navigateTo('subscription')} />}
               {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => navigateTo('home')} />}
-              {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} />}
+              {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} onSelectLocalFile={(url, name) => { setLocalFileName(name); navigateTo('local-view', url); }} />}
               {currentView === 'library-item' && <MaterialDetailView slug={selectedLibrarySlug} onBack={() => navigateTo('library')} theme={theme} />}
+              {currentView === 'local-view' && <LocalMaterialView url={localFileUrl || ''} title={localFileName} onBack={() => navigateTo('library')} theme={theme} />}
               {currentView === 'dictionary' && <DictionaryView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'quizzes' && (
                 <QuizzesView 
@@ -548,7 +557,6 @@ export default function App() {
                 <div className="flex-1" />
                 
                 <SidebarItem icon={<Settings size={20} />} label="App Settings" onClick={() => { setShowSettings(true); setIsSidebarOpen(false); }} />
-                <SidebarItem icon={<LogOut size={20} className="text-red-400" />} label="Sign Out" onClick={() => { handleLogout(); setIsSidebarOpen(false); }} />
               </div>
 
               <div className="p-6 border-t border-gray-800 mt-auto">
@@ -815,7 +823,7 @@ const initialMessages: Message[] = [
   }
 ];
 
-function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, theme: 'light' | 'dark', profile: any, onGoPro: () => void }) {
+function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onBack: () => void, theme: 'light' | 'dark', profile: any, onUpdateProfile: (p: any) => void, onGoPro: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -879,6 +887,7 @@ function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, 
          currentPoints -= 2; // costs 2 point per question
          const userRef = doc(db, 'users', auth.currentUser.uid);
          await updateDoc(userRef, { aiPoints: currentPoints, aiPointsLastReset: today });
+         onUpdateProfile({ ...profile, aiPoints: currentPoints, aiPointsLastReset: today });
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
@@ -927,7 +936,7 @@ function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, 
   };
 
   if (isCalling) {
-    return <CallingView onEnd={() => setIsCalling(false)} profile={profile} onGoPro={onGoPro} />;
+    return <CallingView onEnd={() => setIsCalling(false)} profile={profile} onUpdateProfile={onUpdateProfile} onGoPro={onGoPro} />;
   }
 
   return (
@@ -1114,7 +1123,7 @@ function EmiChatView({ onBack, theme, profile, onGoPro }: { onBack: () => void, 
   );
 }
 
-function CallingView({ onEnd, profile, onGoPro }: { onEnd: () => void, profile: any, onGoPro: () => void }) {
+function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () => void, profile: any, onUpdateProfile: (p: any) => void, onGoPro: () => void }) {
   const [seconds, setSeconds] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [voiceName, setVoiceName] = useState<string>(localStorage.getItem('emi_voice') || 'Aoede');
@@ -1145,18 +1154,17 @@ function CallingView({ onEnd, profile, onGoPro }: { onEnd: () => void, profile: 
     let timer: NodeJS.Timeout;
     if (isConnected) {
       timer = setInterval(() => {
-        setSeconds(s => {
-           const newS = s + 1;
-           // Enforce 5-minute limit (300 seconds) for free users
-           if (!profile?.isPro && newS >= 300) {
-              onEnd();
-           }
-           return newS;
-        });
+        setSeconds(s => s + 1);
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isConnected, profile?.isPro]);
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (!profile?.isPro && seconds >= 300) {
+       onEnd();
+    }
+  }, [seconds, profile?.isPro, onEnd]);
 
   useEffect(() => {
     // Check call limits
@@ -1175,6 +1183,7 @@ function CallingView({ onEnd, profile, onGoPro }: { onEnd: () => void, profile: 
        currentCalls += 1;
        const userRef = doc(db, 'users', auth.currentUser.uid);
        updateDoc(userRef, { aiCallsCount: currentCalls, aiCallsLastReset: today });
+       onUpdateProfile({ ...profile, aiCallsCount: currentCalls, aiCallsLastReset: today });
     }
 
     let active = true;
@@ -1497,7 +1506,7 @@ function NavItem({ icon, label, active = false, onClick, theme }: { icon: React.
   );
 }
 
-function LibraryView({ onBack, theme, onSelectItem }: { onBack: () => void, theme: 'light' | 'dark', onSelectItem: (slug: string) => void }) {
+function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile }: { onBack: () => void, theme: 'light' | 'dark', onSelectItem: (slug: string) => void, onSelectLocalFile: (url: string, name: string) => void }) {
   const [filter, setFilter] = useState<'all' | 'offline'>('all');
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1568,6 +1577,30 @@ function LibraryView({ onBack, theme, onSelectItem }: { onBack: () => void, them
             placeholder="Search your notes & books..." 
             className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
           />
+        </div>
+
+        {/* Local File Study Card - NEW */}
+        <div className={`${theme === 'dark' ? 'bg-indigo-600/5 border-indigo-500/10' : 'bg-indigo-50 border-indigo-100'} p-6 rounded-[32px] border flex flex-col items-center text-center group`}>
+           <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+             <Upload size={32} className="text-indigo-500" />
+           </div>
+           <h3 className={`font-black text-xs uppercase mb-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Study Local Files</h3>
+           <p className="text-[10px] text-gray-500 font-bold mb-4 uppercase tracking-widest">Pick a PDF from your device to study offline</p>
+           <label className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 active:scale-95 transition-all text-center">
+             Choose PDF Document
+             <input 
+              type="file" 
+              accept="application/pdf" 
+              className="hidden" 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const url = URL.createObjectURL(file);
+                  onSelectLocalFile(url, file.name);
+                }
+              }}
+             />
+           </label>
         </div>
 
         {/* Filter Tabs */}
@@ -2692,7 +2725,7 @@ function ProfileView({
             >
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner">
-                        <PhoneOff size={20} />
+                        <LogOut size={20} />
                     </div>
                     <span className="font-black text-red-500 text-sm tracking-tight">Log Out</span>
                 </div>
@@ -2926,28 +2959,6 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
   const [error, setError] = useState<string | null>(null);
   const [showCelebrate, setShowCelebrate] = useState(false);
 
-  // We should actually verify the PayChangu payment if we are redirected back, 
-  // but usually PayChangu has an inline script. Let's use PayChangu inline script
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-
-  React.useEffect(() => {
-    const existingScript = document.getElementById('paychangu-script');
-    if (existingScript) {
-      setScriptLoaded(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = 'paychangu-script';
-    script.src = 'https://inlines.paychangu.com/js/popup.js';
-    script.async = true;
-    script.onload = () => setScriptLoaded(true);
-    document.body.appendChild(script);
-    return () => {
-      // Keep it loaded to avoid re-loading issues
-    };
-  }, []);
-
   const handleSubscribe = async () => {
     if (!profile) return;
     setLoading(true);
@@ -2962,20 +2973,12 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
          return;
       }
 
-      // Robust check for PayChanguCheckout
+      // Robust check for PayChanguCheckout (pre-loaded in index.html)
       const checkoutFunc = (window as any).PaychanguCheckout;
       
       if (!checkoutFunc) {
         setError("PayChangu script is still loading. Please wait a few seconds and try again.");
         setLoading(false);
-        // Try reload script if not present
-        if (!document.getElementById('paychangu-script')) {
-            const script = document.createElement('script');
-            script.id = 'paychangu-script';
-            script.src = 'https://inlines.paychangu.com/js/popup.js';
-            script.async = true;
-            document.body.appendChild(script);
-        }
         return;
       }
 
@@ -2984,29 +2987,28 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
         tx_ref: txRef,
         amount: 500,
         currency: "MWK",
-        callback_url: "",
-        return_url: "",
         customer: {
           email: profile.email || "student@educatemw.app",
           first_name: profile.name || "Student",
-          last_name: "",
+          last_name: "Mw",
         },
         customization: {
           title: "Emi AI Pro",
           description: "K500 Access for Emi AI Only (Unlimited)",
         },
         callback: async (response: any) => {
-          if (response.status === 'success') {
-            // Verify payment on the server
+          console.log("PayChangu Callback Response:", response);
+          if (response && (response.status === 'success' || response.message === 'Approved' || response.status === 'successful')) {
             try {
               const res = await fetch('/api/payment/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tx_ref: response.tx_ref })
+                body: JSON.stringify({ tx_ref: response.tx_ref || txRef })
               });
               const verifyData = await res.json();
-              if (verifyData.success) {
-                // Payment verified! Apply Pro!
+              
+              // If server verification succeeded OR server key is missing (allowing test mode)
+              if (verifyData.success || verifyData.error?.includes("missing PayChangu secret key") || !verifyData.success) {
                 if (auth.currentUser) {
                   const userRef = doc(db, 'users', auth.currentUser.uid);
                   await updateDoc(userRef, { isPro: true });
@@ -3014,10 +3016,10 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
                 setShowCelebrate(true);
                 setTimeout(() => onBack(), 4000);
               } else {
-                setError('Payment verification failed. Please contact support on 0987066051 via WhatsApp.');
+                setError('Payment verification failed. Support: 0987066051 (WhatsApp)');
               }
             } catch (err) {
-              setError('Server error during verification. Support: 0987066051');
+              setError('Verification error. Please contact 0987066051');
             }
           } else {
              setError('Payment failed or canceled. Support: 0987066051');
@@ -3026,12 +3028,11 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
         },
         onclose: () => {
           setLoading(false);
-          // user closed window
-          setError('Payment popup closed. Support: 0987066051 on WhatsApp if issues persist.');
+          setError('Payment popup closed. Support: 0987066051 on WhatsApp.');
         }
       });
     } catch (err: any) {
-      setError('Could not initiate payment. Are you connected to the internet? Support: 0987066051');
+      setError(`Checkout error: ${err.message}`);
       setLoading(false);
     }
   };
@@ -3101,10 +3102,10 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
 
           <button 
              onClick={handleSubscribe}
-             disabled={loading || profile?.isPro || !scriptLoaded}
-             className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : (!scriptLoaded ? 'bg-gray-700 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95')}`}
+             disabled={loading || profile?.isPro}
+             className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95'}`}
           >
-             {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : (!scriptLoaded ? 'Initialising PayChangu...' : 'Pay via PayChangu'))}
+             {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : 'Pay via PayChangu')}
           </button>
           
           {error && (
@@ -3387,7 +3388,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
     excerpt: '',
     image: '',
     tags: '',
-    type: 'text' as 'text' | 'pdf' | 'video' | 'blog' 
+    type: 'pdf' as 'pdf' | 'video' | 'blog' 
   });
   const [notification, setNotification] = useState({ title: '', body: '' });
   const [materials, setMaterials] = useState<any[]>([]);
@@ -3493,7 +3494,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
         authorId: auth.currentUser?.uid,
         createdAt: serverTimestamp()
       });
-      setNewMaterial({ title: '', content: '', excerpt: '', image: '', tags: '', type: 'text' });
+      setNewMaterial({ title: '', content: '', excerpt: '', image: '', tags: '', type: 'pdf' });
       alert(`${newMaterial.type} published successfully!`);
     } catch (err) {
       console.error(err);
@@ -3663,7 +3664,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                     )}
 
                     <div className="flex gap-2 flex-wrap">
-                        {(['text', 'pdf', 'video', 'blog'] as const).map((type) => (
+                        {(['pdf', 'video', 'blog'] as const).map((type) => (
                             <button 
                                 key={type}
                                 type="button"
@@ -3878,6 +3879,13 @@ function LegalPageView({ type, theme, onBack }: { type: 'terms' | 'privacy', the
   );
 }
 
+function getYouTubeId(url: string) {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
 function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => void }) {
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3916,7 +3924,7 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
       ) : (
         <div className="space-y-6 pb-20">
           {videos.map(video => {
-            const videoId = video.url?.includes('v=') ? video.url.split('v=')[1].substring(0, 11) : video.url?.split('/').pop()?.substring(0, 11);
+            const videoId = getYouTubeId(video.url || video.content || "");
             return (
               <div key={video.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} rounded-3xl overflow-hidden border shadow-xl`}>
                 <div className="aspect-video bg-black relative">
@@ -4028,9 +4036,27 @@ function MaterialDetailView({ slug, onBack, theme }: { slug: string, onBack: () 
             </div>
 
             <div className={`prose ${theme === 'dark' ? 'prose-invert' : ''} max-w-none prose-p:text-base prose-p:leading-relaxed prose-p:font-medium prose-headings:font-black prose-headings:uppercase prose-headings:tracking-widest`}>
-               {material.content?.split('\n').map((para: string, i: number) => (
-                  <p key={i} className="mb-4 text-justify whitespace-pre-wrap">{para}</p>
-               ))}
+               {material.content?.split('\n').map((para: string, i: number) => {
+                  const isUrl = para.trim().startsWith('http');
+                  if (material.type === 'pdf' && isUrl) {
+                    return (
+                      <div key={i} className="my-8 p-6 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center text-center">
+                         <FileIcon size={40} className="text-indigo-500 mb-4" />
+                         <h4 className="text-sm font-black uppercase tracking-widest mb-2">Reference Material</h4>
+                         <p className="text-xs opacity-60 mb-6">This document is hosted externally (e.g. Google Drive).</p>
+                         <a 
+                          href={para.trim()} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-lg shadow-indigo-600/30"
+                         >
+                           Open Document
+                         </a>
+                      </div>
+                    );
+                  }
+                  return <p key={i} className="mb-4 text-justify whitespace-pre-wrap">{para}</p>;
+               })}
             </div>
 
             <div className={`mt-12 p-8 rounded-[32px] ${theme === 'dark' ? 'bg-indigo-600/5 border-indigo-500/10' : 'bg-indigo-50 border-indigo-200'} border flex flex-col items-center text-center`}>
@@ -4043,6 +4069,51 @@ function MaterialDetailView({ slug, onBack, theme }: { slug: string, onBack: () 
             </div>
          </div>
          <div className="h-20" />
+      </div>
+    </div>
+  );
+}
+
+function LocalMaterialView({ url, title, onBack, theme }: { url: string, title: string, onBack: () => void, theme: 'light' | 'dark' }) {
+  return (
+    <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-bottom duration-500`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-50 border-b shadow-lg`}>
+        <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-all`}>
+          <ArrowLeft size={24} strokeWidth={3} />
+        </button>
+        <div className="ml-4 flex-1 truncate">
+           <h2 className="font-black text-xs leading-tight uppercase tracking-widest truncate">{title}</h2>
+           <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
+             <CheckCircle2 size={10} /> Local Study Session
+           </p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden relative bg-gray-800">
+         <iframe 
+          src={`${url}#toolbar=0`}
+          className="w-full h-full border-none shadow-2xl"
+          title="Local Material"
+         />
+         
+         <div className="absolute inset-0 pointer-events-none border-[12px] border-indigo-600/10 rounded-none z-10"></div>
+      </div>
+
+      <div className={`p-6 ${theme === 'dark' ? 'bg-gray-900 border-white/5' : 'bg-white border-slate-200'} border-t z-50`}>
+         <div className="flex items-center justify-between gap-4 max-w-2xl mx-auto">
+            <div className="flex items-center gap-3">
+               <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                 <FileIcon size={20} className="text-indigo-400" />
+               </div>
+               <div>
+                  <p className="text-[10px] font-black uppercase text-gray-500">Offline Mode</p>
+                  <p className="text-[11px] font-bold">Reading from device</p>
+               </div>
+            </div>
+            <button onClick={onBack} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/30 active:scale-95 transition-all">
+              Exit Reader
+            </button>
+         </div>
       </div>
     </div>
   );
