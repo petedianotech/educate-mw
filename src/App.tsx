@@ -7,7 +7,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import SEO from './components/SEO';
 import { BlogView, BlogPostView } from './components/BlogSystem';
-import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -150,6 +149,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedBlogSlug, setSelectedBlogSlug] = useState('');
   const [selectedLibrarySlug, setSelectedLibrarySlug] = useState('');
+  const [librarySearch, setLibrarySearch] = useState('');
   const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
   const [localFileName, setLocalFileName] = useState('');
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
@@ -157,14 +157,17 @@ export default function App() {
 
   const adminEmails = ['petedianotech@gmail.com', 'mscepreparation@gmail.com'];
 
-  const navigateTo = (view: ViewState, slug?: string) => {
+  const navigateTo = (view: ViewState, slugOrSearch?: string) => {
     setCurrentView(view);
-    if (view === 'blog-post' && slug) setSelectedBlogSlug(slug);
-    if (view === 'library-item' && slug) setSelectedLibrarySlug(slug);
-    if (view === 'local-view' && slug) {
-       setLocalFileUrl(slug);
+    if (view === 'blog-post' && slugOrSearch) setSelectedBlogSlug(slugOrSearch);
+    if (view === 'library-item' && slugOrSearch) setSelectedLibrarySlug(slugOrSearch);
+    if (view === 'library' && slugOrSearch) setLibrarySearch(slugOrSearch);
+    if (view === 'library' && !slugOrSearch) setLibrarySearch('');
+    if (view === 'local-view' && slugOrSearch) {
+       setLocalFileUrl(slugOrSearch);
        setLocalFileName(localFileName || 'Offline Document');
     }
+
     
     let path = '/';
     switch (view) {
@@ -244,13 +247,28 @@ export default function App() {
             setUserProfile(data);
 
             // Streak Logic
-            const now = new Date();
-            const lastActive = data.lastActive?.toDate();
             let newStreak = data.streak || 1;
+            let lastActiveMs = 0;
+            let referralCode = data.referralCode || 'MW-' + Math.random().toString(36).substring(2, 8).toUpperCase();
             
-            if (lastActive) {
-                const diffTime = now.getTime() - lastActive.getTime();
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            if (data.lastActive) {
+                if (typeof data.lastActive.toDate === 'function') {
+                    lastActiveMs = data.lastActive.toDate().getTime();
+                } else if (typeof data.lastActive === 'number') {
+                    lastActiveMs = data.lastActive;
+                } else if (data.lastActive.seconds) {
+                    lastActiveMs = data.lastActive.seconds * 1000;
+                }
+            }
+
+            if (lastActiveMs > 0) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const last = new Date(lastActiveMs);
+                last.setHours(0, 0, 0, 0);
+                
+                const diffTime = today.getTime() - last.getTime();
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
                 
                 if (diffDays === 1) {
                     newStreak += 1;
@@ -261,9 +279,10 @@ export default function App() {
             
             await updateDoc(userRef, { 
                 lastActive: serverTimestamp(),
-                streak: newStreak
+                streak: newStreak,
+                referralCode
             });
-            setUserProfile({ ...data, streak: newStreak });
+            setUserProfile({ ...data, streak: newStreak, referralCode });
           } else {
             const gradient = getAvatarGradient('male', firebaseUser.uid);
             const newProfile = {
@@ -431,8 +450,8 @@ export default function App() {
               {currentView === 'home' && <HomeView onNavigate={navigateTo} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} />}
               {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} onUpdateProfile={setUserProfile} onGoPro={() => navigateTo('subscription')} />}
               {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => navigateTo('home')} />}
-              {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} onSelectLocalFile={(url, name) => { setLocalFileName(name); navigateTo('local-view', url); }} />}
-              {currentView === 'library-item' && <MaterialDetailView slug={selectedLibrarySlug} onBack={() => navigateTo('library')} theme={theme} />}
+              {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} onSelectLocalFile={(url, name) => { setLocalFileName(name); navigateTo('local-view', url); }} initialSearch={librarySearch} />}
+              {currentView === 'library-item' && <MaterialDetailView slug={selectedLibrarySlug} onBack={() => navigateTo('library')} theme={theme} onOpenPdf={(url, title) => { setLocalFileName(title); setLocalFileUrl(url); navigateTo('local-view'); }} />}
               {currentView === 'local-view' && <LocalMaterialView url={localFileUrl || ''} title={localFileName} onBack={() => navigateTo('library')} theme={theme} />}
               {currentView === 'dictionary' && <DictionaryView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'quizzes' && (
@@ -452,6 +471,8 @@ export default function App() {
                   topic={quizTopic} 
                   onEnd={() => navigateTo('quizzes')} 
                   theme={theme} 
+                  profile={userProfile}
+                  onUpdateProfile={setUserProfile}
                 />
               )}
               {currentView === 'flashcards' && <FlashcardsView onBack={() => navigateTo('home')} />}
@@ -604,7 +625,16 @@ function SidebarItem({ icon, label, onClick, active }: { icon: React.ReactNode, 
   );
 }
 
-function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme }: { onNavigate: (view: ViewState) => void, onMenuClick: () => void, profile: any, onShowNotifications: () => void, theme: 'light' | 'dark' }) {
+function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme }: { onNavigate: (view: ViewState, search?: string) => void, onMenuClick: () => void, profile: any, onShowNotifications: () => void, theme: 'light' | 'dark' }) {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      onNavigate('library', searchQuery);
+    }
+  };
+
   return (
     <div className={`flex flex-col h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} overflow-hidden relative`}>
       {/* Fixed Sticky Header */}
@@ -652,14 +682,16 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
 
            {/* Search */}
            <div className="mb-6 animate-in fade-in slide-in-from-top-6 duration-600">
-             <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl px-5 py-3.5 flex items-center border group focus-within:border-indigo-500/50 transition-all`}>
+             <form onSubmit={handleSearch} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl px-5 py-3.5 flex items-center border group focus-within:border-indigo-500/50 transition-all`}>
                <Search className="text-gray-500 mr-3 group-focus-within:text-indigo-400 transition-colors" size={18} strokeWidth={3}/>
                <input 
                  type="text" 
                  placeholder="Search topics, notes, tutors..." 
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
                />
-             </div>
+             </form>
            </div>
 
           {/* Hero Banner */}
@@ -824,7 +856,21 @@ const initialMessages: Message[] = [
 ];
 
 function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onBack: () => void, theme: 'light' | 'dark', profile: any, onUpdateProfile: (p: any) => void, onGoPro: () => void }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem(`mw_emi_chat_${profile?.uid || 'guest'}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`mw_emi_chat_${profile?.uid || 'guest'}`, JSON.stringify(messages));
+    } catch (e) {}
+  }, [messages, profile?.uid]);
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCalling, setIsCalling] = useState(false);
@@ -852,7 +898,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
     if (!text.trim() || isLoading) return;
 
     // --- CHECK LIMITS ---
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const isPro = profile?.isPro;
     const aiPointsLastReset = profile?.aiPointsLastReset || '';
     let currentPoints = aiPointsLastReset === today ? (profile?.aiPoints ?? 4) : 4; // Max 4 points for Free
@@ -866,6 +912,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMsg]);
+      setIsLoading(false);
       setTimeout(onGoPro, 3000);
       return;
     }
@@ -890,27 +937,14 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
          onUpdateProfile({ ...profile, aiPoints: currentPoints, aiPointsLastReset: today });
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const config: any = {
-        systemInstruction: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE). 2. Use simple English that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. If the user question requires real-time information or factual data, synthesize the searched information smoothly into your response."
-      };
-      
-      if (useSearch) {
-        config.tools = [{ googleSearch: {} }];
-      }
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
-        contents: [...messages, userMessage].map(m => ({
-          role: m.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text }]
-        })),
-        config
+      const response = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, userMessage: { sender: 'user', text } })
       });
+      const dataItems = await response.json();
       
-      let responseText = response.text || 'Sorry, I couldn\'t find an answer to that.';
-      // Fallback clean up to ensure absolutely no asterisks or dollar signs
-      responseText = responseText.replace(/\*/g, '');
+      let responseText = dataItems.text || 'Sorry, I couldn\'t find an answer to that.';
       responseText = responseText.replace(/\$/g, '');
 
       const aiMessage: Message = {
@@ -968,7 +1002,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           ) : (
             <div onClick={onGoPro} className="flex flex-col items-end mr-1 cursor-pointer group active:scale-95 transition-transform">
               <span className={`text-[10px] font-black uppercase tracking-tighter ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Points</span>
-              <span className={`text-xs font-black leading-none ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>{profile?.aiPointsLastReset === new Date().toISOString().split('T')[0] ? (profile?.aiPoints ?? 4) : 4}</span>
+              <span className={`text-xs font-black leading-none ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>{profile?.aiPointsLastReset === new Date().toLocaleDateString('en-CA') ? (profile?.aiPoints ?? 4) : 4}</span>
             </div>
           )}
           <button onClick={() => setIsCalling(true)} className={`w-10 h-10 ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
@@ -1168,7 +1202,7 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
 
   useEffect(() => {
     // Check call limits
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const isPro = profile?.isPro;
     const aiCallsLastReset = profile?.aiCallsLastReset || '';
     let currentCalls = aiCallsLastReset === today ? (profile?.aiCallsCount ?? 0) : 0;
@@ -1187,7 +1221,6 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
     }
 
     let active = true;
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
     const initConnection = async () => {
       try {
@@ -1195,90 +1228,82 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
         if (!active) return;
         streamRef.current = stream;
 
-        const sessionPromise = ai.live.connect({
-          model: "gemini-3.1-flash-live-preview",
-          callbacks: {
-            onopen: () => {
-              setIsConnected(true);
-              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-              const audioContext = new AudioContextClass({ sampleRate: 16000 });
-              audioContextRef.current = audioContext;
-              nextPlayTimeRef.current = audioContext.currentTime;
-              
-              const analyser = audioContext.createAnalyser();
-              analyser.fftSize = 256;
-              analyserRef.current = analyser;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/gemini/live`;
+        const ws = new WebSocket(wsUrl);
 
-              const source = audioContext.createMediaStreamSource(stream);
-              source.connect(analyser);
+        ws.onopen = () => {
+          setIsConnected(true);
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          const audioContext = new AudioContextClass({ sampleRate: 16000 });
+          audioContextRef.current = audioContext;
+          nextPlayTimeRef.current = audioContext.currentTime;
+          
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 256;
+          analyserRef.current = analyser;
 
-              const processor = audioContext.createScriptProcessor(4096, 1, 1);
-              
-              processor.onaudioprocess = (e) => {
-                if (isMutedRef.current) return;
-                const inputData = e.inputBuffer.getChannelData(0);
-                const pcm16 = new Int16Array(inputData.length);
-                for (let i = 0; i < inputData.length; i++) {
-                  pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
-                }
-                const buffer = new ArrayBuffer(pcm16.buffer.byteLength);
-                new Uint8Array(buffer).set(new Uint8Array(pcm16.buffer));
-                const binary = String.fromCharCode(...new Uint8Array(buffer));
-                const base64Data = btoa(binary);
-                
-                sessionPromise.then((session) => {
-                  if (active) {
-                    session.sendRealtimeInput({
-                      audio: { data: base64Data, mimeType: 'audio/pcm;rate=16000' }
-                    });
-                  }
-                });
-              };
-              source.connect(processor);
-              processor.connect(audioContext.destination);
-            },
-            onmessage: (message: LiveServerMessage) => {
-              if (message.serverContent?.interrupted) {
-                 nextPlayTimeRef.current = 0;
-              }
-              const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-              if (base64Audio && audioContextRef.current) {
-                const ctx = audioContextRef.current;
-                const binaryString = atob(base64Audio);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                     bytes[i] = binaryString.charCodeAt(i);
-                }
-                const pcm16 = new Int16Array(bytes.buffer);
-                const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000);
-                const channelData = audioBuffer.getChannelData(0);
-                for (let i = 0; i < pcm16.length; i++) {
-                    channelData[i] = pcm16[i] / 32768.0;
-                }
-                const trackSource = ctx.createBufferSource();
-                trackSource.buffer = audioBuffer;
-                trackSource.connect(ctx.destination);
-                
-                const schedTime = Math.max(nextPlayTimeRef.current, ctx.currentTime);
-                trackSource.start(schedTime);
-                nextPlayTimeRef.current = schedTime + audioBuffer.duration;
-              }
-            },
-            onerror: (err) => console.error("Live Error:", err),
-            onclose: () => {
-              if (active) setIsConnected(false);
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          const processor = audioContext.createScriptProcessor(4096, 1, 1);
+          
+          processor.onaudioprocess = (e) => {
+            if (isMutedRef.current) return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            const pcm16 = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+              pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
             }
-          },
-          config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } },
-            },
-            systemInstruction: "You are Emi, a friendly AI learning assistant from Malawi. Address students warmly, encourage them, and help with MSCE exam prep or school topics. Speak clearly and clearly.",
-          },
-        });
-        sessionRef.current = sessionPromise;
+            const buffer = new ArrayBuffer(pcm16.buffer.byteLength);
+            new Uint8Array(buffer).set(new Uint8Array(pcm16.buffer));
+            const binary = String.fromCharCode(...new Uint8Array(buffer));
+            const base64Data = btoa(binary);
+            
+            if (active && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                realtimeInput: { mediaChunks: [{ data: base64Data }] }
+              }));
+            }
+          };
+          source.connect(processor);
+          processor.connect(audioContext.destination);
+        };
+
+        ws.onmessage = (event) => {
+          const message = JSON.parse(event.data);
+          if (message.interrupted) {
+             nextPlayTimeRef.current = 0;
+          }
+          const base64Audio = message.audio;
+          if (base64Audio && audioContextRef.current) {
+            const ctx = audioContextRef.current;
+            const binaryString = atob(base64Audio);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                 bytes[i] = binaryString.charCodeAt(i);
+            }
+            const pcm16 = new Int16Array(bytes.buffer);
+            const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000); // 24kHz is what live API text-to-speech currently returns
+            const channelData = audioBuffer.getChannelData(0);
+            for (let i = 0; i < pcm16.length; i++) {
+                channelData[i] = pcm16[i] / 32768.0;
+            }
+            const trackSource = ctx.createBufferSource();
+            trackSource.buffer = audioBuffer;
+            trackSource.connect(ctx.destination);
+            
+            const schedTime = Math.max(nextPlayTimeRef.current, ctx.currentTime);
+            trackSource.start(schedTime);
+            nextPlayTimeRef.current = schedTime + audioBuffer.duration;
+          }
+        };
+
+        ws.onerror = (err) => console.error("Live Error:", err);
+        ws.onclose = () => { if (active) setIsConnected(false); };
+
+        sessionRef.current = Promise.resolve(ws);
       } catch (err: any) {
         console.error("Mic access denied or error:", err);
         setErrorMsg(err.message || 'Microphone access denied.');
@@ -1326,7 +1351,7 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
                <div className="w-[1px] h-3 bg-white/10 mx-1"></div>
                <div className="flex items-center gap-1">
                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">
-                   {profile?.aiPointsLastReset === new Date().toISOString().split('T')[0] ? (profile?.aiPoints ?? 4) : 4}
+                   {profile?.aiPointsLastReset === new Date().toLocaleDateString('en-CA') ? (profile?.aiPoints ?? 4) : 4}
                  </span>
                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Pts</span>
                </div>
@@ -1506,10 +1531,16 @@ function NavItem({ icon, label, active = false, onClick, theme }: { icon: React.
   );
 }
 
-function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile }: { onBack: () => void, theme: 'light' | 'dark', onSelectItem: (slug: string) => void, onSelectLocalFile: (url: string, name: string) => void }) {
+function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSearch = '' }: { onBack: () => void, theme: 'light' | 'dark', onSelectItem: (slug: string) => void, onSelectLocalFile: (url: string, name: string) => void, initialSearch?: string }) {
   const [filter, setFilter] = useState<'all' | 'offline'>('all');
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+
+  useEffect(() => {
+    setSearchQuery(initialSearch);
+  }, [initialSearch]);
+
   const [downloadedIds, setDownloadedIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('mw_downloaded_notes');
     try {
@@ -1553,7 +1584,8 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile }: { onBac
 
   const visibleItems = (materials || [])
     .filter(item => item.type !== 'blog')
-    .filter(item => filter === 'offline' ? (downloadedIds || []).includes(item.id) : true);
+    .filter(item => filter === 'offline' ? (downloadedIds || []).includes(item.id) : true)
+    .filter(item => !searchQuery.trim() || item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || item.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
@@ -1575,6 +1607,8 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile }: { onBac
           <input 
             type="text" 
             placeholder="Search your notes & books..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
           />
         </div>
@@ -1912,7 +1946,6 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
 
     if (points) {
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
         const prompt = `You are an expert Career Advisor for students in Malawi. 
         The student has an MSCE score of ${points} points with the following grades: ${Object.entries(grades).map(([s, g]) => `${s}: ${g}`).join(', ')}.
         Provide 3 specific university program recommendations (at UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST, or Lilongwe University) that match these grades.
@@ -1920,18 +1953,14 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
         IMPORTANT RULES: 1. Do NOT use asterisks (*) or any markdown symbols for formatting. Use ALL CAPS for emphasis. 2. Do NOT use dollar signs ($) for mathematical equations; write them in plain text. 3. Do NOT use emojis. 4. Use simple clear English.
         Keep the tone encouraging.`;
 
-        const config: any = {};
-        if (useSearch) config.tools = [{ googleSearch: {} }];
-
-        const response = await ai.models.generateContent({ 
-          model: 'gemini-3.1-flash-lite',
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          config
+        const response = await fetch('/api/gemini/career', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
         });
+        const data = await response.json();
         
-        let responseText = response.text || 'I have some ideas for you. Let\'s discuss your interests further.';
-        responseText = responseText.replace(/\*/g, '');
-        responseText = responseText.replace(/\$/g, '');
+        let responseText = data.text || 'I have some ideas for you. Let\'s discuss your interests further.';
 
         const aiMsg = {
           id: (Date.now() + 1).toString(),
@@ -1965,7 +1994,6 @@ function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'd
     setLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
       const points = calculatePoints();
       const prompt = `You are an expert Career Advisor for students in Malawi. 
 Your goal is to guide them based on their interests and school performance.
@@ -1979,18 +2007,14 @@ Keep your tone encouraging and professional.
 Context so far: ${messages.map(m => `${m.sender}: ${m.text}`).join('\n')}
 User: ${input}`;
 
-      const config: any = {};
-      if (useSearch) config.tools = [{ googleSearch: {} }];
-
-      const response = await ai.models.generateContent({ 
-        model: 'gemini-3.1-flash-lite',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config
+      const response = await fetch('/api/gemini/career', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
       });
+      const data = await response.json();
       
-      let responseText = response.text || 'I am sorry, I could not generate a response.';
-      responseText = responseText.replace(/\*/g, '');
-      responseText = responseText.replace(/\$/g, '');
+      let responseText = data.text || 'I am sorry, I could not generate a response.';
 
       const aiMsg = {
         id: (Date.now() + 1).toString(),
@@ -2186,29 +2210,14 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
     setIsGenerating(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const prompt = `Generate a high-quality educational quiz for MSCE students in Malawi on the topic: ${topic}.
-      Generate exactly ${numQuestions} multiple-choice questions.
-      Each question must have 4 options and one correct answer.
-      Provide a "summary" field explaining why the correct answer is right.
-      IMPORTANT: Do NOT use asterisks (*) or dollar signs ($), use simple plain text.
-      Return ONLY a JSON array of objects with this structure:
-      [
-        {
-          "q": "Question text here?",
-          "options": ["Option A", "Option B", "Option C", "Option D"],
-          "answer": "Correct Option text",
-          "summary": "Brief explanation of why this answer is correct."
-        }
-      ]`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
-        config: { responseMimeType: "application/json" },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      const response = await fetch('/api/gemini/quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, numQuestions })
       });
+      const data = await response.json();
 
-      const questions = JSON.parse(response.text || '[]');
+      const questions = JSON.parse(data.text || '[]');
       if (questions.length > 0) {
         onStartQuiz(questions, topic);
       }
@@ -2342,7 +2351,7 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
   );
 }
 
-function QuizTakingView({ questions, topic, onEnd, theme }: { questions: any[], topic: string, onEnd: () => void, theme: 'light' | 'dark' }) {
+function QuizTakingView({ questions, topic, onEnd, theme, profile, onUpdateProfile }: { questions: any[], topic: string, onEnd: () => void, theme: 'light' | 'dark', profile?: any, onUpdateProfile?: (p: any) => void }) {
   const [qIndex, setQIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
@@ -2350,6 +2359,24 @@ function QuizTakingView({ questions, topic, onEnd, theme }: { questions: any[], 
   const [showFeedback, setShowFeedback] = useState(false);
   const [timeLeft, setTimeLeft] = useState(questions.length * 30); // 30s per question
   const [isCorrect, setIsCorrect] = useState(false);
+  const [xpAwarded, setXpAwarded] = useState(0);
+
+  const finishQuiz = async (finalScore: number) => {
+    setShowResult(true);
+    if (profile && onUpdateProfile) {
+       const xpGained = finalScore * 20; // 20 XP per correct answer
+       setXpAwarded(xpGained);
+       if (xpGained > 0 && auth.currentUser) {
+           const newPoints = (profile.points || 0) + xpGained;
+           try {
+             await updateDoc(doc(db, 'users', auth.currentUser.uid), { points: newPoints });
+             onUpdateProfile({ ...profile, points: newPoints });
+           } catch (e) {
+             console.error("Failed to update XP:", e);
+           }
+       }
+    }
+  };
 
   useEffect(() => {
     if (showResult || showFeedback) return;
@@ -2357,21 +2384,23 @@ function QuizTakingView({ questions, topic, onEnd, theme }: { questions: any[], 
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          setShowResult(true);
+          finishQuiz(score);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [showResult, showFeedback]);
+  }, [showResult, showFeedback, score, profile, onUpdateProfile]);
 
   const handleAnswer = (opt: string) => {
     if (showFeedback) return;
     setSelectedOption(opt);
     const correct = opt === questions[qIndex].answer;
     setIsCorrect(correct);
-    if (correct) setScore(s => s + 1);
+    if (correct) {
+      setScore(s => s + 1);
+    }
     setShowFeedback(true);
   };
 
@@ -2381,7 +2410,7 @@ function QuizTakingView({ questions, topic, onEnd, theme }: { questions: any[], 
       setSelectedOption(null);
       setShowFeedback(false);
     } else {
-      setShowResult(true);
+      finishQuiz(score);
     }
   };
 
@@ -2399,9 +2428,15 @@ function QuizTakingView({ questions, topic, onEnd, theme }: { questions: any[], 
             {percentage >= 50 ? <Trophy size={64} /> : <Target size={64} />}
          </div>
          <h2 className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tighter`}>Quiz Complete!</h2>
-         <p className="text-gray-500 font-bold text-lg mb-8 uppercase tracking-widest">
+         <p className="text-gray-500 font-bold text-lg mb-4 uppercase tracking-widest">
            Topic: <span className="text-indigo-400">{topic}</span>
          </p>
+         
+         {xpAwarded > 0 && (
+           <div className="mb-8 bg-amber-500/20 text-amber-500 px-6 py-2 rounded-full font-black text-sm animate-bounce flex items-center gap-2">
+             <Flame size={18} /> +{xpAwarded} XP Earned!
+           </div>
+         )}
          
          <div className="flex gap-4 mb-10 w-full max-w-sm">
             <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-6 rounded-3xl border shadow-sm`}>
@@ -2570,7 +2605,7 @@ function ProfileView({
     );
   }
 
-  const referralLink = `${window.location.origin}/${profile.referralCode}`;
+  const referralLink = `${window.location.origin}/?ref=${profile?.referralCode || 'MW-LINK'}`;
 
   const forms = ['Form 1', 'Form 2', 'Form 3', 'Form 4'];
 
@@ -2681,8 +2716,8 @@ function ProfileView({
               <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg mb-2 tracking-tight`}>Invite your Classmates</h4>
               <p className={`text-xs ${theme === 'dark' ? 'text-indigo-200/70' : 'text-slate-600'} font-semibold mb-6 leading-relaxed max-w-[220px]`}>Help friends join Educate MW and get 500 XP exclusive bonus.</p>
               <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-indigo-500/30' : 'bg-white border-slate-200 shadow-xl'} backdrop-blur-md p-2 rounded-2xl border flex items-center justify-between`}>
-                 <span className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm tracking-widest pl-4 uppercase`}>{profile.referralCode}</span>
-                 <button onClick={handleCopyLink} className={`${isCopied ? 'bg-emerald-500' : 'bg-indigo-600'} text-white p-3.5 rounded-xl shadow-lg active:scale-90 transition-all hover:opacity-90`}>
+                 <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-xs pl-4 truncate max-w-[200px]`}>{referralLink}</span>
+                 <button onClick={handleCopyLink} className={`${isCopied ? 'bg-emerald-500' : 'bg-indigo-600'} text-white p-3.5 rounded-xl shadow-lg active:scale-90 transition-all hover:opacity-90 shrink-0`}>
                     {isCopied ? <CheckCircle size={18} strokeWidth={3} /> : <Share2 size={18} strokeWidth={2.5} />}
                  </button>
               </div>
@@ -2862,7 +2897,7 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
         </p>
       </div>
 
-      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} rounded-[40px] p-8 border`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} rounded-2xl p-8 border w-full max-w-md mx-auto`}>
         <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-8 tracking-tight`}>Access Account</h2>
         
         <div className="space-y-4 relative z-10">
@@ -2870,85 +2905,85 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full bg-white text-gray-900 font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className={`w-full ${theme === 'dark' ? 'bg-white text-gray-900' : 'bg-white text-gray-700 border border-gray-300 shadow-sm'} font-bold py-3.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50`}
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" />
+              <div className={`w-5 h-5 border-2 ${theme === 'dark' ? 'border-gray-900/30 border-t-gray-900' : 'border-gray-500/30 border-t-gray-700'} rounded-full animate-spin`} />
             ) : (
               <>
                 <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                CONTINUE WITH GOOGLE
+                Continue with Google
               </>
             )}
           </button>
 
           <div className="flex items-center gap-2 w-full py-2">
             <div className={`h-px ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'} flex-1`}></div>
-            <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">or email/phone</span>
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">or</span>
             <div className={`h-px ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'} flex-1`}></div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Email or Phone</label>
-              <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-                <User size={18} className="text-gray-600 mr-3" />
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Email or Phone</label>
+              <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+                <User size={18} className="text-gray-400 mr-3" />
                 <input 
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="student@example.com or 099..." 
-                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
+                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium placeholder-gray-500`}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Password</label>
-              <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-                <Lock size={18} className="text-gray-600 mr-3" />
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Password</label>
+              <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+                <Lock size={18} className="text-gray-400 mr-3" />
                 <input 
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••" 
-                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
+                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium placeholder-gray-500`}
                 />
               </div>
             </div>
 
-            {error && <p className="text-red-500 text-[10px] font-black uppercase text-center mt-2">{error}</p>}
+            {error && <p className="text-red-500 text-[11px] font-bold text-center mt-2">{error}</p>}
 
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-600/20 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 disabled:opacity-50"
+              className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'LOGIN'}
+              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Log In'}
             </button>
           </form>
         </div>
 
-        <div className="mt-8 flex flex-col items-center gap-4 relative z-10">
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 flex flex-col items-center gap-4 relative z-10">
+          <p className="text-sm font-medium text-gray-500">
+            Don't have an account?
+          </p>
           <button 
             type="button"
             onClick={onNavigateRegister}
-            className={`w-full ${theme === 'dark' ? 'bg-gray-950 text-white border-gray-800' : 'bg-slate-100 text-slate-700 border-slate-200'} text-[10px] font-black py-4 rounded-2xl border active:scale-95 transition-all uppercase tracking-widest shadow-none`}
+            className={`w-full ${theme === 'dark' ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'} font-bold py-3.5 rounded-xl transition-colors shadow-none`}
           >
             Create New Account
           </button>
-          <p className="text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-            By continuing, you agree to our <a href="/terms" className="text-indigo-400 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-indigo-400 hover:underline">Privacy Policy</a>.
+          
+          <p className="text-[11px] text-gray-500 text-center mt-4">
+            By proceeding, you agree to our <a href="/terms" className="text-indigo-500 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-indigo-500 hover:underline">Privacy Policy</a>.
           </p>
         </div>
       </div>
       
-      <footer className="mt-12 py-8 flex flex-col items-center gap-3">
-         <div className="flex gap-6">
-            <a href="/terms" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Terms</a>
-            <a href="/privacy" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Privacy</a>
-         </div>
-         <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] opacity-30">© 2026 educate mw</p>
+      <footer className="mt-auto py-8 flex flex-col items-center gap-3">
+         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] opacity-40">© {new Date().getFullYear()} educate mw</p>
       </footer>
     </div>
   );
@@ -2967,9 +3002,16 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
       const txRef = `tx-${Math.random().toString(36).substring(2, 12)}`;
       const publicKey = (import.meta as any).env.VITE_PAYCHANGU_PUBLIC_KEY;
       
-      if (!publicKey) {
-         setError("Missing PayChangu Public Key. Please add VITE_PAYCHANGU_PUBLIC_KEY to your environment variables.");
-         setLoading(false);
+      if (!publicKey || publicKey.includes('YOUR_PUBLIC_KEY') || publicKey === '') {
+         // Test mode simulation when no real key is provided
+         setTimeout(async () => {
+            if (auth.currentUser) {
+               const userRef = doc(db, 'users', auth.currentUser.uid);
+               await updateDoc(userRef, { isPro: true });
+            }
+            setShowCelebrate(true);
+            setTimeout(() => onBack(), 4000);
+         }, 1500);
          return;
       }
 
@@ -2987,6 +3029,8 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
         tx_ref: txRef,
         amount: 500,
         currency: "MWK",
+        callback_url: window.location.href,
+        return_url: window.location.href,
         customer: {
           email: profile.email || "student@educatemw.app",
           first_name: profile.name || "Student",
@@ -3008,7 +3052,7 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
               const verifyData = await res.json();
               
               // If server verification succeeded OR server key is missing (allowing test mode)
-              if (verifyData.success || verifyData.error?.includes("missing PayChangu secret key") || !verifyData.success) {
+              if (verifyData.success || verifyData.error?.includes("missing PayChangu secret key")) {
                 if (auth.currentUser) {
                   const userRef = doc(db, 'users', auth.currentUser.uid);
                   await updateDoc(userRef, { isPro: true });
@@ -3198,8 +3242,8 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
 
       <div className="px-8 mt-4">
         <div className="mb-10 text-center">
-           <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-blue-500/40 rotate-3 p-1.5">
-              <div className="w-full h-full rounded-[1.4rem] flex items-center justify-center border-2 border-white/20 bg-white/5 backdrop-blur-sm">
+           <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-blue-500/40 rotate-3 p-1.5">
+              <div className="w-full h-full rounded-2xl flex items-center justify-center border-2 border-white/20 bg-white/5 backdrop-blur-sm">
                 <GraduationCap size={40} className="text-white" fill="white" fillOpacity={0.2} />
               </div>
            </div>
@@ -3295,22 +3339,18 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all mt-4 disabled:opacity-50 text-base uppercase tracking-widest"
+            className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all mt-4 disabled:opacity-50 text-base uppercase tracking-widest"
           >
             {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Create Account'}
           </button>
         </form>
 
         <p className="mt-8 text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-          By signing up, you agree to our <a href="/terms" className="text-indigo-400 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-indigo-400 hover:underline">Privacy Policy</a>.
+          By signing up, you agree to our <a href="/terms" className="text-indigo-400 hover:underline">Terms & Privacy Policy</a>.
         </p>
       </div>
 
       <footer className="mt-auto py-8 flex flex-col items-center gap-3">
-         <div className="flex gap-6">
-            <a href="/terms" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Terms</a>
-            <a href="/privacy" className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:underline">Privacy</a>
-         </div>
          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] opacity-30">© 2026 educate mw</p>
       </footer>
     </div>
@@ -3959,7 +3999,7 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
   );
 }
 
-function MaterialDetailView({ slug, onBack, theme }: { slug: string, onBack: () => void, theme: 'light' | 'dark' }) {
+function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, onBack: () => void, theme: 'light' | 'dark', onOpenPdf?: (url: string, title: string) => void }) {
   const [material, setMaterial] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -4044,14 +4084,22 @@ function MaterialDetailView({ slug, onBack, theme }: { slug: string, onBack: () 
                          <FileIcon size={40} className="text-indigo-500 mb-4" />
                          <h4 className="text-sm font-black uppercase tracking-widest mb-2">Reference Material</h4>
                          <p className="text-xs opacity-60 mb-6">This document is hosted externally (e.g. Google Drive).</p>
-                         <a 
-                          href={para.trim()} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
+                         <button 
+                          onClick={() => {
+                            if (onOpenPdf) {
+                               let targetUrl = para.trim();
+                               if (targetUrl.includes('drive.google.com') && targetUrl.includes('/view')) {
+                                  targetUrl = targetUrl.replace('/view', '/preview');
+                               }
+                               onOpenPdf(targetUrl, material.title);
+                            } else {
+                               window.open(para.trim(), '_blank');
+                            }
+                          }} 
                           className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-lg shadow-indigo-600/30"
                          >
                            Open Document
-                         </a>
+                         </button>
                       </div>
                     );
                   }
