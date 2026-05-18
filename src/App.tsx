@@ -133,7 +133,7 @@ import {
   FileText as FileIcon
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'career' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view';
+export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -141,7 +141,19 @@ export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('mw_theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mw_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -182,7 +194,6 @@ export default function App() {
       case 'quizzes': path = '/quizzes'; break;
       case 'flashcards': path = '/flashcards'; break;
       case 'community': path = '/community'; break;
-      case 'career': path = '/career'; break;
       case 'profile': path = '/profile'; break;
       case 'videos': path = '/videos'; break;
       case 'subscription': path = '/subscription'; break;
@@ -214,7 +225,6 @@ export default function App() {
       }
       else if (path === '/emi-ai') setCurrentView('emi');
       else if (path === '/quizzes') setCurrentView('quizzes');
-      else if (path === '/career') setCurrentView('career');
       else if (path === '/profile') setCurrentView('profile');
       else if (path === '/') setCurrentView('home');
       else {
@@ -379,12 +389,6 @@ export default function App() {
           description: "Test your knowledge with MSCE-style quizzes. Instant feedback and detailed explanations for all subjects.",
           canonical: "https://educatemw.app/quizzes"
         };
-      case 'career':
-        return {
-          title: "Career Guidance - Future for Malawian Students",
-          description: "Discover career paths in Malawi. Requirements for UNIMA, MUBAS, and other Malawian universities.",
-          canonical: "https://educatemw.app/career"
-        };
       case 'community':
         return {
           title: "Student Community - Connect with Malawian Students",
@@ -447,7 +451,7 @@ export default function App() {
             )
           ) : (
             <>
-              {currentView === 'home' && <HomeView onNavigate={navigateTo} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} />}
+              {currentView === 'home' && <HomeView onNavigate={navigateTo} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} onThemeToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')} />}
               {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} onUpdateProfile={setUserProfile} onGoPro={() => navigateTo('subscription')} />}
               {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => navigateTo('home')} />}
               {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} onSelectLocalFile={(url, name) => { setLocalFileName(name); navigateTo('local-view', url); }} initialSearch={librarySearch} />}
@@ -477,7 +481,6 @@ export default function App() {
               )}
               {currentView === 'flashcards' && <FlashcardsView onBack={() => navigateTo('home')} />}
               {currentView === 'community' && <CommunityView onBack={() => navigateTo('home')} />}
-              {currentView === 'career' && <CareerView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'blog' && (
                 <BlogView 
                   onBack={() => navigateTo('home')} 
@@ -552,14 +555,14 @@ export default function App() {
               onClick={() => setIsSidebarOpen(false)}
             />
             {/* Sidebar Content */}
-            <div className="relative w-[80%] max-w-[320px] bg-gray-900 h-full flex flex-col shadow-2xl animate-in slide-in-from-left duration-300">
+            <div className={`relative w-[80%] max-w-[320px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
               {/* User Header in Sidebar */}
-              <div className="bg-indigo-600/10 p-6 pt-16 border-b border-gray-800 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl border border-gray-700 shadow-lg">
+              <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-gray-800' : 'bg-indigo-50 border-slate-200'} p-6 pt-16 border-b flex items-center gap-4`}>
+                <div className={`w-16 h-16 rounded-2xl border ${theme === 'dark' ? 'border-gray-700' : 'border-indigo-200'} shadow-lg`}>
                   <Avatar user={userProfile} className="w-full h-full text-xl" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white text-lg leading-tight">{userProfile?.name || 'Student'}</h3>
+                  <h3 className={`font-black text-lg leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{userProfile?.name || 'Student'}</h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`w-2 h-2 rounded-full shadow-lg ${isOnline ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-amber-500 shadow-amber-500/50'}`}></span>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isOnline ? 'Online' : 'Offline'}</span>
@@ -568,27 +571,27 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
-                <SidebarItem icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="Subscription & Pay" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
-                <SidebarItem icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Education Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
+                <SidebarItem theme={theme} icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="Subscription & Pay" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
+                <SidebarItem theme={theme} icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Education Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
                 
                 {isAdmin && (
-                  <SidebarItem icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin Panel" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
+                  <SidebarItem theme={theme} icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin Panel" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
                 )}
 
                 <div className="flex-1" />
                 
-                <SidebarItem icon={<Settings size={20} />} label="App Settings" onClick={() => { setShowSettings(true); setIsSidebarOpen(false); }} />
+                <SidebarItem theme={theme} icon={<Settings size={20} />} label="App Settings" onClick={() => { setShowSettings(true); setIsSidebarOpen(false); }} />
               </div>
 
-              <div className="p-6 border-t border-gray-800 mt-auto">
-                <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 flex items-center justify-between">
+              <div className={`p-6 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'} mt-auto`}>
+                <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex items-center justify-between`}>
                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500 hover:text-indigo-600">
                          <Sparkles size={16} />
                       </div>
-                      <span className="text-xs font-bold text-gray-200">Educate MW</span>
+                      <span className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-200' : 'text-slate-700'}`}>Educate MW</span>
                    </div>
-                   <button onClick={() => { setCurrentView('subscription'); setIsSidebarOpen(false); }} className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300 transition-colors">Upgrade</button>
+                   <button onClick={() => { setCurrentView('subscription'); setIsSidebarOpen(false); }} className="text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-600 transition-colors">Upgrade</button>
                 </div>
               </div>
             </div>
@@ -613,19 +616,19 @@ export default function App() {
   );
 }
 
-function SidebarItem({ icon, label, onClick, active }: { icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean }) {
+function SidebarItem({ icon, label, onClick, active, theme }: { icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean, theme: 'light' | 'dark' }) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-[15px] transition-colors ${active ? 'bg-indigo-900/50 text-indigo-400' : 'text-gray-300 hover:bg-gray-800'}`}
+      className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-[15px] transition-colors ${active ? (theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600') : (theme === 'dark' ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-100')}`}
     >
-      <span className={active ? 'text-indigo-400' : 'text-gray-400'}>{icon}</span>
+      <span className={active ? (theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600') : (theme === 'dark' ? 'text-gray-400' : 'text-slate-500')}>{icon}</span>
       {label}
     </button>
   );
 }
 
-function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme }: { onNavigate: (view: ViewState, search?: string) => void, onMenuClick: () => void, profile: any, onShowNotifications: () => void, theme: 'light' | 'dark' }) {
+function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme, onThemeToggle }: { onNavigate: (view: ViewState, search?: string) => void, onMenuClick: () => void, profile: any, onShowNotifications: () => void, theme: 'light' | 'dark', onThemeToggle: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
@@ -641,23 +644,31 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
       <header className={`fixed top-0 left-0 right-0 z-50 ${theme === 'dark' ? 'bg-gray-950/90' : 'bg-white/90'} backdrop-blur-2xl border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
         <div className="pt-12 pb-4 px-5">
           <div className="flex justify-between items-center w-full max-w-7xl mx-auto relative">
-            <button 
-              onClick={onMenuClick} 
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'} active:scale-95 transition-all shadow-sm border`}
-            >
-              <Menu size={20} strokeWidth={2.5} />
-            </button>
-            
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2.5 cursor-pointer">
-              <div className="w-8 h-8 rounded-[10px] bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <GraduationCap className="text-white" size={16} strokeWidth={2.5} />
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onMenuClick} 
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'} active:scale-95 transition-all shadow-sm border`}
+              >
+                <Menu size={20} strokeWidth={2.5} />
+              </button>
+              
+              <div className="flex items-center gap-2 cursor-pointer logo-container">
+                <div className="w-8 h-8 rounded-[10px] bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                  <GraduationCap className="text-white" size={16} strokeWidth={2.5} />
+                </div>
+                <span className={`font-black text-lg tracking-tight hidden sm:block ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Educate<span className="text-indigo-500 font-bold opacity-90 pl-0.5">MW</span>
+                </span>
               </div>
-              <span className={`font-black text-lg tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Educate<span className="text-indigo-400 font-bold opacity-80 pl-0.5">MW</span>
-              </span>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button 
+                onClick={onThemeToggle}
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-yellow-400 hover:text-yellow-300' : 'bg-slate-50 border-slate-200 text-indigo-600 hover:text-indigo-700'} active:scale-95 transition-all shadow-sm border`}
+              >
+                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
               <button 
                 onClick={onShowNotifications}
                 className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'} active:scale-95 transition-all shadow-sm border relative`}
@@ -667,9 +678,9 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
               </button>
               <button 
                 onClick={() => onNavigate('profile')}
-                className="w-10 h-10 rounded-[14px] p-0.5 bg-gradient-to-tr from-gray-800 to-gray-700 hover:from-indigo-500 hover:to-purple-500 active:scale-95 transition-all"
+                className={`w-10 h-10 rounded-[14px] p-0.5 ${theme === 'dark' ? 'bg-gradient-to-tr from-gray-800 to-gray-700 hover:from-indigo-500 hover:to-purple-500' : 'bg-gradient-to-tr from-slate-200 to-slate-300 hover:from-indigo-400 hover:to-purple-400'} active:scale-95 transition-all`}
               >
-                <Avatar user={profile} className="w-full h-full text-[11px] rounded-[11px] border-2 border-gray-950 shadow-inner" />
+                <Avatar user={profile} className={`w-full h-full text-[11px] rounded-[11px] border-2 ${theme === 'dark' ? 'border-gray-950' : 'border-white'} shadow-inner`} />
               </button>
             </div>
           </div>
@@ -678,139 +689,117 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-5 pt-32 pb-32 hide-scrollbar">
-           {/* No Greeting as requested */}
-
-           {/* Search */}
-           <div className="mb-6 animate-in fade-in slide-in-from-top-6 duration-600">
-             <form onSubmit={handleSearch} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl px-5 py-3.5 flex items-center border group focus-within:border-indigo-500/50 transition-all`}>
-               <Search className="text-gray-500 mr-3 group-focus-within:text-indigo-400 transition-colors" size={18} strokeWidth={3}/>
-               <input 
-                 type="text" 
-                 placeholder="Search topics, notes, tutors..." 
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
-                 className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
-               />
-             </form>
-           </div>
-
-          {/* Hero Banner */}
-          <div className="w-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[32px] p-6 text-white relative overflow-hidden mb-6 shadow-2xl shadow-indigo-900/40 shrink-0 min-h-[140px] flex flex-col justify-center">
-            {/* Animated bg elements */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
-            
-            <div className="z-10 relative">
-              <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg mb-3 border border-white/10">
-                <Sparkles size={12} className="text-indigo-200" fill="currentColor" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Powered by AI</span>
-              </div>
-              <h3 className="font-black text-2xl mb-1 flex items-center gap-2">Ask Emi AI</h3>
-              <p className="text-indigo-100/80 text-xs font-semibold leading-relaxed max-w-[180px] mb-4">
-                Unlock expert explanations for any subject and MSCE prep.
-              </p>
-              <button 
-                onClick={() => onNavigate('emi')}
-                className="bg-white text-indigo-700 font-black text-xs py-2.5 px-6 rounded-2xl flex items-center gap-2 shadow-xl shadow-indigo-950/20 active:scale-95 transition-all w-fit group"
-              >
-                Chat with Emi
-                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" strokeWidth={3} />
-              </button>
-            </div>
-            
-            {/* Avatar Composition with Blending */}
-            <div className="absolute -right-6 -bottom-6 w-44 h-44 z-0 pointer-events-none">
-               <div className="relative w-full h-full">
-                  <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
-                  {/* Gradient masks to blend square edges */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
-                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-indigo-700/40"></div>
+           <div className="w-full max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 lg:gap-10">
+             
+             {/* Left Column (Search + Hero) */}
+             <div className="flex-1 w-full max-w-lg mx-auto lg:max-w-none lg:mx-0 flex flex-col">
+               {/* Search */}
+               <div className="mb-6 animate-in fade-in slide-in-from-top-6 duration-600">
+                 <form onSubmit={handleSearch} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl px-5 py-3.5 flex items-center border group focus-within:border-indigo-500/50 transition-all shadow-sm`}>
+                   <Search className="text-gray-500 mr-3 group-focus-within:text-indigo-500 transition-colors" size={18} strokeWidth={3}/>
+                   <input 
+                     type="text" 
+                     placeholder="Search topics, notes, tutors..." 
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium placeholder-gray-500`}
+                   />
+                 </form>
                </div>
-            </div>
-          </div>
 
-          {/* Grid Menu */}
-          <div className="grid grid-cols-3 gap-3 content-start shrink-0 mb-8">
-            <FeatureCard 
-              icon={<BookOpen size={24} fill="white" className="text-blue-50" />} 
-              bgColor="bg-blue-500" 
-              title="Library" 
-              onClick={() => onNavigate('library')}
-            />
-            <FeatureCard 
-              icon={<CheckSquare size={24} fill="white" className="text-emerald-50" />} 
-              bgColor="bg-emerald-500" 
-              title="Quizzes" 
-              onClick={() => onNavigate('quizzes')}
-            />
-            <FeatureCard 
-              icon={<Layers size={24} fill="white" className="text-orange-50" strokeWidth={1} />} 
-              bgColor="bg-orange-500" 
-              title="Flashcards" 
-              onClick={() => onNavigate('flashcards')}
-            />
-            <FeatureCard 
-              icon={<Users size={24} fill="white" className="text-teal-50" />} 
-              bgColor="bg-teal-500" 
-              title="Community" 
-              onClick={() => onNavigate('community')}
-            />
-            <FeatureCard 
-              icon={<BookA size={24} fill="white" className="text-purple-50" />} 
-              bgColor="bg-purple-500" 
-              title="Dictionary" 
-              onClick={() => onNavigate('dictionary')}
-            />
-            <FeatureCard 
-              icon={<Rocket size={24} fill="white" className="text-indigo-50" />} 
-              bgColor="bg-indigo-500" 
-              title="Career" 
-              onClick={() => onNavigate('career')}
-            />
-            <FeatureCard 
-              icon={<Newspaper size={24} fill="white" className="text-pink-50" />} 
-              bgColor="bg-pink-500" 
-              title="Blog" 
-              onClick={() => onNavigate('blog')}
-            />
-            <FeatureCard 
-              icon={<Video size={24} fill="white" className="text-blue-50" />} 
-              bgColor="bg-blue-600" 
-              title="Videos" 
-              onClick={() => onNavigate('videos')}
-            />
-          </div>
+              {/* Hero Banner */}
+              <div className="w-full flex-1 min-h-[140px] bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[32px] p-6 sm:p-8 text-white relative overflow-hidden mb-6 lg:mb-0 shadow-xl shadow-indigo-900/30 flex flex-col justify-center">
+                {/* Animated bg elements */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
+                
+                <div className="z-10 relative">
+                  <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg mb-3 border border-white/10 shadow-sm">
+                    <Sparkles size={12} className="text-indigo-200" fill="currentColor" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Powered by AI</span>
+                  </div>
+                  <h3 className="font-black text-2xl sm:text-3xl mb-1 flex items-center gap-2 tracking-tight">Ask Emi AI</h3>
+                  <p className="text-indigo-100/90 text-sm font-medium leading-relaxed max-w-[200px] sm:max-w-xs mb-6">
+                    Unlock expert explanations for any subject and MSCE prep.
+                  </p>
+                  <button 
+                    onClick={() => onNavigate('emi')}
+                    className="bg-white text-indigo-700 font-bold text-sm py-3 px-6 rounded-xl flex items-center gap-2 shadow-xl shadow-indigo-950/20 active:scale-95 transition-all w-fit group"
+                  >
+                    Chat with Emi
+                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" strokeWidth={2.5} />
+                  </button>
+                </div>
+                
+                {/* Avatar Composition with Blending */}
+                <div className="absolute -right-6 -bottom-6 w-44 h-44 z-0 pointer-events-none hidden sm:block md:w-56 md:h-56">
+                   <div className="relative w-full h-full">
+                      <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
+                      {/* Gradient masks to blend square edges */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-indigo-700/40"></div>
+                   </div>
+                </div>
+                <div className="absolute -right-2 -bottom-2 w-32 h-32 z-0 pointer-events-none sm:hidden">
+                   <div className="relative w-full h-full">
+                      <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-indigo-700/40"></div>
+                   </div>
+                </div>
+              </div>
+             </div>
 
-          {/* Knowledge Hub Preview */}
-          <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-            <div className="flex items-center justify-between mb-4 px-1">
-              <h3 className={`font-black text-sm uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Knowledge Hub</h3>
-              <button onClick={() => onNavigate('blog')} className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">See All</button>
+             {/* Right Column (Grid Menu) */}
+             <div className="flex-[0.8] w-full max-w-lg mx-auto lg:max-w-none lg:mx-0 pt-0 lg:pt-2">
+
+            {/* Grid Menu */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 content-start shrink-0 mb-8">
+              <FeatureCard 
+                theme={theme}
+                icon={<BookOpen size={20} fill="white" className="text-blue-50" />} 
+                bgColor="bg-blue-500" 
+                title="Library" 
+                onClick={() => onNavigate('library')}
+              />
+              <FeatureCard 
+                theme={theme}
+                icon={<CheckSquare size={20} fill="white" className="text-emerald-50" />} 
+                bgColor="bg-emerald-500" 
+                title="Quizzes" 
+                onClick={() => onNavigate('quizzes')}
+              />
+              <FeatureCard 
+                theme={theme}
+                icon={<Layers size={20} fill="white" className="text-orange-50" strokeWidth={1} />} 
+                bgColor="bg-orange-500" 
+                title="Flashcards" 
+                onClick={() => onNavigate('flashcards')}
+              />
+              <FeatureCard 
+                theme={theme}
+                icon={<Users size={20} fill="white" className="text-teal-50" />} 
+                bgColor="bg-teal-500" 
+                title="Community" 
+                onClick={() => onNavigate('community')}
+              />
+              <FeatureCard 
+                theme={theme}
+                icon={<BookA size={20} fill="white" className="text-purple-50" />} 
+                bgColor="bg-purple-500" 
+                title="Dictionary" 
+                onClick={() => onNavigate('dictionary')}
+              />
+              <FeatureCard 
+                theme={theme}
+                icon={<Video size={20} fill="white" className="text-blue-50" />} 
+                bgColor="bg-blue-600" 
+                title="Videos" 
+                onClick={() => onNavigate('videos')}
+              />
             </div>
             
-            <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5">
-               <BlogPreviewCard 
-                 title="MSCE Preparation Tips" 
-                 category="Study" 
-                 image="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400"
-                 onClick={() => onNavigate('blog')}
-                 theme={theme}
-               />
-               <BlogPreviewCard 
-                 title="Malawi Education Reform" 
-                 category="News" 
-                 image="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=400"
-                 onClick={() => onNavigate('blog')}
-                 theme={theme}
-               />
-               <BlogPreviewCard 
-                 title="Tech in Classroom" 
-                 category="Future" 
-                 image="https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=400"
-                 onClick={() => onNavigate('blog')}
-                 theme={theme}
-               />
-            </div>
+           </div>
           </div>
       </div>
     </div>
@@ -1507,14 +1496,14 @@ function SuggestionCard({ icon, bgColor, text, onClick }: { icon: React.ReactNod
   );
 }
 
-function FeatureCard({ icon, bgColor, title, onClick }: { icon: React.ReactNode, bgColor: string, title: string, subtitle?: string, onClick?: () => void }) {
+function FeatureCard({ icon, bgColor, title, onClick, theme }: { icon: React.ReactNode, bgColor: string, title: string, subtitle?: string, onClick?: () => void, theme: 'light' | 'dark' }) {
   return (
-    <div onClick={onClick} className={`bg-gray-900 rounded-[22px] aspect-square flex flex-col items-center justify-center p-2 text-center shadow-[0_2px_10px_rgba(0,0,0,0.1)] border border-gray-800 ${onClick ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1 active:scale-95 transition-all duration-300' : ''}`}>
-      <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center mb-2 shadow-inner ${bgColor}`}>
+    <button onClick={onClick} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-white border-slate-200 hover:bg-slate-50'} rounded-[18px] flex flex-col items-center justify-center py-3.5 px-2 text-center shadow-sm border ${onClick ? 'cursor-pointer active:scale-95 transition-all duration-200' : ''}`}>
+      <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center mb-2 shadow-inner shrink-0 ${bgColor}`}>
         {icon}
       </div>
-      <h4 className="font-bold text-gray-100 text-[11px] leading-tight px-1 max-w-full truncate">{title}</h4>
-    </div>
+      <h4 className={`font-bold ${theme === 'dark' ? 'text-gray-100' : 'text-slate-800'} text-[11px] leading-tight px-1 w-full truncate`}>{title}</h4>
+    </button>
   );
 }
 
@@ -1881,318 +1870,6 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
               <BookA size={40} strokeWidth={1.5} />
             </div>
             <p className="font-black uppercase tracking-widest text-xs">Search any word to explore</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CareerView({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
-  const [step, setStep] = useState<'welcome' | 'grades' | 'chat'>('welcome');
-  const [grades, setGrades] = useState<Record<string, number>>({});
-  const [messages, setMessages] = useState<any[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [useSearch, setUseSearch] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const subjects = [
-    'English', 'Mathematics', 'Biology', 'Physical Science', 
-    'Geography', 'Agriculture', 'History', 'Chichewa', 
-    'Social & Religious Studies', 'Additional Mathematics', 'Computer Studies'
-  ];
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    if (step === 'chat') scrollToBottom();
-  }, [messages, step]);
-
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const calculatePoints = (): number | null => {
-    const gradeValues = Object.values(grades).filter((g): g is number => typeof g === 'number' && g > 0 && g <= 9);
-    if (gradeValues.length < 6) return null;
-    const sorted = [...gradeValues].sort((a, b) => a - b);
-    return sorted.slice(0, 6).reduce((sum, g) => sum + g, 0);
-  };
-
-  const points = calculatePoints();
-
-  const startConsultation = async () => {
-    setStep('chat');
-    setLoading(true);
-
-    const initialText = points 
-      ? `Hello! I've analyzed your MSCE results. You've scored ${points} points. Based on this, I have some excellent recommendations for programs at Malawian universities. What specific fields interest you?`
-      : "Hello! I'm your Career Advisor. I specialize in helping Malawian students navigate opportunities at UNIMA, MUBAS, LUANAR, and beyond. What subjects do you enjoy most in school?";
-
-    setMessages([{
-      id: '1',
-      sender: 'ai',
-      text: initialText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }]);
-
-    if (points) {
-      try {
-        const prompt = `You are an expert Career Advisor for students in Malawi. 
-        The student has an MSCE score of ${points} points with the following grades: ${Object.entries(grades).map(([s, g]) => `${s}: ${g}`).join(', ')}.
-        Provide 3 specific university program recommendations (at UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST, or Lilongwe University) that match these grades.
-        Briefly explain why they are a good fit.
-        IMPORTANT RULES: 1. Do NOT use asterisks (*) or any markdown symbols for formatting. Use ALL CAPS for emphasis. 2. Do NOT use dollar signs ($) for mathematical equations; write them in plain text. 3. Do NOT use emojis. 4. Use simple clear English.
-        Keep the tone encouraging.`;
-
-        const response = await fetch('/api/gemini/career', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt })
-        });
-        const data = await response.json();
-        
-        let responseText = data.text || 'I have some ideas for you. Let\'s discuss your interests further.';
-
-        const aiMsg = {
-          id: (Date.now() + 1).toString(),
-          sender: 'ai',
-          text: responseText,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages(prev => [...prev, aiMsg]);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      setLoading(false);
-    }
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-
-    const userMsg = {
-      id: Date.now().toString(),
-      sender: 'user',
-      text: input,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const points = calculatePoints();
-      const prompt = `You are an expert Career Advisor for students in Malawi. 
-Your goal is to guide them based on their interests and school performance.
-Current student context: ${points ? `MSCE Points: ${points}. Grades: ${JSON.stringify(grades)}.` : 'Grades not provided yet.'}
-Provide advice about:
-1. Suitable programs at Malawian Universities (UNIMA, MUBAS, LUANAR, MZUNI, KUHES, MUST).
-2. Career paths in the current Malawian economy (Agriculture, Health, ICT, Engineering, Education).
-3. Requirements (MSCE points, subject combinations).
-IMPORTANT RULES: 1. Do NOT use asterisks (*) or any markdown symbols for formatting. Use ALL CAPS for emphasis. 2. Do NOT use dollar signs ($) for mathematical equations; write them in plain text. 3. Do NOT use emojis. 4. Use simple clear English.
-Keep your tone encouraging and professional.
-Context so far: ${messages.map(m => `${m.sender}: ${m.text}`).join('\n')}
-User: ${input}`;
-
-      const response = await fetch('/api/gemini/career', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await response.json();
-      
-      let responseText = data.text || 'I am sorry, I could not generate a response.';
-
-      const aiMsg = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        text: responseText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setMessages(prev => [...prev, aiMsg]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
-        <button onClick={() => step === 'welcome' ? onBack() : setStep('welcome')} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <div className="ml-4">
-           <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight uppercase tracking-tight`}>Career Path</h2>
-           <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-0.5">Explore Your Future</p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto hide-scrollbar">
-        {step === 'welcome' ? (
-          <div className="p-8 flex flex-col items-center text-center pt-16">
-            <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white mb-8 shadow-[0_20px_50px_rgba(79,70,229,0.3)] animate-pulse">
-              <Compass size={44} strokeWidth={2.5} />
-            </div>
-            <h1 className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-4 tracking-tighter`}>Your Future Starts Here.</h1>
-            <p className={`text-lg ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'} font-bold mb-12 max-w-sm leading-relaxed`}>
-              Get personalized guidance on university programs and career opportunities in Malawi.
-            </p>
-            
-            <div className="grid grid-cols-1 gap-4 w-full max-w-xs mb-12">
-               <button 
-                 onClick={() => setStep('grades')}
-                 className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/50' : 'bg-white border-indigo-200 shadow-sm'} p-6 rounded-3xl flex flex-col items-center gap-3 border-2 transition-all hover:scale-105 active:scale-95 group`}
-               >
-                 <div className="text-indigo-400 w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                   <Target size={28} />
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <span className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Check Eligibility</span>
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Enter MSCE Grades</span>
-                 </div>
-               </button>
-
-               <button 
-                 onClick={startConsultation}
-                 className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-3xl flex flex-col items-center gap-3 border-2 transition-all hover:scale-105 active:scale-95 group`}
-               >
-                 <div className="text-emerald-400 w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                   <MessageSquareText size={28} />
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <span className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Talk to Advisor</span>
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Ask anything</span>
-                 </div>
-               </button>
-            </div>
-
-            <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] opacity-40">Consult Malawian University Experts</p>
-          </div>
-        ) : step === 'grades' ? (
-          <div className="p-6 pb-20">
-            <div className="mb-8">
-               <h3 className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight`}>Enter MSCE Results</h3>
-               <p className="text-xs text-gray-500 font-bold mt-1">Select your grades for best 6 subjects (1-9)</p>
-            </div>
-
-            <div className="space-y-3 mb-8">
-              {subjects.map(subject => (
-                <div key={subject} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex items-center justify-between transition-all hover:border-indigo-500/30`}>
-                  <span className={`font-bold text-[13px] ${theme === 'dark' ? 'text-gray-200' : 'text-slate-700'}`}>{subject}</span>
-                  <div className="flex items-center gap-2">
-                    <select 
-                      className={`bg-transparent outline-none text-sm font-black ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'} cursor-pointer`}
-                      value={grades[subject] || 0}
-                      onChange={(e) => setGrades({...grades, [subject]: parseInt(e.target.value)})}
-                    >
-                      <option value="0">-</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="sticky bottom-4 left-0 right-0 px-2 mt-10">
-              <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/20' : 'bg-white border-indigo-200 shadow-2xl'} p-6 rounded-[32px] border-2 backdrop-blur-xl`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Total Points</p>
-                    <p className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{points || '--'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Eligibility</p>
-                    <p className={`text-sm font-black ${points && points <= 24 ? 'text-emerald-500' : points && points <= 36 ? 'text-amber-500' : 'text-gray-500'}`}>
-                      {points ? (points <= 24 ? 'High Chance' : points <= 36 ? 'Limited' : 'Low Chance') : 'Enter 6 Grades'}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={startConsultation}
-                  disabled={points === null}
-                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/30 active:scale-95 transition-all text-xs tracking-widest uppercase disabled:opacity-50"
-                >
-                  Analyze & Recommend
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col h-full bg-inherit">
-             <div className="flex-1 p-5 space-y-6 overflow-y-auto hide-scrollbar">
-               {messages.map(msg => (
-                 <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                   <div className={`${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm shadow-indigo-500/20 shadow-lg' : (theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-200' : 'bg-white border-slate-200 text-slate-800 shadow-sm')} p-5 rounded-[2rem] border max-w-[85%] font-bold text-[15px] leading-relaxed whitespace-pre-wrap animate-in slide-in-from-bottom-2 duration-300`}>
-                     {msg.sender === 'ai' && (
-                       <button 
-                         onClick={() => speakText(msg.text)} 
-                         className={`mb-2 w-8 h-8 rounded-full flex justify-center items-center ${theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'} transition-colors`}
-                         title="Read aloud"
-                       >
-                         <Volume2 size={16} />
-                       </button>
-                     )}
-                     {msg.text}
-                   </div>
-                 </div>
-               ))}
-               {loading && (
-                 <div className="flex justify-start">
-                   <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-5 rounded-[2rem] border flex gap-1.5`}>
-                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
-                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce delay-100" />
-                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce delay-200" />
-                   </div>
-                 </div>
-               )}
-               <div ref={messagesEndRef} />
-             </div>
-             
-             <div className={`p-4 ${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-md border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'} sticky bottom-0`}>
-                <div className="flex gap-2 max-w-md mx-auto mb-2">
-                  <button 
-                    onClick={() => setUseSearch(!useSearch)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-colors ${useSearch ? (theme === 'dark' ? 'bg-indigo-900 text-indigo-300 border-indigo-700' : 'bg-indigo-100 text-indigo-700 border-indigo-200') : (theme === 'dark' ? 'bg-transparent text-gray-500 border-gray-700' : 'bg-transparent text-gray-500 border-gray-300')}`}
-                  >
-                    <Search size={12} /> {useSearch ? 'Live Search On' : 'Live Search Off'}
-                  </button>
-                </div>
-                <div className="flex gap-2 max-w-md mx-auto">
-                   <input 
-                    type="text" 
-                    placeholder="Ask about universities, criteria..." 
-                    className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900 shadow-inner'} border rounded-[2rem] px-6 py-4 outline-none font-bold text-sm focus:border-indigo-500 transition-colors`}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                   />
-                   <button 
-                    onClick={handleSend}
-                    disabled={!input.trim() || loading}
-                    className="w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all disabled:opacity-50 shrink-0"
-                   >
-                     <Send size={20} strokeWidth={3} />
-                   </button>
-                </div>
-             </div>
           </div>
         )}
       </div>
@@ -2886,8 +2563,10 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
   return (
     <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-20 animate-in fade-in duration-500 overflow-y-auto`}>
       <div className="flex flex-col items-center mb-12">
-        <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/40 mb-6 p-4">
-          <GraduationCap size={44} className="text-white" fill="white" fillOpacity={0.2} />
+        <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[14px] flex items-center justify-center shadow-lg shadow-blue-500/40 mb-6 p-3">
+          <div className="w-full h-full rounded-[10px] flex items-center justify-center border border-white/20 bg-white/5 backdrop-blur-sm">
+            <GraduationCap size={44} className="text-white" fill="white" fillOpacity={0.2} />
+          </div>
         </div>
         <h1 className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight`}>educate mw</h1>
         <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 mb-4">Empowering Students</p>
@@ -3230,128 +2909,124 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
   };
 
   return (
-    <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300 overflow-y-auto hide-scrollbar pb-12`}>
-      <div className="pt-14 pb-8 px-8 flex items-center justify-between">
-         <button onClick={onBack} className={`w-12 h-12 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}>
-            <ChevronLeft size={24} strokeWidth={3} />
+    <div className={`flex flex-col min-h-full ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in fade-in duration-500 overflow-y-auto p-6 pt-12 pb-12`}>
+      <div className="flex items-center justify-between w-full max-w-md mx-auto mb-8">
+         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-white border-slate-200 hover:bg-slate-50'} rounded-xl flex items-center justify-center border shadow-sm transition-colors`}>
+            <ChevronLeft size={20} />
          </button>
-         <div className="text-right">
-            <h2 className="text-2xl font-black tracking-tighter leading-tight">Join<br/><span className="text-indigo-500">educate mw</span></h2>
-         </div>
       </div>
 
-      <div className="px-8 mt-4">
-        <div className="mb-10 text-center">
-           <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-blue-500/40 rotate-3 p-1.5">
-              <div className="w-full h-full rounded-2xl flex items-center justify-center border-2 border-white/20 bg-white/5 backdrop-blur-sm">
-                <GraduationCap size={40} className="text-white" fill="white" fillOpacity={0.2} />
+      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} rounded-2xl p-8 border w-full max-w-md mx-auto`}>
+        <div className="mb-8 text-center flex flex-col items-center">
+           <div className="w-20 h-20 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[14px] flex items-center justify-center text-white mb-6 shadow-xl shadow-blue-500/30 p-1.5 rotate-3">
+              <div className="w-full h-full rounded-[10px] flex items-center justify-center border border-white/20 bg-white/5 backdrop-blur-sm">
+                <GraduationCap size={36} className="text-white" fill="white" fillOpacity={0.2} />
               </div>
            </div>
-           <h3 className="text-2xl font-black mb-2">Create Account</h3>
-           <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Malawi's Elite Study Platform</p>
+           <h3 className="text-2xl font-black mb-2 tracking-tight">Create Account</h3>
+           <p className="text-gray-500 font-medium text-sm">Join Malawi's Elite Study Platform</p>
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-6">
+        <form onSubmit={handleRegister} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Student Name</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-              <User size={18} className="text-gray-600 mr-3" />
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Student Name</label>
+            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+              <User size={18} className="text-gray-400 mr-3" />
               <input 
                 type="text" 
                 value={formData.username}
                 onChange={(e) => setFormData({...formData, username: e.target.value})}
                 placeholder="Full Name" 
-                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
+                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium placeholder-gray-500`}
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Authentication</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-              <Mail size={18} className="text-gray-600 mr-3" />
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Email or Phone</label>
+            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+              <Mail size={18} className="text-gray-400 mr-3" />
               <input 
-                type="email" 
+                type="text" 
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="Email or Phone Number" 
-                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
+                placeholder="student@example.com or 099..." 
+                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium placeholder-gray-500`}
               />
             </div>
-            <p className="text-[8px] text-gray-500 font-bold uppercase ml-1">Use email or phone digits (e.g. 099...)</p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Password</label>
-            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
-              <Lock size={18} className="text-gray-600 mr-3" />
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Password</label>
+            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+              <Lock size={18} className="text-gray-400 mr-3" />
               <input 
                 type="password" 
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
                 placeholder="Secure Password" 
-                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
+                className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium placeholder-gray-500`}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 pt-1">
              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Gender</label>
-                <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200 shadow-inner'} rounded-2xl flex items-center border p-1`}>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Gender</label>
+                <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl flex items-center border p-1`}>
                   <button 
                     type="button" 
                     onClick={() => setFormData({...formData, gender: 'male'})} 
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.gender === 'male' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
+                    className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${formData.gender === 'male' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'}`}
                   >
-                    M
+                    Male
                   </button>
                   <button 
                     type="button" 
                     onClick={() => setFormData({...formData, gender: 'female'})} 
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.gender === 'female' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'text-gray-500'}`}
+                    className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${formData.gender === 'female' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'}`}
                   >
-                    F
+                    Female
                   </button>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Level</label>
-                <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-2xl p-4 flex items-center border relative`}>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Level</label>
+                <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3.5 flex items-center border relative`}>
                     <select 
                         value={formData.level}
                         onChange={(e) => setFormData({...formData, level: e.target.value})}
-                        className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-xs font-black appearance-none relative z-10 w-full uppercase tracking-widest`}
+                        className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-medium appearance-none relative z-10 w-full`}
                     >
                         <option value="Form 1">Form 1</option>
                         <option value="Form 2">Form 2</option>
                         <option value="Form 3">Form 3</option>
                         <option value="Form 4">Form 4</option>
                     </select>
-                    <ChevronDown size={14} className="text-gray-600 absolute right-4" />
+                    <ChevronDown size={16} className="text-gray-400 absolute right-3" />
                 </div>
               </div>
           </div>
 
-          {error && <p className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl text-red-500 text-[9px] font-black uppercase text-center">{error}</p>}
+          {error && <p className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-500 text-xs font-bold text-center mt-2">{error}</p>}
 
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all mt-4 disabled:opacity-50 text-base uppercase tracking-widest"
+            className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4 disabled:opacity-50"
           >
             {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Create Account'}
           </button>
         </form>
 
-        <p className="mt-8 text-[9px] text-gray-500 font-black text-center uppercase tracking-wider leading-relaxed">
-          By signing up, you agree to our <a href="/terms" className="text-indigo-400 hover:underline">Terms & Privacy Policy</a>.
+        <p className="mt-6 text-[11px] text-gray-500 text-center">
+          By signing up, you agree to our <a href="/terms" className="text-indigo-500 hover:underline">Terms of Service</a> & <a href="/privacy" className="text-indigo-500 hover:underline">Privacy Policy</a>.
         </p>
       </div>
 
       <footer className="mt-auto py-8 flex flex-col items-center gap-3">
-         <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] opacity-30">© 2026 educate mw</p>
+         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] opacity-40">© {new Date().getFullYear()} educate mw</p>
       </footer>
     </div>
   );
