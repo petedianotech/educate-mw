@@ -555,10 +555,10 @@ export default function App() {
               onClick={() => setIsSidebarOpen(false)}
             />
             {/* Sidebar Content */}
-            <div className={`relative w-[80%] max-w-[320px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
+            <div className={`relative w-[70%] max-w-[240px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
               {/* User Header in Sidebar */}
-              <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-gray-800' : 'bg-indigo-50 border-slate-200'} p-6 pt-16 border-b flex items-center gap-4`}>
-                <div className={`w-16 h-16 rounded-2xl border ${theme === 'dark' ? 'border-gray-700' : 'border-indigo-200'} shadow-lg`}>
+              <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-gray-800' : 'bg-indigo-50 border-slate-200'} p-4 pt-10 border-b flex items-center gap-3`}>
+                <div className={`w-12 h-12 rounded-xl border ${theme === 'dark' ? 'border-gray-700' : 'border-indigo-200'} shadow-md`}>
                   <Avatar user={userProfile} className="w-full h-full text-xl" />
                 </div>
                 <div>
@@ -642,7 +642,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
     <div className={`flex flex-col h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} overflow-hidden relative`}>
       {/* Fixed Sticky Header */}
       <header className={`fixed top-0 left-0 right-0 z-50 ${theme === 'dark' ? 'bg-gray-950/90' : 'bg-white/90'} backdrop-blur-2xl border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
-        <div className="pt-12 pb-4 px-5">
+        <div className="pt-6 pb-3 px-5">
           <div className="flex justify-between items-center w-full max-w-7xl mx-auto relative">
             <div className="flex items-center gap-3">
               <button 
@@ -688,7 +688,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto px-5 pt-32 pb-32 hide-scrollbar">
+      <div className="flex-1 overflow-y-auto px-5 pt-24 pb-24 hide-scrollbar">
            <div className="w-full max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 lg:gap-10">
              
              {/* Left Column (Search + Hero) */}
@@ -708,31 +708,31 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
                </div>
 
               {/* Hero Banner */}
-              <div className="w-full flex-1 min-h-[140px] bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[32px] p-6 sm:p-8 text-white relative overflow-hidden mb-6 lg:mb-0 shadow-xl shadow-indigo-900/30 flex flex-col justify-center">
+              <div className="w-full flex-1 max-h-[140px] bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl p-4 sm:p-5 text-white relative overflow-hidden mb-6 lg:mb-0 shadow-lg shadow-indigo-900/30 flex flex-col justify-center">
                 {/* Animated bg elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 animate-pulse"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/10 rounded-full blur-2xl -ml-12 -mb-12"></div>
                 
                 <div className="z-10 relative">
-                  <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg mb-3 border border-white/10 shadow-sm">
-                    <Sparkles size={12} className="text-indigo-200" fill="currentColor" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Powered by AI</span>
+                  <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-md px-1.5 py-0.5 rounded flex-row mb-1.5 border border-white/10 shadow-sm">
+                    <Sparkles size={8} className="text-indigo-200" fill="currentColor" />
+                    <span className="text-[8px] font-black uppercase tracking-widest leading-none">Powered by AI</span>
                   </div>
-                  <h3 className="font-black text-2xl sm:text-3xl mb-1 flex items-center gap-2 tracking-tight">Ask Emi AI</h3>
-                  <p className="text-indigo-100/90 text-sm font-medium leading-relaxed max-w-[200px] sm:max-w-xs mb-6">
+                  <h3 className="font-black text-lg sm:text-xl mb-0.5 flex items-center gap-2 tracking-tight">Ask Emi AI</h3>
+                  <p className="text-indigo-100/90 text-[10px] sm:text-[11px] font-medium leading-relaxed max-w-[160px] sm:max-w-[180px] mb-3">
                     Unlock expert explanations for any subject and MSCE prep.
                   </p>
                   <button 
                     onClick={() => onNavigate('emi')}
-                    className="bg-white text-indigo-700 font-bold text-sm py-3 px-6 rounded-xl flex items-center gap-2 shadow-xl shadow-indigo-950/20 active:scale-95 transition-all w-fit group"
+                    className="bg-white text-indigo-700 font-bold text-[10px] sm:text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 shadow-md shadow-indigo-950/20 active:scale-95 transition-all w-fit group"
                   >
                     Chat with Emi
-                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" strokeWidth={2.5} />
+                    <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" strokeWidth={2.5} />
                   </button>
                 </div>
                 
                 {/* Avatar Composition with Blending */}
-                <div className="absolute -right-6 -bottom-6 w-44 h-44 z-0 pointer-events-none hidden sm:block md:w-56 md:h-56">
+                <div className="absolute -right-2 -bottom-2 w-28 h-28 z-0 pointer-events-none hidden sm:block md:w-36 md:h-36">
                    <div className="relative w-full h-full">
                       <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
                       {/* Gradient masks to blend square edges */}
@@ -740,7 +740,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
                       <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-indigo-700/40"></div>
                    </div>
                 </div>
-                <div className="absolute -right-2 -bottom-2 w-32 h-32 z-0 pointer-events-none sm:hidden">
+                <div className="absolute -right-2 -bottom-2 w-24 h-24 z-0 pointer-events-none sm:hidden">
                    <div className="relative w-full h-full">
                       <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
                       <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
@@ -965,7 +965,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
       {/* Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-slate-200 shadow-sm'} backdrop-blur-xl border-b pt-14 pb-4 px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-slate-200 shadow-sm'} backdrop-blur-xl border-b pt-6 pb-3 px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`} >
         <div className="flex items-center gap-3">
           <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-300' : 'bg-slate-100 border-slate-200 text-slate-600'} shadow-sm rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform border`}>
             <ChevronLeft size={24} />
@@ -1579,7 +1579,7 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -1788,7 +1788,7 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -1922,7 +1922,7 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -2040,17 +2040,37 @@ function QuizTakingView({ questions, topic, onEnd, theme, profile, onUpdateProfi
 
   const finishQuiz = async (finalScore: number) => {
     setShowResult(true);
-    if (profile && onUpdateProfile) {
-       const xpGained = finalScore * 20; // 20 XP per correct answer
-       setXpAwarded(xpGained);
-       if (xpGained > 0 && auth.currentUser) {
-           const newPoints = (profile.points || 0) + xpGained;
-           try {
-             await updateDoc(doc(db, 'users', auth.currentUser.uid), { points: newPoints });
-             onUpdateProfile({ ...profile, points: newPoints });
-           } catch (e) {
-             console.error("Failed to update XP:", e);
-           }
+    if (profile && onUpdateProfile && auth.currentUser) {
+       const completedQuizzes = profile.completedQuizzes || [];
+       const quizId = topic.toLowerCase();
+       let xpGained = 0;
+       
+       if (!completedQuizzes.includes(quizId)) {
+         xpGained = 2; // Base XP for completing the quiz
+         
+         const percentCorrect = finalScore / questions.length;
+         const percentTimeLeft = timeLeft / (questions.length * 30);
+         // Reward 3 XP if time + correct answers were well balanced
+         if (percentCorrect >= 0.7 && percentTimeLeft >= 0.3) {
+             xpGained = 3;
+         }
+         
+         setXpAwarded(xpGained);
+         if (xpGained > 0) {
+             const newPoints = (profile.points || 0) + xpGained;
+             const newCompleted = [...completedQuizzes, quizId];
+             try {
+               await updateDoc(doc(db, 'users', auth.currentUser.uid), { 
+                 points: newPoints,
+                 completedQuizzes: newCompleted
+               });
+               onUpdateProfile({ ...profile, points: newPoints, completedQuizzes: newCompleted });
+             } catch (e) {
+               console.error("Failed to update XP:", e);
+             }
+         }
+       } else {
+         setXpAwarded(0); // No XP if already taken
        }
     }
   };
@@ -2139,7 +2159,7 @@ function QuizTakingView({ questions, topic, onEnd, theme, profile, onUpdateProfi
   return (
     <div className={`fixed inset-0 z-[200] flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-bottom duration-500`}>
       {/* Immersive Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white/50 border-slate-200'} backdrop-blur-md pt-14 pb-4 px-6 flex items-center justify-between z-10 border-b`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white/50 border-slate-200'} backdrop-blur-md pt-6 pb-3 px-6 flex items-center justify-between z-10 border-b`}>
          <button onClick={onEnd} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-gray-400' : 'bg-slate-100 text-slate-500'} rounded-xl flex items-center justify-center active:scale-90 transition-transform`}>
             <X size={20} strokeWidth={3} />
          </button>
@@ -2301,7 +2321,7 @@ function ProfileView({
     return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -2370,18 +2390,18 @@ function ProfileView({
         </div>
 
         <div className="flex gap-4">
-            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-[32px] border flex flex-col items-center group`}>
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                   <Target size={20} />
+            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex flex-col items-center group`}>
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                   <Target size={16} />
                 </div>
-                <div className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.points}</div>
+                <div className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.points}</div>
                 <div className="text-[8px] uppercase font-black text-gray-500 tracking-[0.2em] mt-1">Total XP</div>
             </div>
-            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-[32px] border flex flex-col items-center group`}>
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                   <Flame size={20} fill="currentColor" />
+            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex flex-col items-center group`}>
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                   <Flame size={16} fill="currentColor" />
                 </div>
-                <div className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.streak || 1}</div>
+                <div className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.streak || 1}</div>
                 <div className="text-[8px] uppercase font-black text-gray-500 tracking-[0.2em] mt-1">Day Streak</div>
             </div>
         </div>
@@ -3220,7 +3240,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
 
   return (
     <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} border-b pt-14 pb-4 px-5 flex items-center justify-between z-10 shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} border-b pt-6 pb-3 px-5 flex items-center justify-between z-10 shadow-xl`}>
         <div className="flex items-center">
             <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform mr-4`}>
                 <ChevronLeft size={24} strokeWidth={3} />
@@ -3723,7 +3743,7 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-all`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -3800,7 +3820,7 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
 function LocalMaterialView({ url, title, onBack, theme }: { url: string, title: string, onBack: () => void, theme: 'light' | 'dark' }) {
   return (
     <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-bottom duration-500`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-50 border-b shadow-lg`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-50 border-b shadow-lg`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-all`}>
           <ArrowLeft size={24} strokeWidth={3} />
         </button>
