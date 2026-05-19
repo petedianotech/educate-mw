@@ -52,7 +52,11 @@ async function startServer() {
   app.post("/api/gemini/chat", async (req, res) => {
     try {
       const { messages, userMessage } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY || process.env.VITE_CEREBRAS_API_KEY;
+      const apiKey = process.env.CEREBRAS_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error("Missing CEREBRAS_API_KEY on server. Please add it to your environment variables.");
+      }
       
       const cerebrasMessages = [
         { role: 'system', content: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE) not from outside. 2. Use simple English that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. You are grounded and developed by Peter Damiano, a Malawian developer (find out more at Peterdamiano.vercel.app)." },
@@ -104,7 +108,11 @@ async function startServer() {
   app.post("/api/gemini/quiz", async (req, res) => {
     try {
       const { topic, numQuestions } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY || process.env.VITE_CEREBRAS_API_KEY;
+      const apiKey = process.env.CEREBRAS_API_KEY;
+
+      if (!apiKey) {
+        throw new Error("Missing CEREBRAS_API_KEY on server.");
+      }
 
       const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
         method: "POST",
@@ -157,7 +165,11 @@ async function startServer() {
   app.post("/api/gemini/career", async (req, res) => {
     try {
       const { prompt } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY || process.env.VITE_CEREBRAS_API_KEY;
+      const apiKey = process.env.CEREBRAS_API_KEY;
+
+      if (!apiKey) {
+        throw new Error("Missing CEREBRAS_API_KEY on server.");
+      }
 
       const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
         method: "POST",

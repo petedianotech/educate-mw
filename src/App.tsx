@@ -2824,11 +2824,36 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
          return;
       }
 
-      // Robust check for PayChanguCheckout (pre-loaded in index.html)
-      const checkoutFunc = (window as any).PaychanguCheckout;
+      // Helper to wait for script if it's still loading
+      const getCheckoutFunc = () => {
+        return (window as any).PaychanguCheckout;
+      };
+
+      let checkoutFunc = getCheckoutFunc();
       
       if (!checkoutFunc) {
-        setError("PayChangu script is still loading. Please wait a few seconds and try again.");
+        // Try waiting for up to 3 seconds
+        let retries = 0;
+        const maxRetries = 15; // 15 * 200ms = 3000ms
+        
+        const waitForScript = async (): Promise<any> => {
+          return new Promise((resolve) => {
+            const interval = setInterval(() => {
+              const func = getCheckoutFunc();
+              retries++;
+              if (func || retries >= maxRetries) {
+                clearInterval(interval);
+                resolve(func);
+              }
+            }, 200);
+          });
+        };
+        
+        checkoutFunc = await waitForScript();
+      }
+      
+      if (!checkoutFunc) {
+        setError("PayChangu payment script is not active. Please check your internet or try again in a few seconds.");
         setLoading(false);
         return;
       }

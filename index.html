@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" />
-    <link rel="apple-touch-icon" href="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <title>educate mw</title>
     <meta name="description" content="The ultimate learning platform for Malawian students. Access MSCE notes, interactive quizzes, dictionary, and Emi AI assistant. Master Form 1 to Form 4 subjects effortlessly.">
     <meta name="keywords" content="Malawi education, MSCE notes, Form 1 notes Malawi, Form 4 notes Malawi, Malawi secondary school app, Emi AI, Education MW, study app Malawi, MANEB notes, MSCE exam prep">
@@ -42,7 +42,20 @@
       gtag('config', 'G-VT6NKMLEMR');
     </script>
 
-    <script src="https://inlines.paychangu.com/js/popup.js" id="paychangu-script"></script>
+    <script src="https://inlines.paychangu.com/js/popup.js" id="paychangu-script" defer></script>
+    <script>
+      // Fallback for PayChangu script loading
+      window.addEventListener('load', function() {
+        var script = document.getElementById('paychangu-script');
+        if (script && !window.PaychanguCheckout) {
+          console.warn('PayChangu script failed to load. Retrying...');
+          var newScript = document.createElement('script');
+          newScript.src = "https://inlines.paychangu.com/js/popup.js";
+          newScript.id = "paychangu-script-retry";
+          document.head.appendChild(newScript);
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
