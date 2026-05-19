@@ -22,13 +22,13 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: 'https://i.ibb.co/RpjS0C6P/emi-ai-1.png',
+              src: 'https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: 'https://i.ibb.co/RpjS0C6P/emi-ai-1.png',
+              src: 'https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'

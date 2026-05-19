@@ -421,9 +421,9 @@ export default function App() {
   const seoData = getSeoData();
 
   return (
-    <div className={`${theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-930'} min-h-screen flex justify-center font-sans selection:bg-indigo-900/30 selection:text-indigo-100`}>
+    <div className={`${theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-930'} min-h-screen font-sans selection:bg-indigo-900/30 selection:text-indigo-100`}>
       <SEO {...seoData} />
-      <div className={`w-full max-w-md h-[100dvh] ${theme === 'dark' ? 'bg-gray-900 sm:border-gray-800' : 'bg-white sm:border-slate-200'} shadow-2xl relative overflow-hidden flex flex-col sm:border-x`}>
+      <div className={`w-full h-[100dvh] ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} relative overflow-hidden flex flex-col`}>
         
         {!isOnline && (
           <div className="absolute top-0 left-0 right-0 z-[110] bg-amber-500 text-gray-950 text-[10px] font-black py-1 px-4 text-center uppercase tracking-widest flex items-center justify-center gap-2">
@@ -531,7 +531,7 @@ export default function App() {
         {/* Bottom Navigation */}
         {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos'].includes(currentView) && (
           <div className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === 'dark' ? 'bg-gray-950 border-gray-900' : 'bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} border-t pb-safe pt-2 px-1`}>
-            <div className="flex justify-around items-center w-full max-w-md mx-auto">
+            <div className="flex justify-around items-center w-full max-w-2xl mx-auto">
               <NavItem icon={<Home size={26} fill={currentView === 'home' ? 'currentColor' : 'none'} />} label="Home" active={currentView === 'home'} onClick={() => navigateTo('home')} theme={theme} />
               <NavItem icon={<Book size={26} fill={currentView === 'library' ? 'currentColor' : 'none'} />} label="Library" active={currentView === 'library'} onClick={() => navigateTo('library')} theme={theme} />
               
