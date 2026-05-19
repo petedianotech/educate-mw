@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export function FlashcardsView({ onBack }: { onBack: () => void }) {
+export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
   const [flipped, setFlipped] = useState(false);
   const [currentSetId, setCurrentSetId] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -85,16 +85,16 @@ export function FlashcardsView({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-gray-950 animate-in slide-in-from-right duration-300">
+    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className="bg-gray-900/90 backdrop-blur-xl pt-14 pb-4 px-5 flex items-center justify-between shrink-0 z-10 border-b border-gray-800 shadow-xl">
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200 shadow-sm'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center justify-between shrink-0 z-10 border-b shadow-xl`}>
         <div className="flex items-center">
-            <button onClick={onBack} className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform text-white">
+            <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-600'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
               <ChevronLeft size={24} strokeWidth={3} />
             </button>
             <div className="ml-4">
-               <h2 className="font-black text-white text-lg leading-tight uppercase tracking-tight">Flashcards</h2>
-               <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">Master your knowledge</p>
+               <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight uppercase tracking-tight`}>Flashcards</h2>
+               <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest mt-0.5">Master your knowledge</p>
             </div>
         </div>
         <button onClick={() => setShowGenerate(true)} className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform text-white shadow-lg shadow-indigo-600/20">
@@ -109,7 +109,7 @@ export function FlashcardsView({ onBack }: { onBack: () => void }) {
              <button 
                key={set.id}
                onClick={() => { setCurrentSetId(set.id); setIndex(0); setFlipped(false); }}
-               className={`shrink-0 px-6 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all border-2 ${currentSetId === set.id ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/20' : 'bg-gray-900 text-gray-500 border-gray-800'}`}
+               className={`shrink-0 px-6 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all border-2 ${currentSetId === set.id ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/20' : (theme === 'dark' ? 'bg-gray-900 text-gray-500 border-gray-800' : 'bg-white text-slate-400 border-slate-200 shadow-sm')}`}
              >
                {set.name}
              </button>
@@ -122,10 +122,10 @@ export function FlashcardsView({ onBack }: { onBack: () => void }) {
              <Loader2 size={32} className="animate-spin text-indigo-500 mt-20" />
           ) : currentCards.length > 0 ? (
               <>
-                 <div className="mb-8 flex items-center gap-1.5 bg-gray-900/50 px-3 py-1 rounded-full border border-gray-800">
+                 <div className={`mb-8 flex items-center gap-1.5 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} px-3 py-1 rounded-full border`}>
                     <div className="flex gap-1 overflow-hidden max-w-full">
                       {currentCards.map((_: any, i: number) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 shrink-0 ${i === index ? 'w-4 bg-indigo-500' : 'w-1 bg-gray-700'}`}></div>
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 shrink-0 ${i === index ? 'w-4 bg-indigo-500' : (theme === 'dark' ? 'w-1 bg-gray-700' : 'w-1 bg-slate-200')}`}></div>
                       ))}
                     </div>
                  </div>
@@ -180,7 +180,7 @@ export function FlashcardsView({ onBack }: { onBack: () => void }) {
                     <button 
                       onClick={(e) => { e.stopPropagation(); setFlipped(false); setTimeout(() => setIndex(Math.max(0, index - 1)), 150); }}
                       disabled={index === 0}
-                      className="w-14 h-14 xs:w-16 xs:h-16 bg-gray-900 text-gray-400 rounded-2xl flex items-center justify-center border-2 border-gray-800 disabled:opacity-20 active:scale-90 transition-all shadow-xl shadow-black hover:border-gray-700 shrink-0"
+                      className={`w-14 h-14 xs:w-16 xs:h-16 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-400' : 'bg-white border-slate-200 text-slate-400 shadow-sm'} rounded-2xl flex items-center justify-center border-2 disabled:opacity-20 active:scale-90 transition-all shadow-xl hover:border-indigo-500/30 shrink-0`}
                     >
                        <ChevronLeft size={24} strokeWidth={3} className="xs:w-7 xs:h-7" />
                     </button>
@@ -209,30 +209,30 @@ export function FlashcardsView({ onBack }: { onBack: () => void }) {
       {/* Generate Modal */}
       {showGenerate && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0 animate-in fade-in duration-200">
-           <div className="bg-gray-900 w-full max-w-md rounded-[2.5rem] p-8 border border-gray-800 shadow-2xl animate-in slide-in-from-bottom duration-300">
+           <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} w-full max-w-md rounded-[2.5rem] p-8 border shadow-2xl animate-in slide-in-from-bottom duration-300`}>
               <div className="flex justify-between items-center mb-8">
                  <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white">
                         <Sparkles size={20} />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-white leading-tight uppercase tracking-tight">AI Generate</h3>
-                        <p className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 mt-0.5">Create new flashcards</p>
+                        <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight uppercase tracking-tight`}>AI Generate</h3>
+                        <p className="text-[10px] uppercase font-bold tracking-widest text-indigo-500 mt-0.5">Create new flashcards</p>
                     </div>
                  </div>
-                 <button onClick={() => setShowGenerate(false)} className="text-gray-500 hover:text-white bg-gray-800 rounded-full p-2"><X size={20} /></button>
+                 <button onClick={() => setShowGenerate(false)} className={`text-gray-500 hover:text-white ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-100'} rounded-full p-2`}><X size={20} /></button>
               </div>
 
               <form onSubmit={handleGenerate}>
                   <div className="mb-6">
-                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Topic or Subject</label>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Topic or Subject</label>
                       <input 
                           type="text" 
                           required
                           value={topic}
                           onChange={(e) => setTopic(e.target.value)}
                           placeholder="e.g., Photosynthesis, World War 2" 
-                          className="w-full bg-gray-950 border-2 border-gray-800 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500 transition-colors"
+                          className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} border-2 rounded-2xl px-5 py-4 font-bold outline-none focus:border-indigo-500 transition-colors shadow-inner`}
                       />
                   </div>
                   <button 

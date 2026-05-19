@@ -4,7 +4,13 @@ import { getFirestore, doc, getDocFromServer, enableIndexedDbPersistence } from 
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// Use the explicit database ID if provided, otherwise the default.
+const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)' 
+  ? firebaseConfig.firestoreDatabaseId 
+  : undefined;
+
+export const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -26,11 +32,15 @@ if (typeof window !== "undefined") {
 // Connection test - Silently verify and log once if truly offline
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
+    // Check if we can at least reach the server
+    await getDocFromServer(doc(db, 'materials', 'public_check'));
+  } catch (error: any) {
+    if (error?.code === 'permission-denied') {
+      // This is expected if the doc doesn't exist but we hit the rules
+      return;
+    }
     // Only log if it's not simply an offline error which we handle gracefully
     if(error instanceof Error && error.message.includes('the client is offline')) {
-      // Silence this log or make it a warning instead of a noisy error
       console.warn("Firestore is operating in offline mode.");
     } else {
       console.error("Firebase connection error:", error);

@@ -30,7 +30,8 @@ import {
   getDocs,
   orderBy,
   limit,
-  deleteDoc
+  deleteDoc,
+  getCountFromServer
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from './lib/firebase';
 import { Avatar, getAvatarGradient, FEMININE_GRADIENTS, MASCULINE_GRADIENTS } from './components/Avatar';
@@ -123,6 +124,7 @@ import {
   Moon,
   Trash2,
   Square,
+  Pause,
   Clock,
   ArrowLeft,
   Crown,
@@ -185,9 +187,9 @@ export default function App() {
     switch (view) {
       case 'home': path = '/'; break;
       case 'blog': path = '/blog'; break;
-      case 'blog-post': path = `/blog/${slug}`; break;
+      case 'blog-post': path = `/blog/${slugOrSearch}`; break;
       case 'library': path = '/library'; break;
-      case 'library-item': path = `/library/${slug}`; break;
+      case 'library-item': path = `/library/${slugOrSearch}`; break;
       case 'terms': path = '/terms'; break;
       case 'privacy': path = '/privacy'; break;
       case 'emi': path = '/emi-ai'; break;
@@ -479,8 +481,8 @@ export default function App() {
                   onUpdateProfile={setUserProfile}
                 />
               )}
-              {currentView === 'flashcards' && <FlashcardsView onBack={() => navigateTo('home')} />}
-              {currentView === 'community' && <CommunityView onBack={() => navigateTo('home')} />}
+              {currentView === 'flashcards' && <FlashcardsView onBack={() => navigateTo('home')} theme={theme} />}
+              {currentView === 'community' && <CommunityView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'blog' && (
                 <BlogView 
                   onBack={() => navigateTo('home')} 
@@ -504,8 +506,12 @@ export default function App() {
                   onUpdate={async (newProfile: any) => {
                     if (user) {
                       const userRef = doc(db, 'users', user.uid);
-                      await updateDoc(userRef, newProfile);
-                      setUserProfile(newProfile);
+                      try {
+                        await setDoc(userRef, newProfile, { merge: true });
+                        setUserProfile(prev => ({ ...prev, ...newProfile }));
+                      } catch (err) {
+                        console.error("Profile update failed:", err);
+                      }
                     }
                   }} 
                   onLogout={handleLogout} 
@@ -530,12 +536,12 @@ export default function App() {
               <NavItem icon={<Book size={26} fill={currentView === 'library' ? 'currentColor' : 'none'} />} label="Library" active={currentView === 'library'} onClick={() => navigateTo('library')} theme={theme} />
               
               <div className="flex flex-col items-center justify-center w-14 cursor-pointer pt-1 transition-all active:scale-95 group" onClick={() => navigateTo('emi')}>
-                <div className={`mb-1 p-0.5 rounded-full border-2 ${currentView === 'emi' ? (theme === 'dark' ? 'border-white' : 'border-indigo-600') : 'border-transparent'}`}>
-                  <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm">
-                     <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi" className="w-full h-full object-cover" />
+                <div className={`mb-0.5 p-0.5 rounded-full border-2 ${currentView === 'emi' ? (theme === 'dark' ? 'border-white' : 'border-indigo-600') : 'border-transparent'}`}>
+                  <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm bg-indigo-500/10">
+                     <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
                   </div>
                 </div>
-                <span className={`text-[9px] font-black tracking-widest uppercase transition-colors duration-200 ${currentView === 'emi' ? (theme === 'dark' ? 'text-white' : 'text-indigo-600') : 'text-gray-500 group-hover:text-gray-300'}`}>
+                <span className={`text-[8px] font-black tracking-widest uppercase transition-colors duration-200 ${currentView === 'emi' ? (theme === 'dark' ? 'text-white' : 'text-indigo-600') : 'text-gray-500 group-hover:text-gray-300'}`}>
                   Emi AI
                 </span>
               </div>
@@ -555,9 +561,9 @@ export default function App() {
               onClick={() => setIsSidebarOpen(false)}
             />
             {/* Sidebar Content */}
-            <div className={`relative w-[70%] max-w-[240px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
+            <div className={`relative w-[55%] max-w-[180px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
               {/* User Header in Sidebar */}
-              <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-gray-800' : 'bg-indigo-50 border-slate-200'} p-4 pt-10 border-b flex items-center gap-3`}>
+              <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-gray-800' : 'bg-indigo-50 border-slate-200'} p-3 pt-6 border-b flex items-center gap-3`}>
                 <div className={`w-12 h-12 rounded-xl border ${theme === 'dark' ? 'border-gray-700' : 'border-indigo-200'} shadow-md`}>
                   <Avatar user={userProfile} className="w-full h-full text-xl" />
                 </div>
@@ -571,11 +577,11 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
-                <SidebarItem theme={theme} icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="Subscription & Pay" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
-                <SidebarItem theme={theme} icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Education Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
+                <SidebarItem theme={theme} icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="MSCE Pro Access" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
+                <SidebarItem theme={theme} icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
                 
                 {isAdmin && (
-                  <SidebarItem theme={theme} icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin Panel" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
+                  <SidebarItem theme={theme} icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
                 )}
 
                 <div className="flex-1" />
@@ -642,7 +648,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
     <div className={`flex flex-col h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} overflow-hidden relative`}>
       {/* Fixed Sticky Header */}
       <header className={`fixed top-0 left-0 right-0 z-50 ${theme === 'dark' ? 'bg-gray-950/90' : 'bg-white/90'} backdrop-blur-2xl border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
-        <div className="pt-6 pb-3 px-5">
+        <div className="pt-4 pb-2 px-5">
           <div className="flex justify-between items-center w-full max-w-7xl mx-auto relative">
             <div className="flex items-center gap-3">
               <button 
@@ -718,9 +724,9 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
                     <Sparkles size={8} className="text-indigo-200" fill="currentColor" />
                     <span className="text-[8px] font-black uppercase tracking-widest leading-none">Powered by AI</span>
                   </div>
-                  <h3 className="font-black text-lg sm:text-xl mb-0.5 flex items-center gap-2 tracking-tight">Ask Emi AI</h3>
-                  <p className="text-indigo-100/90 text-[10px] sm:text-[11px] font-medium leading-relaxed max-w-[160px] sm:max-w-[180px] mb-3">
-                    Unlock expert explanations for any subject and MSCE prep.
+                  <h3 className="font-black text-lg sm:text-xl mb-0.5 flex items-center gap-2 tracking-tight">Learn with Emi AI</h3>
+                  <p className="text-indigo-100/90 text-[10px] sm:text-[11px] font-medium leading-relaxed max-w-[160px] sm:max-w-[180px] mb-3 leading-tight">
+                    Your personal MSCE tutor for instant expert explanations.
                   </p>
                   <button 
                     onClick={() => onNavigate('emi')}
@@ -732,19 +738,17 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
                 </div>
                 
                 {/* Avatar Composition with Blending */}
-                <div className="absolute -right-2 -bottom-2 w-28 h-28 z-0 pointer-events-none hidden sm:block md:w-36 md:h-36">
+                <div className="absolute -right-4 -bottom-4 w-40 h-40 z-0 pointer-events-none hidden sm:block md:w-48 md:h-48">
                    <div className="relative w-full h-full">
-                      <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
+                      <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi AI" className="w-full h-full object-contain" />
                       {/* Gradient masks to blend square edges */}
                       <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
-                      <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-indigo-700/40"></div>
                    </div>
                 </div>
-                <div className="absolute -right-2 -bottom-2 w-24 h-24 z-0 pointer-events-none sm:hidden">
+                <div className="absolute -right-2 -bottom-2 w-32 h-32 z-0 pointer-events-none sm:hidden">
                    <div className="relative w-full h-full">
-                      <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-contain" />
+                      <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi AI" className="w-full h-full object-contain" />
                       <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
-                      <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-indigo-700/40"></div>
                    </div>
                 </div>
               </div>
@@ -752,7 +756,7 @@ function HomeView({ onNavigate, onMenuClick, profile, onShowNotifications, theme
 
              {/* Right Column (Grid Menu) */}
              <div className="flex-[0.8] w-full max-w-lg mx-auto lg:max-w-none lg:mx-0 pt-0 lg:pt-2">
-
+            
             {/* Grid Menu */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 content-start shrink-0 mb-8">
               <FeatureCard 
@@ -864,6 +868,10 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   const [isLoading, setIsLoading] = useState(false);
   const [isCalling, setIsCalling] = useState(false);
   const [useSearch, setUseSearch] = useState(false);
+  const [activeSpeechId, setActiveSpeechId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -874,13 +882,50 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
     scrollToBottom();
   }, [messages]);
 
-  const speakText = (text: string) => {
+  const speakText = (text: string, id: string) => {
     if ('speechSynthesis' in window) {
+      if (activeSpeechId === id) {
+        window.speechSynthesis.cancel();
+        setActiveSpeechId(null);
+        return;
+      }
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
+      utterance.onend = () => setActiveSpeechId(null);
+      utterance.onerror = () => setActiveSpeechId(null);
+      setActiveSpeechId(id);
       window.speechSynthesis.speak(utterance);
     }
+  };
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const startLongPress = (e: React.MouseEvent | React.TouchEvent) => {
+    // Only trigger if clicking the main container, not buttons
+    if (e.target !== e.currentTarget) return;
+    
+    endLongPress();
+    const timer = setTimeout(() => {
+      setShowDeleteConfirm(true);
+    }, 1200);
+    setLongPressTimer(timer);
+  };
+
+  const endLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+    setShowDeleteConfirm(false);
   };
 
   const handleSend = async (text: string) => {
@@ -922,15 +967,21 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       if (!isPro && auth.currentUser) {
          currentPoints -= 2; // costs 2 point per question
          const userRef = doc(db, 'users', auth.currentUser.uid);
-         await updateDoc(userRef, { aiPoints: currentPoints, aiPointsLastReset: today });
+         await setDoc(userRef, { aiPoints: currentPoints, aiPointsLastReset: today }, { merge: true });
          onUpdateProfile({ ...profile, aiPoints: currentPoints, aiPointsLastReset: today });
       }
 
       const response = await fetch('/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, userMessage: { sender: 'user', text } })
+        body: JSON.stringify({ messages: messages.slice(-10), userMessage: { sender: 'user', text } })
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server Error: ${response.status}`);
+      }
+      
       const dataItems = await response.json();
       
       let responseText = dataItems.text || 'Sorry, I couldn\'t find an answer to that.';
@@ -944,12 +995,20 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       };
       
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Chat Correlation Error:", error);
+      let errorText = "I'm having trouble connecting right now. Please try again later.";
+      
+      if (error.message && error.message.includes("QUOTA_EXCEEDED")) {
+        errorText = "Emi AI is currently very busy (maximum capacity reached). Please try again in a few moments.";
+      } else if (error.message) {
+        errorText = `EMI AI error: ${error.message}`;
+      }
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: "I'm having trouble connecting right now. Please try again later.",
+        text: errorText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -965,14 +1024,14 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
       {/* Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-slate-200 shadow-sm'} backdrop-blur-xl border-b pt-6 pb-3 px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`} >
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-slate-200 shadow-sm'} backdrop-blur-xl border-b pt-4 pb-2 px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`} >
         <div className="flex items-center gap-3">
           <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-300' : 'bg-slate-100 border-slate-200 text-slate-600'} shadow-sm rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform border`}>
             <ChevronLeft size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <div className={`w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-indigo-900/50 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'} border flex items-center justify-center overflow-hidden`}>
-               <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi" className="w-full h-full object-cover" />
+            <div className={`w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-indigo-900/40 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border flex items-center justify-center overflow-hidden shadow-inner`}>
+               <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
             </div>
             <div>
               <h2 className={`font-bold text-[17px] ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-none mb-1 flex items-center gap-1`}>Emi AI <Sparkles size={14} className="text-indigo-400" fill="currentColor" /></h2>
@@ -1000,12 +1059,19 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-7 hide-scrollbar">
+      <div 
+        className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-7 hide-scrollbar"
+        onMouseDown={startLongPress}
+        onMouseUp={endLongPress}
+        onMouseLeave={endLongPress}
+        onTouchStart={startLongPress}
+        onTouchEnd={endLongPress}
+      >
         {/* Intro Card */}
         {messages.length === 0 && (
           <div className={`${theme === 'dark' ? 'bg-gradient-to-br from-indigo-900/30 to-gray-900 border-indigo-500/20' : 'bg-white border-indigo-100 shadow-sm'} rounded-3xl p-6 border flex flex-col gap-4 text-center items-center mt-4`}>
-            <div className={`w-24 h-24 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-slate-50 border-slate-200'} shadow-md rounded-2xl flex items-center justify-center shrink-0 border transform -rotate-3 hover:rotate-0 transition-transform overflow-hidden`}>
-               <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-cover" />
+            <div className={`w-24 h-24 ${theme === 'dark' ? 'bg-indigo-950/20 border-indigo-500/10' : 'bg-indigo-50 border-indigo-100'} shadow-md rounded-2xl flex items-center justify-center shrink-0 border transform -rotate-3 hover:rotate-0 transition-transform overflow-hidden`}>
+               <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi AI" className="w-full h-full object-contain p-1.5" />
             </div>
             <div>
               <h3 className={`font-black text-[22px] ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-1.5`}>How can I help?</h3>
@@ -1023,24 +1089,28 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
               bgColor="bg-purple-50" 
               text="Explain photosynthesis in simple terms" 
               onClick={() => handleSend("Explain photosynthesis in simple terms")}
+              theme={theme}
             />
             <SuggestionCard 
               icon={<Calculator size={20} fill="currentColor" className="text-[#3A82F7]" />} 
               bgColor="bg-blue-50" 
               text="Solve for x: 5x + 12 = 3(x + 8)" 
               onClick={() => handleSend("Solve for x: 5x + 12 = 3(x + 8)")}
+              theme={theme}
             />
             <SuggestionCard 
               icon={<BookOpen size={20} fill="currentColor" className="text-[#20CA78]" />} 
               bgColor="bg-emerald-50" 
               text="Give me tips to study better" 
               onClick={() => handleSend("Give me tips to study better")}
+              theme={theme}
             />
             <SuggestionCard 
               icon={<Sprout size={20} fill="currentColor" className="text-[#20CA78]" />} 
               bgColor="bg-green-50" 
               text="Explain crop rotation in agriculture" 
               onClick={() => handleSend("Explain crop rotation in agriculture")}
+              theme={theme}
             />
           </div>
         </div>
@@ -1048,9 +1118,9 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
 
         {messages.length > 0 && messages.some(m => m.sender === 'user') && (
           <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-[1px] bg-gray-800"></div>
+            <div className={`flex-1 h-[1px] ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'}`}></div>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">Today</span>
-            <div className="flex-1 h-[1px] bg-gray-800"></div>
+            <div className={`flex-1 h-[1px] ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'}`}></div>
           </div>
         )}
 
@@ -1059,22 +1129,22 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start gap-2.5'}`}>
               {msg.sender === 'ai' && (
-                <div className="w-8 h-8 rounded-full bg-indigo-900/50 border border-indigo-500/30 shrink-0 flex items-center justify-center overflow-hidden mt-1 shadow-sm">
-                   <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi" className="w-full h-full object-cover" />
+                <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border shrink-0 flex items-center justify-center overflow-hidden mt-1 shadow-sm`}>
+                   <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
                 </div>
               )}
               <div className={`max-w-[85%] relative group`}>
-                <div className={`p-4 shadow-sm relative ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm' : 'bg-gray-900 border border-gray-800 rounded-2xl rounded-tl-sm text-gray-200 font-medium'}`}>
+                <div className={`p-4 shadow-sm relative ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm' : (theme === 'dark' ? 'bg-gray-900 border border-gray-800 text-gray-200' : 'bg-white border border-slate-200 text-slate-800')} rounded-2xl rounded-tl-sm font-medium`}>
                   {msg.sender === 'ai' && (
                     <button 
-                      onClick={() => speakText(msg.text)} 
-                      className={`mb-2 w-8 h-8 rounded-full flex justify-center items-center ${theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'} transition-colors`}
-                      title="Read aloud"
+                      onClick={(e) => { e.stopPropagation(); speakText(msg.text, msg.id); }} 
+                      className={`mb-2 w-8 h-8 rounded-full flex justify-center items-center ${activeSpeechId === msg.id ? 'bg-red-500 text-white animate-pulse' : (theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100')} transition-colors`}
+                      title={activeSpeechId === msg.id ? "Stop voice" : "Read aloud"}
                     >
-                      <Volume2 size={16} />
+                      {activeSpeechId === msg.id ? <Pause size={16} /> : <Volume2 size={16} />}
                     </button>
                   )}
-                  <p className={`text-[14.5px] leading-relaxed whitespace-pre-wrap ${msg.sender === 'user' ? 'text-white' : 'text-gray-200'}`}>{msg.text}</p>
+                  <p className={`text-[14.5px] leading-relaxed whitespace-pre-wrap ${msg.sender === 'user' ? 'text-white' : (theme === 'dark' ? 'text-gray-200' : 'text-slate-800')}`}>{msg.text}</p>
                   <div className={`flex items-center gap-1.5 mt-2 text-[10px] font-bold ${msg.sender === 'user' ? 'justify-end text-white/70' : 'text-gray-400'}`}>
                     <span>{msg.timestamp}</span>
                     {msg.sender === 'user' && <CheckCheck size={10} strokeWidth={3} />}
@@ -1083,9 +1153,11 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
                 
                 {msg.sender === 'ai' && (
                   <div className="flex gap-4 mt-2 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { navigator.clipboard.writeText(msg.text); }} className="text-gray-400 hover:text-indigo-400"><Copy size={14} /></button>
-                    <button className="text-gray-400 hover:text-indigo-400"><ThumbsUp size={14} /></button>
-                    <button className="text-gray-400 hover:text-indigo-400"><ThumbsDown size={14} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleCopy(msg.text, msg.id); }} className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest ${copiedId === msg.id ? 'text-emerald-500' : 'text-gray-400 hover:text-indigo-400'}`}>
+                      {copiedId === msg.id ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                    </button>
+                    <button onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-indigo-400"><ThumbsUp size={14} /></button>
+                    <button onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-indigo-400"><ThumbsDown size={14} /></button>
                   </div>
                 )}
               </div>
@@ -1093,10 +1165,10 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           ))}
           {isLoading && (
             <div className="flex justify-start gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-indigo-900/50 border border-indigo-500/30 shrink-0 overflow-hidden mt-1 shadow-sm">
-                 <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi" className="w-full h-full object-cover" />
+              <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border shrink-0 overflow-hidden mt-1 shadow-sm flex items-center justify-center`}>
+                 <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
               </div>
-              <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} shadow-sm border rounded-2xl rounded-tl-sm px-4 py-3 min-w-[60px] flex items-center justify-center`}>
+              <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-lg shadow-slate-200/50'} border rounded-2xl rounded-tl-sm px-4 py-3 min-w-[60px] flex items-center justify-center`}>
                  <div className="flex gap-1.5 items-center justify-center w-full h-[20px]">
                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
@@ -1121,7 +1193,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           </button>
         </div>
         <div className="p-4 pt-3">
-          <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-slate-50 border-slate-100 shadow-inner'} rounded-[2rem] p-2 pl-4 flex items-center border`}>
+          <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/60'} rounded-[2rem] p-2 pl-4 flex items-center border transition-all duration-300`}>
           <input 
             type="text" 
             placeholder="Ask anything..." 
@@ -1142,6 +1214,30 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
         </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)}></div>
+           <div className={`relative ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-8 rounded-[2.5rem] border shadow-2xl max-w-xs w-full text-center`}>
+              <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                 <Trash2 size={32} />
+              </div>
+              <h3 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2`}>Clear Chat?</h3>
+              <p className="text-xs text-gray-500 font-bold mb-8 leading-relaxed px-4">This will permanently delete all messages in this conversation. This action cannot be undone.</p>
+              <div className="flex gap-3">
+                 <button 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest ${theme === 'dark' ? 'bg-gray-800 text-gray-400' : 'bg-slate-100 text-slate-500'}`}
+                 >Cancel</button>
+                 <button 
+                  onClick={clearChat}
+                  className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20"
+                 >Delete</button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1351,7 +1447,7 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
         <div className="mb-10 relative flex items-center justify-center">
            <div className="w-44 h-44 bg-gray-900 rounded-full flex items-center justify-center border-4 border-indigo-500/20 relative z-10 p-2 shadow-2xl">
               <div className="w-full h-full bg-gray-800 rounded-full flex items-center justify-center overflow-hidden shadow-inner border border-gray-700">
-                 <img src="https://i.ibb.co/6cfxqxgn/emiai-ai.jpg" alt="Emi AI" className="w-full h-full object-cover p-1" />
+                 <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi AI" className="w-full h-full object-contain p-4" />
               </div>
            </div>
            {isConnected && <div className="absolute inset-0 bg-indigo-500 rounded-full opacity-10 animate-ping -z-0" style={{animationDuration: '3s'}}></div>}
@@ -1480,16 +1576,16 @@ function SpectrumVisualizer({ analyser, isConnected }: { analyser: AnalyserNode 
   );
 }
 
-function SuggestionCard({ icon, bgColor, text, onClick }: { icon: React.ReactNode, bgColor: string, text: string, onClick: () => void }) {
+function SuggestionCard({ icon, bgColor, text, onClick, theme }: { icon: React.ReactNode, bgColor: string, text: string, onClick: () => void, theme: 'light' | 'dark' }) {
   return (
     <div 
       onClick={onClick}
-      className="bg-gray-900 rounded-[22px] p-4 flex flex-col items-center justify-center text-center shadow-sm border border-gray-800 snap-start cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
+      className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100 shadow-sm'} rounded-[22px] p-4 flex flex-col items-center justify-center text-center shadow-sm border snap-start cursor-pointer hover:shadow-lg transition-all active:scale-95`}
     >
-      <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center mb-3 shadow-inner bg-gray-800`}>
+      <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center mb-3 shadow-inner ${theme === 'dark' ? 'bg-gray-800' : bgColor}`}>
         {icon}
       </div>
-      <p className="text-[11px] font-bold text-gray-300 leading-snug">
+      <p className={`text-[11px] font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'} leading-snug`}>
         {text}
       </p>
     </div>
@@ -1579,7 +1675,7 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -1788,7 +1884,7 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -1922,7 +2018,7 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -2159,7 +2255,7 @@ function QuizTakingView({ questions, topic, onEnd, theme, profile, onUpdateProfi
   return (
     <div className={`fixed inset-0 z-[200] flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-bottom duration-500`}>
       {/* Immersive Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white/50 border-slate-200'} backdrop-blur-md pt-6 pb-3 px-6 flex items-center justify-between z-10 border-b`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white/50 border-slate-200'} backdrop-blur-md pt-4 pb-2 px-6 flex items-center justify-between z-10 border-b`}>
          <button onClick={onEnd} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-gray-400' : 'bg-slate-100 text-slate-500'} rounded-xl flex items-center justify-center active:scale-90 transition-transform`}>
             <X size={20} strokeWidth={3} />
          </button>
@@ -2321,7 +2417,7 @@ function ProfileView({
     return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -2389,20 +2485,20 @@ function ProfileView({
             </div>
         </div>
 
-        <div className="flex gap-4">
-            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex flex-col items-center group`}>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                   <Target size={16} />
+        <div className="flex gap-3">
+            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-3 rounded-2xl border flex flex-col items-center group`}>
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                   <Target size={14} />
                 </div>
-                <div className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.points}</div>
-                <div className="text-[8px] uppercase font-black text-gray-500 tracking-[0.2em] mt-1">Total XP</div>
+                <div className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.points}</div>
+                <div className="text-[7px] uppercase font-black text-gray-500 tracking-[0.2em] mt-0.5">Total XP</div>
             </div>
-            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex flex-col items-center group`}>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                   <Flame size={16} fill="currentColor" />
+            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-3 rounded-2xl border flex flex-col items-center group`}>
+                <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                   <Flame size={14} fill="currentColor" />
                 </div>
-                <div className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.streak || 1}</div>
-                <div className="text-[8px] uppercase font-black text-gray-500 tracking-[0.2em] mt-1">Day Streak</div>
+                <div className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.streak || 1}</div>
+                <div className="text-[7px] uppercase font-black text-gray-500 tracking-[0.2em] mt-0.5">Day Streak</div>
             </div>
         </div>
 
@@ -2693,7 +2789,7 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
   const [error, setError] = useState<string | null>(null);
   const [showCelebrate, setShowCelebrate] = useState(false);
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (amount: number, title: string) => {
     if (!profile) return;
     setLoading(true);
     setError(null);
@@ -2706,7 +2802,7 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
          setTimeout(async () => {
             if (auth.currentUser) {
                const userRef = doc(db, 'users', auth.currentUser.uid);
-               await updateDoc(userRef, { isPro: true });
+               await updateDoc(userRef, { isPro: true, proPlan: title });
             }
             setShowCelebrate(true);
             setTimeout(() => onBack(), 4000);
@@ -2726,7 +2822,7 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
       checkoutFunc({
         public_key: publicKey,
         tx_ref: txRef,
-        amount: 500,
+        amount: amount,
         currency: "MWK",
         callback_url: window.location.href,
         return_url: window.location.href,
@@ -2736,8 +2832,8 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
           last_name: "Mw",
         },
         customization: {
-          title: "Emi AI Pro",
-          description: "K500 Access for Emi AI Only (Unlimited)",
+          title: title,
+          description: `${amount} Access for ${title}`,
         },
         callback: async (response: any) => {
           console.log("PayChangu Callback Response:", response);
@@ -2754,7 +2850,7 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
               if (verifyData.success || verifyData.error?.includes("missing PayChangu secret key")) {
                 if (auth.currentUser) {
                   const userRef = doc(db, 'users', auth.currentUser.uid);
-                  await updateDoc(userRef, { isPro: true });
+                  await updateDoc(userRef, { isPro: true, proPlan: title });
                 }
                 setShowCelebrate(true);
                 setTimeout(() => onBack(), 4000);
@@ -2808,55 +2904,181 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
            </motion.div>
         )}
 
-        <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/30' : 'bg-white border-indigo-200 shadow-xl shadow-indigo-600/10'} rounded-3xl p-6 border-2 relative overflow-hidden`}>
-          <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3 rounded-bl-xl">Popular</div>
-          
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
-              <Crown size={28} />
+        <div className="space-y-6">
+          {/* Plan 1: Standard Pro */}
+          <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/30' : 'bg-white border-indigo-200 shadow-xl shadow-indigo-600/10'} rounded-3xl p-6 border-2 relative overflow-hidden`}>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
+                <Crown size={28} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black">Emi AI Standard Pro</h3>
+                <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Bypass basic limits</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-2xl font-black">Emi AI Pro</h3>
-              <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Bypass all limits</p>
+
+            <div className="mb-6">
+               <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black">K500</span>
+               </div>
+               <p className={`text-xs mt-1 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>One-time access fee</p>
             </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Emi AI Text Questions</p>
+              </div>
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Voice Call duration</p>
+              </div>
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Priority for faster responses</p>
+              </div>
+            </div>
+
+            <button 
+               onClick={() => handleSubscribe(500, "Emi AI Standard Pro")}
+               disabled={loading || profile?.isPro}
+               className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95'}`}
+            >
+               {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : 'Pay K500')}
+            </button>
+
+            {!profile?.isPro && (
+              <div className="mt-8 pt-6 border-t border-dashed border-gray-200 dark:border-gray-800">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Manual Payment (K500)</p>
+                <div className={`${theme === 'dark' ? 'bg-gray-950/50' : 'bg-slate-50'} p-4 rounded-2xl border ${theme === 'dark' ? 'border-gray-800' : 'border-slate-100'} mb-4`}>
+                   <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                         <span className="font-bold text-gray-500">Number:</span>
+                         <div className="flex items-center gap-1">
+                            <img src="https://i.ibb.co/KxWc20jw/images-1.png" alt="Airtel" className="w-4 h-4 object-contain" />
+                            <span className="font-black">0987066051</span>
+                         </div>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                         <span className="font-bold text-gray-500">Name:</span>
+                         <div className="flex items-center gap-1.5">
+                            <img src="https://i.ibb.co/cXpLmLVC/20260516-210805.jpg" alt="Peter" className="w-5 h-5 rounded-full object-cover border border-indigo-200" />
+                            <span className="font-black text-indigo-500">Peter Damiano (Dev)</span>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+
+                <button 
+                   onClick={() => {
+                     const message = encodeURIComponent(`Hi Peter, I'm ${profile?.name || 'a student'} (${profile?.email || ''}). I've paid K500 for Standard Pro. Here is my screenshot.`);
+                     window.open(`https://wa.me/265987066051?text=${message}`, '_blank');
+                   }}
+                   className={`w-full py-3 rounded-xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] ${theme === 'dark' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white transition-all active:scale-95`}
+                >
+                   <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-5 h-5 rounded-full object-cover" />
+                   Verify on WhatsApp
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="mb-6">
-             <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black">K500</span>
-             </div>
-             <p className={`text-xs mt-1 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>One-time access fee</p>
-          </div>
+          {/* Plan 2: Full Pro Access */}
+          <div className={`${theme === 'dark' ? 'bg-gray-900 border-amber-500/30 shadow-[0_20px_50px_rgba(245,158,11,0.1)]' : 'bg-white border-amber-200 shadow-xl shadow-amber-600/10'} rounded-3xl p-6 border-2 relative overflow-hidden`}>
+            <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3 rounded-bl-xl">Elite</div>
+            
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                <Rocket size={28} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black">Full Pro Access</h3>
+                <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>The Ultimate Student Pack</p>
+              </div>
+            </div>
 
-          <div className="space-y-4 mb-8">
-            <div className="flex items-start gap-3">
-               <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
-               <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Emi AI Text Questions</p>
+            <div className="mb-6">
+               <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black">K5000</span>
+                  <span className="text-xs font-bold text-gray-500">/ month</span>
+               </div>
+               <p className={`text-xs mt-1 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>Full access to all features</p>
             </div>
-            <div className="flex items-start gap-3">
-               <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
-               <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Voice Call duration</p>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>No limits for Emi AI questions</p>
+              </div>
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Book Downloads</p>
+              </div>
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Early access to NEW features</p>
+              </div>
+              <div className="flex items-start gap-3">
+                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
+                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Improved model with grounding (MSCE/Malawi localized info)</p>
+              </div>
             </div>
-            <div className="flex items-start gap-3">
-               <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
-               <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Priority servers for faster responses</p>
+
+            <button 
+               onClick={() => handleSubscribe(5000, "Full Pro Access")}
+               className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/20 active:scale-95`}
+            >
+               Pay K5000
+            </button>
+
+            <div className="mt-8 pt-6 border-t border-dashed border-gray-200 dark:border-gray-800">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Manual Payment (K5000)</p>
+                <div className={`${theme === 'dark' ? 'bg-gray-950/50' : 'bg-slate-50'} p-4 rounded-2xl border ${theme === 'dark' ? 'border-gray-800' : 'border-slate-100'} mb-4`}>
+                   <div className="space-y-2">
+                       <div className="flex justify-between items-center text-xs">
+                         <span className="font-bold text-gray-500">Number:</span>
+                         <div className="flex items-center gap-1">
+                            <img src="https://i.ibb.co/KxWc20jw/images-1.png" alt="Airtel" className="w-4 h-4 object-contain" />
+                            <span className="font-black">0999136433</span>
+                         </div>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                         <span className="font-bold text-gray-500">Name:</span>
+                         <span className="font-black text-amber-600">S. Liffa (Teacher)</span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="space-y-2">
+                   <button 
+                      onClick={() => {
+                        const message = encodeURIComponent(`Hi Mr. Liffa, I'm ${profile?.name || 'a student'} (${profile?.email || ''}). I've paid K5000 for Full Pro Access. Here is my screenshot proof for approval.`);
+                        window.open(`https://wa.me/265999136433?text=${message}`, '_blank');
+                      }}
+                      className={`w-full py-3 rounded-xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] ${theme === 'dark' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600'} text-white transition-all active:scale-95`}
+                   >
+                      <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-5 h-5 rounded-full object-cover" />
+                      Verify with S. Liffa
+                   </button>
+                   <button 
+                      onClick={() => {
+                        const message = encodeURIComponent(`Hi Peter, Mr. Liffa hasn't responded to my K5000 payment for Full Pro. My username is ${profile?.name || ''} (${profile?.email || ''}). Please check for me.`);
+                        window.open(`https://wa.me/265987066051?text=${message}`, '_blank');
+                      }}
+                      className={`w-full py-2 rounded-xl flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-[9px] ${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-slate-800'} transition-all`}
+                   >
+                      Contact Developer (Backup)
+                   </button>
+                </div>
             </div>
           </div>
-
-          <button 
-             onClick={handleSubscribe}
-             disabled={loading || profile?.isPro}
-             className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95'}`}
-          >
-             {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : 'Pay via PayChangu')}
-          </button>
-          
-          {error && (
-            <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center leading-relaxed">
-              {error}
-            </div>
-          )}
         </div>
+
+        {error && (
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center">
+            {error}
+          </div>
+        )}
 
         <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-3xl p-6 border`}>
            <h4 className="font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -3114,9 +3336,13 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 
 function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
   const [students, setStudents] = useState<any[]>([]);
+  const [userSearch, setUserSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications'>('students');
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [realTotal, setRealTotal] = useState(0);
+  const [realPro, setRealPro] = useState(0);
+  const [realForm4, setRealForm4] = useState(0);
   const [newMaterial, setNewMaterial] = useState({ 
     title: '', 
     content: '', 
@@ -3130,9 +3356,9 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
 
   const stats = {
-    total: students.length,
-    pro: students.filter(s => s.isPro).length,
-    form4: students.filter(s => s.level === 'Form 4').length
+    total: realTotal || students.length,
+    pro: realPro || students.filter(s => s.isPro).length,
+    form4: realForm4 || students.filter(s => s.level === 'Form 4').length
   };
 
   const handlePublishNotification = async (e: React.FormEvent) => {
@@ -3155,6 +3381,24 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   };
 
   useEffect(() => {
+    // 0. Fetch real total counts
+    const fetchStats = async () => {
+      try {
+        const coll = collection(db, 'users');
+        const [totalSnap, proSnap, form4Snap] = await Promise.all([
+          getCountFromServer(query(coll)),
+          getCountFromServer(query(coll, where('isPro', '==', true))),
+          getCountFromServer(query(coll, where('level', '==', 'Form 4')))
+        ]);
+        setRealTotal(totalSnap.data().count);
+        setRealPro(proSnap.data().count);
+        setRealForm4(form4Snap.data().count);
+      } catch (err) {
+        console.error("Error fetching total counts:", err);
+      }
+    };
+    fetchStats();
+
     // 1. Load from cache for fast startup
     const cachedStudents = localStorage.getItem('mw_admin_students_cache');
     if (cachedStudents) {
@@ -3162,12 +3406,18 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
       setLoading(false);
     }
 
-    // 2. Snapshot for recent students
-    const qStudents = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
+    // 2. Snapshot for recent students - simpler query if possible
+    const qStudents = query(collection(db, 'users'), limit(50));
     const unsubscribeStudents = onSnapshot(qStudents, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setStudents(data);
-      localStorage.setItem('mw_admin_students_cache', JSON.stringify(data));
+      // Sort in memory if needed or use server ordering
+      const sortedData = data.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.toMillis?.() || 0;
+        const dateB = b.createdAt?.toMillis?.() || 0;
+        return dateB - dateA;
+      });
+      setStudents(sortedData);
+      localStorage.setItem('mw_admin_students_cache', JSON.stringify(sortedData));
       setLoading(false);
     }, (error) => {
       console.error("Admin dashboard stream error:", error);
@@ -3240,7 +3490,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
 
   return (
     <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} border-b pt-6 pb-3 px-5 flex items-center justify-between z-10 shadow-xl`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} border-b pt-4 pb-2 px-5 flex items-center justify-between z-10 shadow-xl`}>
         <div className="flex items-center">
             <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform mr-4`}>
                 <ChevronLeft size={24} strokeWidth={3} />
@@ -3292,15 +3542,33 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                  <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-700'} font-black text-xs uppercase tracking-widest`}>Recent Students</h3>
-                  <span className="text-[9px] text-gray-500 font-bold uppercase">Last 50 Entries</span>
+              <div className="flex flex-col gap-4 px-1">
+                  <div className="flex justify-between items-center">
+                    <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-700'} font-black text-xs uppercase tracking-widest`}>Recent Students</h3>
+                    <span className="text-[9px] text-gray-500 font-bold uppercase">Last 50 Entries</span>
+                  </div>
+                  
+                  <div className={`flex items-center gap-2 px-4 py-2 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} border rounded-xl shadow-sm`}>
+                    <Search size={16} className="text-gray-500" />
+                    <input 
+                      type="text" 
+                      placeholder="Search users..." 
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="bg-transparent border-none outline-none text-xs font-bold w-full"
+                    />
+                  </div>
               </div>
             
             {loading ? (
                 <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
             ) : (
-                students.filter(s => s !== null).map((student) => (
+                students
+                  .filter(s => s !== null && (
+                    s.name?.toLowerCase().includes(userSearch.toLowerCase()) || 
+                    s.email?.toLowerCase().includes(userSearch.toLowerCase())
+                  ))
+                  .map((student) => (
                     <div key={student.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-3xl flex items-center justify-between group hover:border-indigo-500/30 transition-colors border`}>
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl relative">
@@ -3326,9 +3594,9 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                         </div>
                         <button 
                             onClick={() => togglePro(student)}
-                            className={`p-3 rounded-2xl transition-all active:scale-90 ${student.isPro ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500' : 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500'} hover:text-white`}
+                            className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${student.isPro ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}
                         >
-                            {student.isPro ? <UserMinus size={18} /> : <UserCheck size={18} />}
+                            {student.isPro ? 'Demote' : 'Make Pro'}
                         </button>
                     </div>
                 ))
@@ -3635,8 +3903,8 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
   }, []);
 
   return (
-    <div className={`min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-12 animate-in fade-in duration-500 pb-20`}>
-      <div className="flex items-center gap-4 mb-8">
+    <div className={`min-h-full ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} p-6 pt-10 animate-in fade-in duration-500 pb-20`}>
+      <div className="flex items-center gap-4 mb-4">
          <button onClick={onBack} className={`w-12 h-12 ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}>
             <ChevronLeft size={24} strokeWidth={3} />
          </button>
@@ -3743,7 +4011,7 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-10 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-all`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
@@ -3820,7 +4088,7 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
 function LocalMaterialView({ url, title, onBack, theme }: { url: string, title: string, onBack: () => void, theme: 'light' | 'dark' }) {
   return (
     <div className={`absolute inset-0 z-[100] flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-bottom duration-500`}>
-      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl pt-6 pb-3 px-5 flex items-center shrink-0 z-50 border-b shadow-lg`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/80 border-white/5' : 'bg-white/80 border-slate-200'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-50 border-b shadow-lg`}>
         <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-700'} rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-all`}>
           <ArrowLeft size={24} strokeWidth={3} />
         </button>

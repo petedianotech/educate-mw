@@ -69,8 +69,18 @@ async function startServer() {
       responseText = responseText.replace(/\$/g, '');
       res.json({ text: responseText });
     } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ error: error.message });
+      console.error("Gemini Chat Error Details:", error);
+      let errorMessage = "Gemini API unavailable";
+      let statusCode = 500;
+
+      if (error.status === 429 || (error.message && error.message.includes("quota"))) {
+        errorMessage = "QUOTA_EXCEEDED: Emi AI is currently at maximum capacity due to high demand. Please try again in 1 minute.";
+        statusCode = 429;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      res.status(statusCode).json({ error: errorMessage });
     }
   });
 
@@ -97,8 +107,14 @@ async function startServer() {
       });
       res.json({ text: response.text });
     } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ error: error.message });
+      console.error("Gemini Quiz Error:", error);
+      let errorMessage = error.message || "Failed to generate quiz";
+      let statusCode = 500;
+      if (error.status === 429 || (error.message && error.message.includes("quota"))) {
+        errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
+        statusCode = 429;
+      }
+      res.status(statusCode).json({ error: errorMessage });
     }
   });
 
@@ -115,8 +131,14 @@ async function startServer() {
       responseText = responseText.replace(/\$/g, '');
       res.json({ text: responseText });
     } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ error: error.message });
+      console.error("Gemini Career Error:", error);
+      let errorMessage = error.message || "Failed to generate career advice";
+      let statusCode = 500;
+      if (error.status === 429 || (error.message && error.message.includes("quota"))) {
+        errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
+        statusCode = 429;
+      }
+      res.status(statusCode).json({ error: errorMessage });
     }
   });
 
@@ -164,7 +186,7 @@ async function startServer() {
          try {
             const msg = JSON.parse(data.toString());
             if (msg.realtimeInput?.mediaChunks?.[0]?.data) {
-               session.send({
+               (session as any).send({
                  realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: msg.realtimeInput.mediaChunks[0].data }] }
                });
             }

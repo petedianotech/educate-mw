@@ -6,7 +6,7 @@ import { GroupChat } from './GroupChat';
 import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 
-export function CommunityView({ onBack }: { onBack: () => void }) {
+export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
   const [activeGroup, setActiveGroup] = useState<{name: string, members: number} | null>(null);
   
   const [feeds, setFeeds] = useState<any[]>([]);
@@ -60,25 +60,25 @@ export function CommunityView({ onBack }: { onBack: () => void }) {
   };
 
   if (activeGroup) {
-    return <GroupChat group={activeGroup} onBack={() => setActiveGroup(null)} />;
+    return <GroupChat group={activeGroup} onBack={() => setActiveGroup(null)} theme={theme} />;
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-gray-950 animate-in slide-in-from-right duration-300">
+    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
       {/* Fixed Header */}
-      <div className="bg-gray-900/90 backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b border-gray-800 shadow-xl">
-        <button onClick={onBack} className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform text-white">
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200 shadow-sm'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
+        <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-600'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
         <div className="ml-4">
-           <h2 className="font-black text-white text-lg leading-tight uppercase tracking-tight">Community</h2>
-           <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">Study Together</p>
+           <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight uppercase tracking-tight`}>Community</h2>
+           <p className={`text-[10px] ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-500'} font-bold uppercase tracking-widest mt-0.5`}>Study Together</p>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto hide-scrollbar pb-32">
          {/* Online users */}
          <div className="px-5 pt-8 pb-4">
-            <h3 className="font-black text-white text-lg mb-6">Popular Circles</h3>
+            <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg mb-6`}>Popular Circles</h3>
             <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5">
                {[
                  { name: 'Sciences', members: 0, icon: FlaskConical, color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
@@ -86,15 +86,15 @@ export function CommunityView({ onBack }: { onBack: () => void }) {
                  { name: 'Languages', members: 0, icon: BookA, color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
                  { name: 'General Studies', members: 0, icon: GraduationCap, color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' }
                ].map((group, i) => (
-                 <div key={i} onClick={() => setActiveGroup(group)} className="bg-gray-900 min-w-[145px] rounded-[32px] p-6 shadow-2xl border border-gray-800 flex flex-col items-start cursor-pointer transition-all active:scale-95 group hover:border-indigo-500/50 relative overflow-hidden">
+                 <div key={i} onClick={() => setActiveGroup(group)} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} min-w-[145px] rounded-[32px] p-6 border flex flex-col items-start cursor-pointer transition-all active:scale-95 group hover:border-indigo-500/50 relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
                        {React.createElement(group.icon, { size: 48 })}
                     </div>
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-5 border ${group.color} shadow-inner bg-opacity-10 backdrop-blur-sm group-hover:scale-110 transition-transform`}>
                        {React.createElement(group.icon, { size: 24, strokeWidth: 2.5 })}
                     </div>
-                    <span className="font-black text-white text-[13px] mb-2 leading-tight truncate w-full">{group.name}</span>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-950 rounded-full border border-gray-800">
+                    <span className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-[13px] mb-2 leading-tight truncate w-full`}>{group.name}</span>
+                    <div className={`flex items-center gap-1.5 px-3 py-1 ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-full border`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span className="text-[9px] text-emerald-500 font-black uppercase tracking-wider">Active</span>
                     </div>

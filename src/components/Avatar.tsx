@@ -8,7 +8,11 @@ export const FEMININE_GRADIENTS = [
   'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', // Peconic
   'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', // Peach
   'linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%)',  // Warm Pink
-  'linear-gradient(135deg, #ebbba7 0%, #cfc7f8 100%)'  // Dusty Rose
+  'linear-gradient(135deg, #ebbba7 0%, #cfc7f8 100%)', // Dusty Rose
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // Sunny Morning
+  'linear-gradient(135deg, #ff0844 0%, #ffb199 100%)', // Deep Red
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Lady Lips
+  'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)'  // Vivid Blue
 ];
 
 export const MASCULINE_GRADIENTS = [
@@ -19,7 +23,11 @@ export const MASCULINE_GRADIENTS = [
   'linear-gradient(135deg, #00c6fb 0%, #005bea 100%)', // Ocean Blue
   'linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)', // Cyan Purple
   'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', // Bright Teal
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'  // Deep Purple
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Deep Purple
+  'linear-gradient(135deg, #13547a 0%, #80d0c7 100%)', // Aqua Splash
+  'linear-gradient(135deg, #ff9a03 0%, #ff5d00 100%)', // Burning Orange
+  'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)', // Midnight Blue
+  'linear-gradient(135deg, #000000 0%, #434343 100%)'  // Dark Knight
 ];
 
 /**

@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isVerified() && (
+      return isSignedIn() && (
         request.auth.token.email == 'petedianotech@gmail.com' ||
         request.auth.token.email == 'mscepreparation@gmail.com'
       );
@@ -35,24 +35,17 @@ service cloud.firestore {
     // Users
     match /users/{userId} {
       function isValidUser(data) {
-        return data.name is string && data.name.size() <= 100 &&
-               data.email is string && data.email.size() <= 100 &&
-               data.role in ['admin', 'student'] &&
-               (data.get('points', 0) is number) &&
-               (data.get('isPro', false) is bool);
+        return data.get('name', '') is string && 
+               data.get('email', '') is string;
       }
 
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin(); // Admin can see all students
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
       
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
-                      request.resource.data.isPro == false &&
-                      request.resource.data.role == 'student' &&
-                      isValidId(userId);
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
                       
-      allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'level', 'points', 'referralCode'])
-                       ) || isAdmin();
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
     }
 
     // Materials
@@ -63,19 +56,19 @@ service cloud.firestore {
                data.type in ['pdf', 'video', 'text']; // Removed authorId check since admin can create it
       }
 
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin() && isValidId(materialId);
     }
 
     // Videos section
     match /videos/{videoId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin() && isValidId(videoId);
     }
 
     // Notifications
     match /notifications/{notificationId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin() && isValidId(notificationId);
     }
   }

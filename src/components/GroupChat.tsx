@@ -3,7 +3,7 @@ import {
   ChevronLeft, MoreVertical, Mic, Square, Trash2, Send, Play, Pause, Clock
 } from 'lucide-react';
 
-export function GroupChat({ group, onBack }: { group: {name: string, members: number}, onBack: () => void }) {
+export function GroupChat({ group, onBack, theme = 'dark' }: { group: {name: string, members: number}, onBack: () => void, theme?: 'light' | 'dark' }) {
   const [messages, setMessages] = useState<{id: string, user: string, text: string, isMe: boolean, type?: 'text' | 'voice', audioUrl?: string, duration?: number}[]>([]);
   const [input, setInput] = useState('');
   
@@ -149,14 +149,14 @@ export function GroupChat({ group, onBack }: { group: {name: string, members: nu
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-gray-950 animate-in slide-in-from-right duration-300">
+    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
       {/* Header - Fixed */}
-      <div className="bg-gray-900/90 backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b border-gray-800 shadow-lg">
-        <button onClick={onBack} className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform text-white">
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 shadow-lg' : 'bg-white/90 border-slate-200 shadow-sm'} backdrop-blur-xl pt-14 pb-4 px-5 flex items-center shrink-0 z-10 border-b shadow-lg`}>
+        <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-600'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
         <div className="ml-4 flex-1">
-           <h2 className="font-black text-white text-base leading-tight flex items-center gap-2">
+           <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-base leading-tight flex items-center gap-2`}>
              {group.name} 
              <span className="bg-green-500/20 text-green-400 text-[8px] px-1.5 py-0.5 rounded-full uppercase tracking-widest border border-green-500/30">Public Group</span>
            </h2>
@@ -170,17 +170,17 @@ export function GroupChat({ group, onBack }: { group: {name: string, members: nu
       {/* Messages - Scrollable */}
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6 hide-scrollbar">
          <div className="flex justify-center mb-8">
-            <div className="bg-gray-900/50 border border-gray-800 px-4 py-1.5 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+            <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} px-4 py-1.5 rounded-full text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] border`}>
                Today
             </div>
          </div>
 
          {messages.length === 0 && (
              <div className="h-full flex flex-col items-center justify-center text-center opacity-50 px-8">
-                 <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
+                 <div className={`w-16 h-16 rounded-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-100'} flex items-center justify-center mb-4`}>
                      <Mic size={32} className="text-gray-500" />
                  </div>
-                 <h3 className="text-white font-black">No messages yet</h3>
+                 <h3 className={`${theme === 'dark' ? 'text-white' : 'text-slate-900'} font-black`}>No messages yet</h3>
                  <p className="text-gray-500 text-xs font-bold mt-2">Start the conversation or drop a voice note!</p>
              </div>
          )}
@@ -214,7 +214,7 @@ export function GroupChat({ group, onBack }: { group: {name: string, members: nu
               <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] font-medium shadow-sm transition-all select-none ${
                 msg.isMe 
                 ? 'bg-indigo-600 text-white rounded-tr-none' 
-                : 'bg-gray-900 border border-gray-800 text-gray-200 rounded-tl-none'
+                : (theme === 'dark' ? 'bg-gray-900 border-gray-800 text-gray-200 rounded-tl-none' : 'bg-white border-slate-200 text-slate-600 rounded-tl-none')
               }`}>
                  {msg.type === 'voice' ? (
                    <div className="flex items-center gap-3 py-1 min-w-[140px]">
@@ -242,11 +242,11 @@ export function GroupChat({ group, onBack }: { group: {name: string, members: nu
       </div>
       
       {/* Input - Fixed */}
-      <div className="bg-gray-900/95 backdrop-blur-xl p-4 shrink-0 border-t border-gray-800 flex items-center gap-3 pb-safe-4">
+      <div className={`${theme === 'dark' ? 'bg-gray-900/95 border-gray-800' : 'bg-white/95 border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} backdrop-blur-xl p-4 shrink-0 border-t flex items-center gap-3 pb-safe-4`}>
          
          <div className="flex-1 relative">
             {audioUrl ? (
-                <div className="bg-gray-800/80 rounded-2xl px-4 py-2 flex items-center gap-3 border border-indigo-500/30">
+                <div className={`${theme === 'dark' ? 'bg-gray-800/80 border-indigo-500/30' : 'bg-slate-100 border-indigo-200'} rounded-2xl px-4 py-2 flex items-center gap-3 border`}>
                    <button onClick={() => togglePlay('preview', audioUrl)} className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center shrink-0">
                       {playingId === 'preview' ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
                    </button>
