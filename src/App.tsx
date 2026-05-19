@@ -561,7 +561,7 @@ export default function App() {
               onClick={() => setIsSidebarOpen(false)}
             />
             {/* Sidebar Content */}
-            <div className={`relative w-[55%] max-w-[180px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
+            <div className={`relative w-[75%] max-w-[280px] ${theme === 'dark' ? 'bg-gray-900 border-r border-gray-800' : 'bg-white border-r border-slate-200'} h-full flex flex-col shadow-2xl animate-in slide-in-from-left z-[100] duration-300`}>
               {/* User Header in Sidebar */}
               <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-gray-800' : 'bg-indigo-50 border-slate-200'} p-3 pt-6 border-b flex items-center gap-3`}>
                 <div className={`w-12 h-12 rounded-xl border ${theme === 'dark' ? 'border-gray-700' : 'border-indigo-200'} shadow-md`}>
@@ -589,15 +589,23 @@ export default function App() {
                 <SidebarItem theme={theme} icon={<Settings size={20} />} label="App Settings" onClick={() => { setShowSettings(true); setIsSidebarOpen(false); }} />
               </div>
 
-              <div className={`p-6 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'} mt-auto`}>
-                <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-2xl border flex items-center justify-between`}>
+              <div className={`p-4 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'} mt-auto`}>
+                <div className={`${theme === 'dark' ? 'bg-indigo-600/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 shadow-sm'} p-4 rounded-2xl border flex flex-col gap-3`}>
                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500 hover:text-indigo-600">
-                         <Sparkles size={16} />
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500">
+                         <Crown size={16} fill="currentColor" fillOpacity={0.2} />
                       </div>
-                      <span className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-200' : 'text-slate-700'}`}>Educate MW</span>
+                      <div className="flex flex-col">
+                        <span className={`text-[13px] font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Educate MW Pro</span>
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Upgrade Account</span>
+                      </div>
                    </div>
-                   <button onClick={() => { setCurrentView('subscription'); setIsSidebarOpen(false); }} className="text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-600 transition-colors">Upgrade</button>
+                   <button 
+                    onClick={() => { setCurrentView('subscription'); setIsSidebarOpen(false); }} 
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+                   >
+                    Upgrade Now
+                   </button>
                 </div>
               </div>
             </div>
@@ -963,6 +971,9 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
     setInput('');
     setIsLoading(true);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
     try {
       if (!isPro && auth.currentUser) {
          currentPoints -= 2; // costs 2 point per question
@@ -974,9 +985,12 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       const response = await fetch('/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages.slice(-10), userMessage: { sender: 'user', text } })
+        body: JSON.stringify({ messages: messages.slice(-10), userMessage: { sender: 'user', text } }),
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Server Error: ${response.status}`);
@@ -996,11 +1010,16 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       
       setMessages(prev => [...prev, aiMessage]);
     } catch (error: any) {
+      clearTimeout(timeoutId);
       console.error("Chat Correlation Error:", error);
       let errorText = "I'm having trouble connecting right now. Please try again later.";
       
-      if (error.message && error.message.includes("QUOTA_EXCEEDED")) {
-        errorText = "Emi AI is currently very busy (maximum capacity reached). Please try again in a few moments.";
+      if (error.name === 'AbortError') {
+         errorText = "Request timed out. The server is taking too long to respond. Please try again.";
+      } else if (error.message && error.message.includes("QUOTA_EXCEEDED")) {
+        errorText = "Emi AI is currently very busy (maximum capacity reached). Please try again in a few moments or upgrade to PRO.";
+      } else if (error.message && error.message.includes("504")) {
+        errorText = "Server timeout (504). Please try again in a few moments.";
       } else if (error.message) {
         errorText = `EMI AI error: ${error.message}`;
       }
@@ -1018,7 +1037,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   };
 
   if (isCalling) {
-    return <CallingView onEnd={() => setIsCalling(false)} profile={profile} onUpdateProfile={onUpdateProfile} onGoPro={onGoPro} />;
+    return <CallingView onEnd={() => setIsCalling(false)} profile={profile} onUpdateProfile={onUpdateProfile} onGoPro={onGoPro} theme={theme} />;
   }
 
   return (
@@ -1242,7 +1261,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   );
 }
 
-function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () => void, profile: any, onUpdateProfile: (p: any) => void, onGoPro: () => void }) {
+function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEnd: () => void, profile: any, onUpdateProfile: (p: any) => void, onGoPro: () => void, theme: 'light' | 'dark' }) {
   const [seconds, setSeconds] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [voiceName, setVoiceName] = useState<string>(localStorage.getItem('emi_voice') || 'Aoede');
@@ -1424,29 +1443,29 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
   };
 
   return (
-    <div className="flex-1 bg-gray-950 flex flex-col items-center justify-between py-16 px-8 text-white absolute inset-0 z-50 overflow-hidden font-sans">
-      <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[60%] bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className={`flex-1 flex flex-col items-center justify-between py-16 px-8 absolute inset-0 z-50 overflow-hidden font-sans ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+      <div className={`absolute top-[-20%] left-[-10%] w-[120%] h-[60%] ${theme === 'dark' ? 'bg-indigo-600/20' : 'bg-indigo-200/50'} rounded-full blur-[100px] pointer-events-none`}></div>
       
       <div className="flex flex-col items-center relative z-10 pt-10 w-full">
-        <div className="flex items-center gap-2 mb-8 bg-white/5 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
-           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-600'}`}></div>
-           <h2 className="text-[10px] font-black tracking-widest text-white/60 uppercase">Live Session</h2>
+        <div className={`flex items-center gap-2 mb-8 ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/50 border-white'} backdrop-blur-md px-4 py-2 rounded-2xl border`}>
+           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
+           <h2 className={`text-[10px] font-black tracking-widest ${theme === 'dark' ? 'text-white/60' : 'text-slate-600'} uppercase`}>Live Session</h2>
            {!profile?.isPro && (
              <>
-               <div className="w-[1px] h-3 bg-white/10 mx-1"></div>
+               <div className={`w-[1px] h-3 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-300'} mx-1`}></div>
                <div className="flex items-center gap-1">
-                 <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">
+                 <span className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter">
                    {profile?.aiPointsLastReset === new Date().toLocaleDateString('en-CA') ? (profile?.aiPoints ?? 4) : 4}
                  </span>
-                 <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Pts</span>
+                 <span className={`text-[8px] font-bold ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-widest`}>Pts</span>
                </div>
              </>
            )}
         </div>
         
         <div className="mb-10 relative flex items-center justify-center">
-           <div className="w-44 h-44 bg-gray-900 rounded-full flex items-center justify-center border-4 border-indigo-500/20 relative z-10 p-2 shadow-2xl">
-              <div className="w-full h-full bg-gray-800 rounded-full flex items-center justify-center overflow-hidden shadow-inner border border-gray-700">
+           <div className={`w-44 h-44 ${theme === 'dark' ? 'bg-gray-900 border-indigo-500/20' : 'bg-white border-indigo-200'} rounded-full flex items-center justify-center border-4 relative z-10 p-2 shadow-2xl`}>
+              <div className={`w-full h-full ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-slate-50 border-slate-200'} rounded-full flex items-center justify-center overflow-hidden shadow-inner border`}>
                  <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi AI" className="w-full h-full object-contain p-4" />
               </div>
            </div>
@@ -1454,10 +1473,10 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
            {isConnected && <div className="absolute inset-0 bg-indigo-400 rounded-full opacity-5 scale-150 animate-pulse -z-10" style={{animationDuration: '4s'}}></div>}
         </div>
         
-        <h3 className="text-4xl font-black mb-3 tracking-tight text-white drop-shadow-lg">Emi AI</h3>
+        <h3 className="text-4xl font-black mb-3 tracking-tight drop-shadow-lg">Emi AI</h3>
         
-        <div className="bg-white/5 backdrop-blur-xl px-6 py-2 rounded-2xl border border-white/10 flex flex-col items-center">
-           <p className={`text-[13px] font-black tracking-widest ${isConnected ? 'text-indigo-400' : 'text-gray-400'} uppercase`}>
+        <div className={`backdrop-blur-xl px-6 py-2 rounded-2xl border flex flex-col items-center ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/50 border-slate-200'}`}>
+           <p className={`text-[13px] font-black tracking-widest ${isConnected ? 'text-indigo-500' : 'text-gray-400'} uppercase`}>
               {!isConnected ? (errorMsg ? 'Connection Failed' : 'Connecting...') : formatTime(seconds)}
            </p>
         </div>
@@ -1475,7 +1494,7 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
         <div className="flex items-center justify-center gap-6 w-full px-4">
           <button 
             onClick={() => setIsMuted(!isMuted)}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${isMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-white/10 text-white/50 hover:text-white border border-white/10 active:scale-95'}`}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${isMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : (theme === 'dark' ? 'bg-white/10 text-white/50 hover:text-white border border-white/10 active:scale-95' : 'bg-slate-200 text-slate-500 hover:text-slate-800 border-slate-300 active:scale-95 border')}`}
           >
             {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
           </button>
@@ -1489,29 +1508,29 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro }: { onEnd: () =
           
           <button 
              onClick={() => setShowVoicePicker(true)}
-             className="w-14 h-14 bg-white/10 text-white/50 hover:text-white border border-white/10 rounded-2xl flex items-center justify-center transition-all active:scale-95"
+             className={`w-14 h-14 ${theme === 'dark' ? 'bg-white/10 text-white/50 hover:text-white border-white/10' : 'bg-slate-200 text-slate-500 hover:text-slate-800 border-slate-300'} border rounded-2xl flex items-center justify-center transition-all active:scale-95`}
           >
              <Volume2 size={22} />
           </button>
         </div>
         
-        <p className="text-[9px] font-black uppercase tracking-[0.4em] text-white/20 animate-pulse">Education Voice Engine v2.4</p>
+        <p className={`text-[9px] font-black uppercase tracking-[0.4em] animate-pulse ${theme === 'dark' ? 'text-white/20' : 'text-slate-300'}`}>Education Voice Engine v2.4</p>
       </div>
 
       {/* Voice Selection Modal */}
       {showVoicePicker && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-md p-6 animate-in fade-in duration-300">
-           <div className="bg-gray-900 w-full max-w-sm rounded-[2.5rem] p-8 pb-10 border border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-500">
+           <div className={`w-full max-w-sm rounded-[2.5rem] p-8 pb-10 border shadow-2xl animate-in slide-in-from-bottom duration-500 ${theme === 'dark' ? 'bg-gray-900 border-white/10' : 'bg-white border-slate-200'}`}>
               <div className="flex justify-between items-center mb-8">
-                 <h3 className="text-xl font-black text-white">Select AI Voice</h3>
-                 <button onClick={() => setShowVoicePicker(false)} className="text-gray-500 hover:text-white bg-white/5 rounded-full p-2"><X size={20} /></button>
+                 <h3 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Select AI Voice</h3>
+                 <button onClick={() => setShowVoicePicker(false)} className={`${theme === 'dark' ? 'text-gray-500 hover:text-white bg-white/5' : 'text-slate-400 hover:text-slate-800 bg-slate-100'} rounded-full p-2`}><X size={20} /></button>
               </div>
               <div className="space-y-3">
                  {voiceOptions.map((opt) => (
                     <button 
                       key={opt.name}
                       onClick={() => handleVoiceChange(opt.name)}
-                      className={`w-full p-5 rounded-3xl flex items-center justify-between border transition-all ${voiceName === opt.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10'}`}
+                      className={`w-full p-5 rounded-3xl flex items-center justify-between border transition-all ${voiceName === opt.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : (theme === 'dark' ? 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10' : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100')}`}
                     >
                        <div className="text-left">
                           <h4 className="font-black text-sm">{opt.name}</h4>
@@ -1696,30 +1715,6 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
             onChange={(e) => setSearchQuery(e.target.value)}
             className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-600`}
           />
-        </div>
-
-        {/* Local File Study Card - NEW */}
-        <div className={`${theme === 'dark' ? 'bg-indigo-600/5 border-indigo-500/10' : 'bg-indigo-50 border-indigo-100'} p-6 rounded-[32px] border flex flex-col items-center text-center group`}>
-           <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-             <Upload size={32} className="text-indigo-500" />
-           </div>
-           <h3 className={`font-black text-xs uppercase mb-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Study Local Files</h3>
-           <p className="text-[10px] text-gray-500 font-bold mb-4 uppercase tracking-widest">Pick a PDF from your device to study offline</p>
-           <label className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 active:scale-95 transition-all text-center">
-             Choose PDF Document
-             <input 
-              type="file" 
-              accept="application/pdf" 
-              className="hidden" 
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const url = URL.createObjectURL(file);
-                  onSelectLocalFile(url, file.name);
-                }
-              }}
-             />
-           </label>
         </div>
 
         {/* Filter Tabs */}
@@ -1982,21 +1977,40 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
     if (!topic.trim()) return;
     setIsGenerating(true);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
     try {
       const response = await fetch('/api/gemini/quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, numQuestions })
+        body: JSON.stringify({ topic, numQuestions }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server Error: ${response.status}`);
+      }
+      
       const data = await response.json();
 
       const questions = JSON.parse(data.text || '[]');
       if (questions.length > 0) {
         onStartQuiz(questions, topic);
+      } else {
+        throw new Error("Invalid output from AI");
       }
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error("Quiz generation error:", err);
-      alert("Failed to generate quiz. Please try again.");
+      let errorMsg = err.message || "Failed to generate quiz. Please try again.";
+      if (err.name === 'AbortError') {
+         errorMsg = "Request timed out. The server is taking too long. Please try again.";
+      }
+      alert(errorMsg);
     } finally {
       setIsGenerating(false);
     }
