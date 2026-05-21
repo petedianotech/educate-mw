@@ -4,9 +4,7 @@ import {
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
   const [flipped, setFlipped] = useState(false);
@@ -54,15 +52,20 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
       setGenerating(true);
       
       try {
-         const response = await ai.models.generateContent({
-             model: 'gemini-2.5-flash',
-             contents: `Generate 5 flashcards about: ${topic}. Return ONLY a JSON array with objects containing 'question' and 'answer' strings. No markdown, no text outside the JSON array. Do NOT use asterisks (*) or dollar signs ($), keep answers in simple plain text.`,
-             config: {
-                 responseMimeType: 'application/json',
-             }
+         const response = await fetch('/api/gemini/flashcards', {
+             method: 'POST',
+             headers: {
+                 'Content-Type': 'application/json'
+             },
+             body: JSON.stringify({ topic })
          });
 
-         const text = response.text;
+         if (!response.ok) {
+             throw new Error(`Failed to generate: ${response.statusText}`);
+         }
+
+         const data = await response.json();
+         const text = data.text;
          if (!text) throw new Error("No response generated.");
          
          const generatedCards = JSON.parse(text);

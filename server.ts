@@ -204,6 +204,58 @@ async function startServer() {
     }
   });
 
+  app.post("/api/gemini/flashcards", async (req, res) => {
+    try {
+      const { topic } = req.body;
+      const apiKey = process.env.CEREBRAS_API_KEY;
+
+      if (!apiKey) {
+        throw new Error("Missing CEREBRAS_API_KEY on server.");
+      }
+
+      const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "llama3.1-8b",
+          messages: [{ role: 'user', content: `Generate 5 high-quality flashcards to study the topic: ${topic}. Each flashcard must consist of a 'question' and its corresponding 'answer'.
+      IMPORTANT: Do NOT use asterisks (*) or dollar signs ($), use simple plain text.
+      Return ONLY a JSON array of objects with this structure:
+      [
+        {
+          "question": "Question text here?",
+          "answer": "Answer text here."
+        }
+      ]` }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const text = data.choices?.[0]?.message?.content || '';
+      
+      // Attempt to extract JSON from markdown if necessary
+      const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
+
+      res.json({ text: jsonStr });
+    } catch (error: any) {
+      console.error("Flashcards API Error:", error);
+      let errorMessage = error.message || "Failed to generate flashcards";
+      let statusCode = 500;
+      if (error.message && (error.message.includes("quota") || error.message.includes("429"))) {
+        errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
+        statusCode = 429;
+      }
+      res.status(statusCode).json({ error: errorMessage });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
