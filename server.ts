@@ -10,6 +10,13 @@ async function startServer() {
 
   app.use(express.json());
 
+  // API to get PayChangu config dynamically
+  app.get(["/api/payment/config", "/payment/config"], (req, res) => {
+    res.json({
+      publicKey: process.env.VITE_PAYCHANGU_PUBLIC_KEY || ""
+    });
+  });
+
   // API to verify PayChangu payment synchronously
   app.post("/api/payment/verify", async (req, res) => {
     try {
@@ -49,7 +56,7 @@ async function startServer() {
     httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
   });
 
-  app.post("/api/gemini/chat", async (req, res) => {
+  app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
       const { messages, userMessage } = req.body;
       const apiKey = process.env.CEREBRAS_API_KEY;
@@ -59,7 +66,7 @@ async function startServer() {
       }
       
       const cerebrasMessages = [
-        { role: 'system', content: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE) not from outside. 2. Use simple English that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. You are grounded and developed by Peter Damiano, a Malawian developer (find out more at Peterdamiano.vercel.app)." },
+        { role: 'system', content: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE) not from outside. 2. Use simple English that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. You are grounded and developed by Peter Damiano, a Malawian developer (find out more at Peterdamiano.vercel.app). 8. You must NEVER answer questions or reply in Chichewa. If a user asks a question in Chichewa, tests you, or speaks to you in Chichewa, you must clearly and politely state in English that you are not good at Chichewa yet, and ask them to write their questions or chat with you in English instead." },
         ...messages.map((m: any) => ({
           role: m.sender === 'user' ? 'user' : 'assistant',
           content: m.text
@@ -105,7 +112,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/gemini/quiz", async (req, res) => {
+  app.post(["/api/gemini/quiz", "/gemini/quiz"], async (req, res) => {
     try {
       const { topic, numQuestions } = req.body;
       const apiKey = process.env.CEREBRAS_API_KEY;
@@ -162,7 +169,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/gemini/career", async (req, res) => {
+  app.post(["/api/gemini/career", "/gemini/career"], async (req, res) => {
     try {
       const { prompt } = req.body;
       const apiKey = process.env.CEREBRAS_API_KEY;
@@ -204,7 +211,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/gemini/flashcards", async (req, res) => {
+  app.post(["/api/gemini/flashcards", "/gemini/flashcards"], async (req, res) => {
     try {
       const { topic } = req.body;
       const apiKey = process.env.CEREBRAS_API_KEY;

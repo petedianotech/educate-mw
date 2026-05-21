@@ -139,6 +139,7 @@ export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionar
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -334,6 +335,7 @@ export default function App() {
         setIsAdmin(false);
       }
       setIsLoading(false);
+      setIsAuthChecking(false);
     });
 
     const handleOnline = () => setIsOnline(true);
@@ -419,6 +421,14 @@ export default function App() {
   };
 
   const seoData = getSeoData();
+
+  if (isAuthChecking) {
+    return (
+      <div className="flex bg-slate-50 dark:bg-gray-950 flex-col h-screen items-center justify-center">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-930'} min-h-screen font-sans selection:bg-indigo-900/30 selection:text-indigo-100`}>
@@ -1212,25 +1222,37 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           </button>
         </div>
         <div className="p-4 pt-3">
-          <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/60'} rounded-[2rem] p-2 pl-4 flex items-center border transition-all duration-300`}>
-          <input 
-            type="text" 
-            placeholder="Ask anything..." 
-            className={`flex-1 bg-transparent text-[15px] outline-none ${theme === 'dark' ? 'text-white placeholder-gray-500' : 'text-slate-900 placeholder-slate-400'} font-black h-10`}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
-          />
-          <button 
-            className={`w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 transition-all ${
-              !input.trim() || isLoading ? (theme === 'dark' ? 'bg-gray-800 text-gray-600' : 'bg-slate-200 text-slate-400') : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-            }`}
-            onClick={() => handleSend(input)}
-            disabled={!input.trim() || isLoading}
-          >
-            <Send size={18} fill={!input.trim() || isLoading ? 'none' : 'currentColor'} />
-          </button>
-        </div>
+          <div className={`flex flex-col ${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/60'} rounded-3xl p-1.5 pl-4 border transition-all duration-300 focus-within:ring-2 focus-within:ring-indigo-500/20`}>
+            <div className="flex items-end gap-2 w-full">
+              <textarea 
+                placeholder="Ask anything..." 
+                className={`flex-1 bg-transparent text-[15px] outline-none ${theme === 'dark' ? 'text-white placeholder-gray-500' : 'text-slate-900 placeholder-slate-400'} font-medium py-3.5 resize-none max-h-36 min-h-[40px] leading-relaxed overflow-y-auto scrollbar-thin`}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.trim() && !isLoading) {
+                      handleSend(input);
+                    }
+                  }
+                }}
+                rows={Math.min(5, input.split('\n').length || 1)}
+              />
+              <button 
+                className={`w-[44px] h-[44px] rounded-2xl flex items-center justify-center shrink-0 transition-all ${
+                  !input.trim() || isLoading ? (theme === 'dark' ? 'bg-gray-800 text-gray-600' : 'bg-slate-200 text-slate-400') : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                } mb-1.5`}
+                onClick={() => handleSend(input)}
+                disabled={!input.trim() || isLoading}
+              >
+                <Send size={18} fill={!input.trim() || isLoading ? 'none' : 'currentColor'} />
+              </button>
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-gray-400 px-1 mt-0.5 pb-1 max-sm:hidden">
+              <span>Press <kbd className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-[8px] font-mono">Enter</kbd> to send, <kbd className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-[8px] font-mono">Shift+Enter</kbd> for a new line.</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2802,6 +2824,20 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCelebrate, setShowCelebrate] = useState(false);
+  const [paychanguPublicKey, setPaychanguPublicKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/payment/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.publicKey && !data.publicKey.includes('YOUR_PUBLIC_KEY')) {
+          setPaychanguPublicKey(data.publicKey);
+        }
+      })
+      .catch(err => {
+        console.warn("Error fetching dynamic paychangu key:", err);
+      });
+  }, []);
 
   const handleSubscribe = async (amount: number, title: string) => {
     if (!profile) return;
@@ -2809,7 +2845,7 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
     setError(null);
     try {
       const txRef = `tx-${Math.random().toString(36).substring(2, 12)}`;
-      const publicKey = (import.meta as any).env.VITE_PAYCHANGU_PUBLIC_KEY;
+      const publicKey = paychanguPublicKey || (import.meta as any).env.VITE_PAYCHANGU_PUBLIC_KEY;
       
       if (!publicKey || publicKey.includes('YOUR_PUBLIC_KEY') || publicKey === '') {
          // Test mode simulation when no real key is provided
@@ -2863,8 +2899,6 @@ function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, prof
         tx_ref: txRef,
         amount: amount,
         currency: "MWK",
-        callback_url: window.location.href,
-        return_url: window.location.href,
         customer: {
           email: profile.email || "student@educatemw.app",
           first_name: profile.name || "Student",
