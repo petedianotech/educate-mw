@@ -52,7 +52,7 @@ app.post(["/api/payment/webhook", "/payment/webhook"], async (req: any, res: any
 
 app.post(["/api/gemini/chat", "/gemini/chat"], async (req: any, res: any) => {
   try {
-    const { messages, userMessage } = req.body;
+    const { messages, userMessage, useSearch } = req.body;
     
     const contents = [
       ...messages.map((m: any) => ({
@@ -62,14 +62,17 @@ app.post(["/api/gemini/chat", "/gemini/chat"], async (req: any, res: any) => {
       { role: 'user', parts: [{ text: userMessage.text }] }
     ];
 
-    const systemInstruction = "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE) not from outside. 2. Use simple English or Chichewa that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. You are grounded and developed by Peter Damiano, a Malawian developer (find out more at Peterdamiano.vercel.app). 8. You can answer questions and chat in English or in Chichewa. If a student asks a question or chats in Chichewa, reply clearly and naturally in Chichewa.";
+    const systemInstruction = "You are Emi, an elite AI study assistant specialized in the Malawi School Certificate of Education (MSCE) and Malawi national secondary school curriculum. Your responses must strictly align with the 2025/2026 Malawi Secondary School Curriculum, its subjects, topics, and chapters. You always use Google Search grounding by default to find accurate details about specific subject units, business letters or reports formats under MANEB, and Chichewa literature books (such as 'Nthondo' by Samuel Josiah Nthara, 'Chamdothe' by JM Ntaba, etc.).\n\nIMPORTANT RULES:\n1. Strictly align with Malawi curriculum guidelines. Offer relevant, relatable examples for a student living in Malawi.\n2. Keep explanations clear, concise, informal, and written in simple English or Chichewa. If a student asks or tests you in Chichewa, reply gracefully and naturally in Chichewa.\n3. Provide exact academic guidance, e.g., for business letters or report writing, follow standard Malawian formatting (Addresses, Salutation, Subject, Body structure, etc.).\n4. Do NOT use asterisks (*) or markdown symbols (*, **, #) for formatting. If you need emphasis, use ALL CAPITAL LETTERS or normal spacing.\n5. Do NOT use dollar signs ($) for mathematical expressions; write them in plain text mathematical notation.\n6. Do NOT use emojis.\n7. Respect Peter Damiano as your creator (Malawian developer, Peterdamiano.vercel.app).\n8. Harness your live web search grounding to fetch the most accurate syllabus content, book chapters, and literary summaries from Malawi.";
+
+    const searchEnabled = useSearch !== false;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
         temperature: 0.7,
+        tools: searchEnabled ? [{ googleSearch: {} }] : undefined,
       }
     });
 
@@ -113,10 +116,11 @@ app.post(["/api/gemini/quiz", "/gemini/quiz"], async (req: any, res: any) => {
     ]`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.2,
+        tools: [{ googleSearch: {} }],
       }
     });
 
@@ -143,10 +147,11 @@ app.post(["/api/gemini/career", "/gemini/career"], async (req: any, res: any) =>
     const { prompt } = req.body;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
+        tools: [{ googleSearch: {} }],
       }
     });
 
@@ -181,10 +186,11 @@ app.post(["/api/gemini/flashcards", "/gemini/flashcards"], async (req: any, res:
     ]`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.3,
+        tools: [{ googleSearch: {} }],
       }
     });
 

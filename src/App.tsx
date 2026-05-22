@@ -884,8 +884,9 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('Emi is thinking...');
   const [isCalling, setIsCalling] = useState(false);
-  const [useSearch, setUseSearch] = useState(false);
+  const [useSearch, setUseSearch] = useState(true);
   const [activeSpeechId, setActiveSpeechId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
@@ -899,6 +900,32 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingStatus('Emi is thinking...');
+      return;
+    }
+
+    const statuses = [
+      'Emi is thinking...',
+      'Searching the 2025/2026 Malawi syllabus...',
+      'Analyzing curriculum subjects and recommended books...',
+      'Digging into literature books like Nthondo and Chamdothe...',
+      'Formulating explanation for business letters/reports formatting...',
+      'Drafting response with relevant Malawian examples...',
+      'Polishing the answer for you...'
+    ];
+    let currentIndex = 0;
+    setLoadingStatus(statuses[0]);
+
+    const intervalId = setInterval(() => {
+      currentIndex = (currentIndex + 1) % statuses.length;
+      setLoadingStatus(statuses[currentIndex]);
+    }, 2800);
+
+    return () => clearInterval(intervalId);
+  }, [isLoading]);
 
   const speakText = (text: string, id: string) => {
     if ('speechSynthesis' in window) {
@@ -995,7 +1022,11 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       const response = await fetch('/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages.slice(-10), userMessage: { sender: 'user', text } }),
+        body: JSON.stringify({
+          messages: messages.slice(-10),
+          userMessage: { sender: 'user', text },
+          useSearch: useSearch
+        }),
         signal: controller.signal
       });
       
@@ -1197,12 +1228,20 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
               <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border shrink-0 overflow-hidden mt-1 shadow-sm flex items-center justify-center`}>
                  <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
               </div>
-              <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-lg shadow-slate-200/50'} border rounded-2xl rounded-tl-sm px-4 py-3 min-w-[60px] flex items-center justify-center`}>
-                 <div className="flex gap-1.5 items-center justify-center w-full h-[20px]">
-                   <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                   <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                   <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+              <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-lg shadow-slate-200/50'} border rounded-2xl rounded-tl-sm px-4 py-3 pb-3.5 flex flex-col gap-1.5 max-w-[85%] font-medium`}>
+                 <div className="flex items-center gap-2">
+                   <div className="flex gap-1">
+                     <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                     <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                     <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                   </div>
+                   <span className={`text-[10px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                     EMI ACTIVE
+                   </span>
                  </div>
+                 <span className={`text-[13.5px] leading-relaxed animate-pulse ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'}`}>
+                   {loadingStatus}
+                 </span>
               </div>
             </div>
           )}
