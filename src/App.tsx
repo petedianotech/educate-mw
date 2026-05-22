@@ -1348,6 +1348,16 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
 
     let active = true;
 
+    const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    };
+
     const initConnection = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1355,7 +1365,7 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
         streamRef.current = stream;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/gemini/live`;
+        const wsUrl = `${protocol}//${window.location.host}/api/gemini/live?voice=${encodeURIComponent(voiceName)}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -1364,6 +1374,9 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
           const audioContext = new AudioContextClass({ sampleRate: 16000 });
           audioContextRef.current = audioContext;
           nextPlayTimeRef.current = audioContext.currentTime;
+
+          // Safe resume gesture bypass for suspended state
+          audioContext.resume().catch((e) => console.log("AudioContext resume failed:", e));
           
           const analyser = audioContext.createAnalyser();
           analyser.fftSize = 256;
@@ -1381,14 +1394,11 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
             for (let i = 0; i < inputData.length; i++) {
               pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
             }
-            const buffer = new ArrayBuffer(pcm16.buffer.byteLength);
-            new Uint8Array(buffer).set(new Uint8Array(pcm16.buffer));
-            const binary = String.fromCharCode(...new Uint8Array(buffer));
-            const base64Data = btoa(binary);
+            const base64Data = arrayBufferToBase64(pcm16.buffer);
             
             if (active && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({
-                realtimeInput: { mediaChunks: [{ data: base64Data }] }
+                audio: base64Data
               }));
             }
           };
@@ -1398,6 +1408,13 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
 
         ws.onmessage = (event) => {
           const message = JSON.parse(event.data);
+          
+          if (message.error) {
+            setErrorMsg(message.error);
+            setIsConnected(false);
+            return;
+          }
+
           if (message.interrupted) {
              nextPlayTimeRef.current = 0;
           }
@@ -1406,12 +1423,13 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
             const ctx = audioContextRef.current;
             const binaryString = atob(base64Audio);
             const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
+            const alignedLen = len - (len % 2); // ensures aligned bytes for 16-bit array
+            const bytes = new Uint8Array(alignedLen);
+            for (let i = 0; i < alignedLen; i++) {
                  bytes[i] = binaryString.charCodeAt(i);
             }
             const pcm16 = new Int16Array(bytes.buffer);
-            const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000); // 24kHz is what live API text-to-speech currently returns
+            const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000); // 24kHz live API TTS sample rate
             const channelData = audioBuffer.getChannelData(0);
             for (let i = 0; i < pcm16.length; i++) {
                 channelData[i] = pcm16[i] / 32768.0;
@@ -1432,7 +1450,7 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
         sessionRef.current = Promise.resolve(ws);
       } catch (err: any) {
         console.error("Mic access denied or error:", err);
-        setErrorMsg(err.message || 'Microphone access denied.');
+        setErrorMsg(err.message || 'Microphone access denied. Please allow microphone permissions and try again.');
       }
     };
     initConnection();
@@ -1455,7 +1473,6 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
     setVoiceName(v);
     localStorage.setItem('emi_voice', v);
     setShowVoicePicker(false);
-    // Connection will restart via useEffect [voiceName]
   };
 
   const formatTime = (s: number) => {
@@ -1465,100 +1482,216 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
   };
 
   return (
-    <div className={`flex-1 flex flex-col items-center justify-between py-16 px-8 absolute inset-0 z-50 overflow-hidden font-sans ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
-      <div className={`absolute top-[-20%] left-[-10%] w-[120%] h-[60%] ${theme === 'dark' ? 'bg-indigo-600/20' : 'bg-indigo-200/50'} rounded-full blur-[100px] pointer-events-none`}></div>
+    <div className={`flex-1 flex flex-col items-center justify-between pb-10 pt-6 px-6 absolute inset-0 z-50 overflow-hidden font-sans ${theme === 'dark' ? 'bg-[#0b0f19] text-white' : 'bg-slate-50 text-slate-900'}`}>
       
-      <div className="flex flex-col items-center relative z-10 pt-10 w-full">
-        <div className={`flex items-center gap-2 mb-8 ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/50 border-white'} backdrop-blur-md px-4 py-2 rounded-2xl border`}>
-           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
-           <h2 className={`text-[10px] font-black tracking-widest ${theme === 'dark' ? 'text-white/60' : 'text-slate-600'} uppercase`}>Live Session</h2>
-           {!profile?.isPro && (
-             <>
-               <div className={`w-[1px] h-3 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-300'} mx-1`}></div>
-               <div className="flex items-center gap-1">
-                 <span className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter">
-                   {profile?.aiPointsLastReset === new Date().toLocaleDateString('en-CA') ? (profile?.aiPoints ?? 4) : 4}
-                 </span>
-                 <span className={`text-[8px] font-bold ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-widest`}>Pts</span>
-               </div>
-             </>
+      {/* Floating immersive background glowing gradient spots */}
+      <div className={`absolute top-[-25%] left-[-15%] w-[130%] h-[60%] ${theme === 'dark' ? 'bg-indigo-600/15' : 'bg-indigo-100/45'} rounded-full blur-[120px] pointer-events-none`}></div>
+      <div className={`absolute bottom-[-20%] right-[-10%] w-[80%] h-[40%] ${theme === 'dark' ? 'bg-emerald-500/10' : 'bg-emerald-100/30'} rounded-full blur-[100px] pointer-events-none`}></div>
+      
+      {/* Sleek Custom Glassmorphism Top Navigation Header Bar */}
+      <div className="w-full flex items-center justify-between relative z-20 px-1 py-2">
+        <button 
+          onClick={onEnd}
+          className={`p-3 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 shadow-sm border ${
+            theme === 'dark' 
+              ? 'bg-white/5 border-white/10 text-white hover:bg-white/15' 
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+          }`}
+          title="Back Dashboard"
+          id="live-back-nav"
+        >
+          <ArrowLeft size={18} strokeWidth={2.5} />
+        </button>
+
+        <div className="flex flex-col items-center">
+          <span className="text-[10px] font-black tracking-[0.25em] text-indigo-500 uppercase">Emi Calling Studio</span>
+          <span className={`text-[11px] font-bold mt-0.5 tracking-wide ${theme === 'dark' ? 'text-white/50' : 'text-slate-500'}`}>Voice: {voiceName}</span>
+        </div>
+
+        <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm ${
+          isConnected 
+            ? (theme === 'dark' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600')
+            : (theme === 'dark' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-yellow-50 border-yellow-200 text-yellow-600')
+        }`}>
+          <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`}></div>
+          <span className="text-[10px] font-extrabold tracking-wider uppercase">
+            {isConnected ? 'Secure' : 'Connecting'}
+          </span>
+        </div>
+      </div>
+      
+      {/* Studio Centered Stage with Double Interspatial Pulsing Circles */}
+      <div className="flex flex-col items-center relative z-10 w-full flex-1 justify-center max-w-sm mt-3">
+        <div className="mb-12 relative flex items-center justify-center">
+          
+          {/* External layered pulsing shadows */}
+          {isConnected && (
+            <>
+              <div className="absolute inset-[-20px] bg-indigo-500/10 rounded-full opacity-60 animate-pulse duration-1000 -z-10"></div>
+              <div className="absolute inset-[-40px] bg-emerald-400/5 rounded-full opacity-40 animate-pulse duration-1500 -z-10"></div>
+              <div className="absolute inset-[-60px] bg-indigo-500/5 rounded-full opacity-20 animate-pulse duration-2000 -z-10"></div>
+            </>
+          )}
+
+          {/* Premium Vector Avatar Track Globe */}
+          <div className={`w-[210px] h-[210px] ${
+            theme === 'dark' 
+              ? 'bg-gray-900/60 border-indigo-500/30' 
+              : 'bg-white border-indigo-200'
+          } rounded-full flex items-center justify-center border-4 relative z-10 p-3.5 shadow-[0_20px_50px_rgba(99,102,241,0.15)]`}>
+            
+            <div className={`w-full h-full ${
+              theme === 'dark' 
+                ? 'bg-gradient-to-tr from-gray-950 via-indigo-950/20 to-gray-950 border-gray-800' 
+                : 'bg-gradient-to-tr from-slate-100 to-white border-slate-100'
+            } rounded-full flex items-center justify-center overflow-hidden shadow-inner border relative group`}>
+               
+               {/* Center Avatar Portrait */}
+               <img 
+                 src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" 
+                 alt="Emi AI study avatar" 
+                 className="w-[85%] h-[85%] object-contain p-2 relative z-20 transform hover:scale-105 transition-all duration-300" 
+               />
+               
+               {/* Subtitle Glow overlay */}
+               <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            </div>
+          </div>
+          
+          {/* Real-time orbital glowing dots */}
+          {isConnected && (
+            <>
+              <div className="absolute w-3 h-3 bg-emerald-400 rounded-full animate-ping top-[15%] right-[10%]"></div>
+              <div className="absolute w-2 h-2 bg-indigo-500 rounded-full bottom-[15%] left-[10%] animate-bounce"></div>
+            </>
+          )}
+        </div>
+        
+        {/* Title and Study Assistant Heading */}
+        <h3 className={`text-4xl font-extrabold mb-2 tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-center drop-shadow-sm`}>Emi AI</h3>
+        <p className={`text-xs font-bold ${theme === 'dark' ? 'text-indigo-300' : 'text-indigo-600'} text-center uppercase tracking-widest mb-6`}>MSCE Curriculum Expert</p>
+        
+        {/* Connection, Timer Badge & Dynamic Text Outputs */}
+        <div className={`backdrop-blur-xl px-7 py-3 rounded-2xl border flex flex-col items-center ${
+          theme === 'dark' 
+            ? 'bg-slate-900/60 border-slate-800 shadow-[0_8px_32px_rgba(0,0,0,0.3)]' 
+            : 'bg-white border-slate-200/80 shadow-[0_8px_32px_rgba(99,102,241,0.05)]'
+        } min-w-[160px] transform hover:scale-105 transition-all duration-300`}>
+           <p className={`text-[14px] font-mono font-black tracking-widest ${isConnected ? 'text-emerald-500' : 'text-slate-500'}`}>
+              {!isConnected ? (errorMsg ? 'Connection Failed' : 'Connecting...') : formatTime(seconds)}
+           </p>
+           
+           {!profile?.isPro && isConnected && (
+             <span className={`text-[9px] font-extrabold mt-1 uppercase tracking-wider ${theme === 'dark' ? 'text-white/40' : 'text-slate-400'}`}>
+               {300 - seconds > 0 ? `Free Call: ${formatTime(300 - seconds)} left` : 'Call Ended'}
+             </span>
            )}
         </div>
         
-        <div className="mb-10 relative flex items-center justify-center">
-           <div className={`w-44 h-44 ${theme === 'dark' ? 'bg-gray-900 border-indigo-500/20' : 'bg-white border-indigo-200'} rounded-full flex items-center justify-center border-4 relative z-10 p-2 shadow-2xl`}>
-              <div className={`w-full h-full ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-slate-50 border-slate-200'} rounded-full flex items-center justify-center overflow-hidden shadow-inner border`}>
-                 <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi AI" className="w-full h-full object-contain p-4" />
-              </div>
-           </div>
-           {isConnected && <div className="absolute inset-0 bg-indigo-500 rounded-full opacity-10 animate-ping -z-0" style={{animationDuration: '3s'}}></div>}
-           {isConnected && <div className="absolute inset-0 bg-indigo-400 rounded-full opacity-5 scale-150 animate-pulse -z-10" style={{animationDuration: '4s'}}></div>}
-        </div>
-        
-        <h3 className="text-4xl font-black mb-3 tracking-tight drop-shadow-lg">Emi AI</h3>
-        
-        <div className={`backdrop-blur-xl px-6 py-2 rounded-2xl border flex flex-col items-center ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/50 border-slate-200'}`}>
-           <p className={`text-[13px] font-black tracking-widest ${isConnected ? 'text-indigo-500' : 'text-gray-400'} uppercase`}>
-              {!isConnected ? (errorMsg ? 'Connection Failed' : 'Connecting...') : formatTime(seconds)}
-           </p>
-        </div>
-        
+        {/* Error / System feedback alerts */}
         {errorMsg && (
-          <div className="mt-6 bg-red-500/10 px-5 py-3 rounded-2xl border border-red-500/30 text-center max-w-[280px] animate-in fade-in zoom-in-95">
+          <div className="mt-5 bg-red-500/10 px-5 py-3 rounded-2xl border border-red-500/30 text-center max-w-[280px] animate-in fade-in zoom-in-95 relative z-20">
             <p className="text-red-400 text-xs font-bold leading-snug">{errorMsg}</p>
           </div>
         )}
       </div>
 
-      <div className="flex flex-col items-center gap-10 relative z-10 w-full mb-8">
-        <SpectrumVisualizer analyser={analyserRef.current} isConnected={isConnected} />
+      {/* Interactive Controls & Bottom Wave Visualizer Block */}
+      <div className="flex flex-col items-center gap-8 relative z-20 w-full max-w-sm">
+        
+        {/* Spectrum Wave Visualization bars */}
+        <div className="w-full">
+          <SpectrumVisualizer analyser={analyserRef.current} isConnected={isConnected} />
+        </div>
 
-        <div className="flex items-center justify-center gap-6 w-full px-4">
+        {/* Triple Action High-Contrast Keys */}
+        <div className="flex items-center justify-between gap-6 w-full px-8">
+          
+          {/* Microphone Mute Button */}
           <button 
             onClick={() => setIsMuted(!isMuted)}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${isMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : (theme === 'dark' ? 'bg-white/10 text-white/50 hover:text-white border border-white/10 active:scale-95' : 'bg-slate-200 text-slate-500 hover:text-slate-800 border-slate-300 active:scale-95 border')}`}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border cursor-pointer ${
+              isMuted 
+                ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/30' 
+                : (theme === 'dark' 
+                    ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800' 
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50')
+            }`}
+            title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+            id="live-mute-btn"
           >
-            {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
+            {isMuted ? <MicOff size={22} strokeWidth={2.5} /> : <Mic size={22} strokeWidth={2.5} />}
           </button>
           
+          {/* Main End Call Big Key */}
           <button 
             onClick={onEnd} 
-            className="w-20 h-20 bg-red-600 hover:bg-red-50 rounded-[32px] flex items-center justify-center text-white shadow-2xl active:scale-95 transition-all group"
+            className="w-20 h-20 bg-red-600 hover:bg-red-500 rounded-[32px] flex items-center justify-center text-white shadow-[0_15px_30px_rgba(220,38,38,0.3)] hover:shadow-[0_20px_40px_rgba(220,38,38,0.4)] active:scale-90 hover:scale-105 transition-all duration-300 cursor-pointer group"
+            title="End Call Session"
+            id="live-hangup-btn"
           >
-            <PhoneOff size={32} className="group-hover:text-red-600 transition-colors" />
+            <PhoneOff size={30} strokeWidth={2.5} />
           </button>
           
+          {/* Voice Switcher Option Trigger */}
           <button 
              onClick={() => setShowVoicePicker(true)}
-             className={`w-14 h-14 ${theme === 'dark' ? 'bg-white/10 text-white/50 hover:text-white border-white/10' : 'bg-slate-200 text-slate-500 hover:text-slate-800 border-slate-300'} border rounded-2xl flex items-center justify-center transition-all active:scale-95`}
+             className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border cursor-pointer ${
+               theme === 'dark' 
+                 ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800' 
+                 : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+             }`}
+             title="Switch AI voice accent"
+             id="live-voice-btn"
           >
-             <Volume2 size={22} />
+             <Volume2 size={22} strokeWidth={2.5} />
           </button>
         </div>
         
-        <p className={`text-[9px] font-black uppercase tracking-[0.4em] animate-pulse ${theme === 'dark' ? 'text-white/20' : 'text-slate-300'}`}>Education Voice Engine v2.4</p>
+        {/* Small humble Malawi copyright branding tag */}
+        <p className={`text-[8px] font-bold uppercase tracking-[0.45em] text-center ${theme === 'dark' ? 'text-white/20' : 'text-slate-400'}`}>
+          MSCE Vocal Core v2.4
+        </p>
       </div>
 
-      {/* Voice Selection Modal */}
+      {/* Custom Bottom Drawer for Accent Voice Selection */}
       {showVoicePicker && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-md p-6 animate-in fade-in duration-300">
-           <div className={`w-full max-w-sm rounded-[2.5rem] p-8 pb-10 border shadow-2xl animate-in slide-in-from-bottom duration-500 ${theme === 'dark' ? 'bg-gray-900 border-white/10' : 'bg-white border-slate-200'}`}>
-              <div className="flex justify-between items-center mb-8">
-                 <h3 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Select AI Voice</h3>
-                 <button onClick={() => setShowVoicePicker(false)} className={`${theme === 'dark' ? 'text-gray-500 hover:text-white bg-white/5' : 'text-slate-400 hover:text-slate-800 bg-slate-100'} rounded-full p-2`}><X size={20} /></button>
+           <div className={`w-full max-w-sm rounded-[2.5rem] p-8 pb-10 border shadow-[0_-15px_50px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom duration-500 ${
+             theme === 'dark' ? 'bg-[#0f1422] border-white/10' : 'bg-white border-slate-200'
+           }`}>
+              <div className="flex justify-between items-center mb-6">
+                 <div className="flex flex-col">
+                    <h3 className={`text-xl font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>Select AI Accent</h3>
+                    <p className={`text-[10px] uppercase font-bold tracking-widest mt-0.5 ${theme === 'dark' ? 'text-[#6366f1]' : 'text-indigo-600'}`}>Gemini Vocal Matrix</p>
+                 </div>
+                 <button 
+                   onClick={() => setShowVoicePicker(false)} 
+                   className={`rounded-full p-2.5 transition-all active:scale-90 duration-200 ${
+                     theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5 bg-white/5' : 'text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200'
+                   }`}
+                   id="close-voice-picker"
+                 >
+                   <X size={18} strokeWidth={2.5} />
+                 </button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                  {voiceOptions.map((opt) => (
                     <button 
                       key={opt.name}
                       onClick={() => handleVoiceChange(opt.name)}
-                      className={`w-full p-5 rounded-3xl flex items-center justify-between border transition-all ${voiceName === opt.name ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : (theme === 'dark' ? 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10' : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100')}`}
+                      className={`w-full p-4.5 rounded-3xl flex items-center justify-between border cursor-pointer transition-all duration-300 ${
+                        voiceName === opt.name 
+                          ? 'bg-gradient-to-r from-indigo-600 to-[#4f46e5] border-indigo-500 text-white shadow-lg shadow-indigo-600/20' 
+                          : (theme === 'dark' ? 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:text-white' : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+                      }`}
+                      id={`voice-opt-${opt.name.toLowerCase()}`}
                     >
                        <div className="text-left">
-                          <h4 className="font-black text-sm">{opt.name}</h4>
-                          <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest mt-1">{opt.desc}</p>
+                          <h4 className="font-extrabold text-sm tracking-wide">{opt.name}</h4>
+                          <p className="text-[9px] opacity-80 font-bold uppercase tracking-wider mt-0.5">{opt.desc}</p>
                        </div>
-                       {voiceName === opt.name && <CheckCircle size={20} strokeWidth={3} />}
+                       {voiceName === opt.name && <CheckCircle size={18} strokeWidth={3} />}
                     </button>
                  ))}
               </div>

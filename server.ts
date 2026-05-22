@@ -3,6 +3,13 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { WebSocketServer } from 'ws';
+import wsModule from 'ws';
+
+// Premium robust WebSocket polyfill for Gemini Live API on Node server
+if (typeof globalThis.WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = wsModule;
+  console.log('Polyfilled globalThis.WebSocket with ws on the server.');
+}
 
 async function startServer() {
   const app = express();
@@ -59,40 +66,27 @@ async function startServer() {
   app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
       const { messages, userMessage } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY;
       
-      if (!apiKey) {
-        throw new Error("Missing CEREBRAS_API_KEY on server. Please add it to your environment variables.");
-      }
-      
-      const cerebrasMessages = [
-        { role: 'system', content: "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE) not from outside. 2. Use simple English that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. You are grounded and developed by Peter Damiano, a Malawian developer (find out more at Peterdamiano.vercel.app). 8. You must NEVER answer questions or reply in Chichewa. If a user asks a question in Chichewa, tests you, or speaks to you in Chichewa, you must clearly and politely state in English that you are not good at Chichewa yet, and ask them to write their questions or chat with you in English instead." },
+      const contents = [
         ...messages.map((m: any) => ({
-          role: m.sender === 'user' ? 'user' : 'assistant',
-          content: m.text
+          role: m.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: m.text }]
         })),
-        { role: 'user', content: userMessage.text }
+        { role: 'user', parts: [{ text: userMessage.text }] }
       ];
 
-      const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "llama3.1-8b",
-          messages: cerebrasMessages
-        })
+      const systemInstruction = "You are an AI study assistant named Emi. Answer the student's questions clearly, concisely, and informally. Help them with homework, study tips, or explanations of academic concepts. IMPORTANT RULES: 1. You must strictly align with the Malawi Secondary School Curriculum (MSCE) not from outside. 2. Use simple English or Chichewa that is very easy to understand. 3. Give relevant, relatable examples for a student in Malawi. 4. Do NOT use asterisks (*) or any markdown symbols like *, **, or # for formatting. If you need emphasis, use ALL CAPITAL LETTERS or write normally. 5. Do NOT use dollar signs ($) for mathematical equations; write them in plain text mathematical notation. 6. Do NOT use any emojis in your response. 7. You are grounded and developed by Peter Damiano, a Malawian developer (find out more at Peterdamiano.vercel.app). 8. You can answer questions and chat in English or in Chichewa. If a student asks a question or chats in Chichewa, reply clearly and naturally in Chichewa.";
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: contents,
+        config: {
+          systemInstruction: systemInstruction,
+          temperature: 0.7,
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `Cerebras API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      let responseText = data.choices?.[0]?.message?.content || 'Sorry, I couldn\'t find an answer to that.';
+      let responseText = response.text || "Sorry, I couldn't find an answer to that.";
       responseText = responseText.replace(/\*/g, '');
       responseText = responseText.replace(/\$/g, '');
       res.json({ text: responseText });
@@ -101,7 +95,7 @@ async function startServer() {
       let errorMessage = "AI API unavailable";
       let statusCode = 500;
 
-      if (error.message && error.message.includes("quota")) {
+      if (error.message && error.message.toLowerCase().includes("quota")) {
         errorMessage = "QUOTA_EXCEEDED: Emi AI is currently at maximum capacity due to high demand. Please try again in 1 minute.";
         statusCode = 429;
       } else if (error.message) {
@@ -115,21 +109,8 @@ async function startServer() {
   app.post(["/api/gemini/quiz", "/gemini/quiz"], async (req, res) => {
     try {
       const { topic, numQuestions } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY;
 
-      if (!apiKey) {
-        throw new Error("Missing CEREBRAS_API_KEY on server.");
-      }
-
-      const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "llama3.1-8b",
-          messages: [{ role: 'user', content: `Generate a high-quality educational quiz for MSCE students in Malawi on the topic: ${topic}.
+      const prompt = `Generate a high-quality educational quiz for MSCE students in Malawi on the topic: ${topic}.
       Generate exactly ${numQuestions} multiple-choice questions.
       Each question must have 4 options and one correct answer.
       Provide a "summary" field explaining why the correct answer is right.
@@ -142,16 +123,17 @@ async function startServer() {
           "answer": "Correct Option text",
           "summary": "Brief explanation of why this answer is correct."
         }
-      ]` }]
-        })
+      ]`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const text = data.choices?.[0]?.message?.content || '';
+      const text = response.text || '';
       
       // Attempt to extract JSON from markdown if necessary
       const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
@@ -161,7 +143,7 @@ async function startServer() {
       console.error("Quiz API Error:", error);
       let errorMessage = error.message || "Failed to generate quiz";
       let statusCode = 500;
-      if (error.message && (error.message.includes("quota") || error.message.includes("429"))) {
+      if (error.message && (error.message.toLowerCase().includes("quota") || error.message.toLowerCase().includes("429"))) {
         errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
         statusCode = 429;
       }
@@ -172,30 +154,16 @@ async function startServer() {
   app.post(["/api/gemini/career", "/gemini/career"], async (req, res) => {
     try {
       const { prompt } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY;
 
-      if (!apiKey) {
-        throw new Error("Missing CEREBRAS_API_KEY on server.");
-      }
-
-      const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "llama3.1-8b",
-          messages: [{ role: 'user', content: prompt }]
-        })
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      let responseText = data.choices?.[0]?.message?.content || 'I have some ideas for you. Let\'s discuss your interests further.';
+      let responseText = response.text || "I have some ideas for you. Let's discuss your interests further.";
       responseText = responseText.replace(/\*/g, '');
       responseText = responseText.replace(/\$/g, '');
       res.json({ text: responseText });
@@ -203,7 +171,7 @@ async function startServer() {
       console.error("Career API Error:", error);
       let errorMessage = error.message || "Failed to generate career advice";
       let statusCode = 500;
-      if (error.message && (error.message.includes("quota") || error.message.includes("429"))) {
+      if (error.message && (error.message.toLowerCase().includes("quota") || error.message.toLowerCase().includes("429"))) {
         errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
         statusCode = 429;
       }
@@ -214,21 +182,8 @@ async function startServer() {
   app.post(["/api/gemini/flashcards", "/gemini/flashcards"], async (req, res) => {
     try {
       const { topic } = req.body;
-      const apiKey = process.env.CEREBRAS_API_KEY;
 
-      if (!apiKey) {
-        throw new Error("Missing CEREBRAS_API_KEY on server.");
-      }
-
-      const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "llama3.1-8b",
-          messages: [{ role: 'user', content: `Generate 5 high-quality flashcards to study the topic: ${topic}. Each flashcard must consist of a 'question' and its corresponding 'answer'.
+      const prompt = `Generate 5 high-quality flashcards to study the topic: ${topic}. Each flashcard must consist of a 'question' and its corresponding 'answer'.
       IMPORTANT: Do NOT use asterisks (*) or dollar signs ($), use simple plain text.
       Return ONLY a JSON array of objects with this structure:
       [
@@ -236,16 +191,17 @@ async function startServer() {
           "question": "Question text here?",
           "answer": "Answer text here."
         }
-      ]` }]
-        })
+      ]`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const text = data.choices?.[0]?.message?.content || '';
+      const text = response.text || '';
       
       // Attempt to extract JSON from markdown if necessary
       const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
@@ -255,13 +211,14 @@ async function startServer() {
       console.error("Flashcards API Error:", error);
       let errorMessage = error.message || "Failed to generate flashcards";
       let statusCode = 500;
-      if (error.message && (error.message.includes("quota") || error.message.includes("429"))) {
+      if (error.message && (error.message.toLowerCase().includes("quota") || error.message.toLowerCase().includes("429"))) {
         errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
         statusCode = 429;
       }
       res.status(statusCode).json({ error: errorMessage });
     }
   });
+
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -283,9 +240,28 @@ async function startServer() {
 
   const wss = new WebSocketServer({ server, path: '/api/gemini/live' });
 
-  wss.on('connection', async (clientWs) => {
+  wss.on('connection', async (clientWs, req) => {
+    let session: any = null;
+    let voiceChunkCount = 0;
+    console.log("New student Live audio call incoming via WebSocket upgrade.");
+    
     try {
-      const session = await ai.live.connect({
+      // Parse the voice query parameter
+      const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+      const voiceQuery = url.searchParams.get('voice');
+      
+      const voiceMapping: Record<string, string> = {
+        'Aoede': 'Zephyr',
+        'Kore': 'Kore',
+        'Puck': 'Puck',
+        'Charon': 'Charon',
+        'Fenrir': 'Fenrir'
+      };
+      
+      const targetVoice = voiceMapping[voiceQuery || ''] || 'Zephyr';
+      console.log(`Connecting Live API to Gemini. Requested Voice: ${voiceQuery || 'default'}, target voice: ${targetVoice}`);
+
+      session = await ai.live.connect({
         model: "gemini-3.1-flash-live-preview",
         callbacks: {
           onmessage: (message: any) => {
@@ -294,30 +270,64 @@ async function startServer() {
               clientWs.send(JSON.stringify({ audio }));
             }
             if (message.serverContent?.interrupted) {
+              console.log("Gemini session interrupted by student speaking.");
               clientWs.send(JSON.stringify({ interrupted: true }));
             }
           },
         },
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: { parts: [{ text: "You are Emi AI, a helpful study assistant grounded and developed by Peter Damiano, a Malawian developer (Peterdamiano.vercel.app). Answer questions clearly but concisely and align with the Malawi Secondary School Curriculum (MSCE)." }] }
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: targetVoice
+              }
+            }
+          },
+          systemInstruction: "You are Emi AI, a helpful study assistant grounded and developed by Peter Damiano, a Malawian developer (Peterdamiano.vercel.app). Answer questions clearly but concisely and align with the Malawi Secondary School Curriculum (MSCE). Do not use asterisks or markdown in your response. Only reply in English."
         }
       });
+
+      console.log("Gemini Live API bridge successfully established.");
+
       clientWs.on("message", (data) => {
          try {
             const msg = JSON.parse(data.toString());
-            if (msg.realtimeInput?.mediaChunks?.[0]?.data) {
-               (session as any).send({
-                 realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: msg.realtimeInput.mediaChunks[0].data }] }
+            let base64Audio = "";
+            
+            if (msg.audio) {
+               base64Audio = msg.audio;
+            } else if (msg.realtimeInput?.mediaChunks?.[0]?.data) {
+               base64Audio = msg.realtimeInput.mediaChunks[0].data;
+            }
+
+            if (base64Audio && session) {
+               voiceChunkCount++;
+               if (voiceChunkCount === 1) {
+                 console.log("Received initial student audio stream packages on the server.");
+               }
+               session.sendRealtimeInput({
+                 audio: { data: base64Audio, mimeType: "audio/pcm;rate=16000" }
                });
             }
-         } catch(e) { }
+         } catch(e) {
+            console.error("Error processing user voice chunk:", e);
+         }
       });
+
       clientWs.on("close", () => {
-         // session closes automatically sometimes or we can just drop reference
+         console.log(`Student hangup. Closed WebSocket connection. Sent chunks: ${voiceChunkCount}`);
+         if (session) {
+           try {
+             session.close();
+           } catch(e) {
+             console.error("Error closing Live API session:", e);
+           }
+         }
       });
     } catch (err) {
-      console.error("Live API Connection error", err);
+      console.error("Gemini Live API connection setup failed!", err);
+      clientWs.send(JSON.stringify({ error: "Gemini voice connection failed to start. Please check back later." }));
       clientWs.close();
     }
   });
