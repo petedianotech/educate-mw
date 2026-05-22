@@ -22,15 +22,15 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: '/favicon.svg',
-              sizes: '192x192',
-              type: 'image/svg+xml',
+              src: '/app_icon_emi.png',
+              sizes: '512x512',
+              type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/favicon.svg',
+              src: '/app_icon_emi.png',
               sizes: '512x512',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'maskable'
             }
           ]

@@ -157,6 +157,62 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      const wasDismissed = localStorage.getItem('mw_install_dismissed_v1');
+      if (!wasDismissed) {
+        setShowInstallPrompt(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // If already in standalone mode, don't prompt
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    if (isStandalone) {
+      setShowInstallPrompt(false);
+    } else {
+      const wasDismissed = localStorage.getItem('mw_install_dismissed_v1');
+      if (!wasDismissed) {
+        const timer = setTimeout(() => {
+          setShowInstallPrompt(true);
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handlePwaInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        localStorage.setItem('mw_installed_v1', 'true');
+      }
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+    } else {
+      alert("To install Educate MW for faster, offline study access:\n\n1. Android: Tap the three dots menu at the top right of your browser and select 'Install app' or 'Add to Home screen'.\n\n2. iOS (Safari): Tap the Share button (square with up arrow) in Safari browser, scroll down, and tap 'Add to Home Screen'.");
+      localStorage.setItem('mw_install_dismissed_v1', 'true');
+      setShowInstallPrompt(false);
+    }
+  };
+
+  const handlePwaInstallDismiss = () => {
+    localStorage.setItem('mw_install_dismissed_v1', 'true');
+    setShowInstallPrompt(false);
+  };
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -424,9 +480,7 @@ export default function App() {
 
   if (isAuthChecking) {
     return (
-      <div className="flex bg-slate-50 dark:bg-gray-950 flex-col h-screen items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
+      <EmiLoader text="Initializing Emi AI..." theme={theme} />
     );
   }
 
@@ -634,6 +688,14 @@ export default function App() {
           theme={theme}
           onThemeToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
         />
+        
+        {showInstallPrompt && (
+          <PwaInstallPrompt 
+            onInstall={handlePwaInstallClick} 
+            onDismiss={handlePwaInstallDismiss} 
+            theme={theme} 
+          />
+        )}
         
       </div>
     </div>
@@ -884,6 +946,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lastQuery, setLastQuery] = useState('');
   const [loadingStatus, setLoadingStatus] = useState('Emi is thinking...');
   const [isCalling, setIsCalling] = useState(false);
   const [useSearch, setUseSearch] = useState(true);
@@ -892,6 +955,27 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [isAdDismissed, setIsAdDismissed] = useState(() => {
+    try {
+      const dismissedAt = localStorage.getItem(`mw_pro_ad_dismissed_at_${profile?.uid || 'guest'}`);
+      if (dismissedAt) {
+        const elapsed = Date.now() - parseInt(dismissedAt, 10);
+        // Hide the ad banner for 3 days (3 * 24 * 60 * 60 * 1000)
+        if (elapsed < 3 * 24 * 60 * 60 * 1000) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  });
+
+  const handleDismissAd = () => {
+    try {
+      localStorage.setItem(`mw_pro_ad_dismissed_at_${profile?.uid || 'guest'}`, Date.now().toString());
+    } catch {}
+    setIsAdDismissed(true);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -907,15 +991,63 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       return;
     }
 
+    const queryLower = lastQuery.toLowerCase().trim();
+    let topicText = 'your topic';
+    let subjectText = 'Malawi Curriculum guidelines';
+
+    // Subject/Topic category keyword definitions
+    if (queryLower.includes('agri') || queryLower.includes('farm') || queryLower.includes('crop') || queryLower.includes('soil') || queryLower.includes('livestock') || queryLower.includes('plant')) {
+      subjectText = 'Agriculture Science';
+      topicText = 'agriculture and farming methods';
+    } else if (queryLower.includes('biol') || queryLower.includes('cell') || queryLower.includes('human') || queryLower.includes('digestive') || queryLower.includes('disease')) {
+      subjectText = 'Biology & Life Sciences';
+      topicText = 'biology structures';
+    } else if (queryLower.includes('letter') || queryLower.includes('report') || queryLower.includes('formal') || queryLower.includes('write') || queryLower.includes('writing') || queryLower.includes('english')) {
+      subjectText = 'English Language';
+      topicText = 'English communications and formats';
+    } else if (queryLower.includes('nthondo') || queryLower.includes('samuel') || queryLower.includes('nthara')) {
+      subjectText = 'Chichewa Literature (Nthondo)';
+      topicText = 'Nthondo book chapters & themes';
+    } else if (queryLower.includes('chamdothe') || queryLower.includes('ntaba')) {
+      subjectText = 'Chichewa Literature (Chamdothe)';
+      topicText = 'Chamdothe synopsis & setting';
+    } else if (queryLower.includes('chichewa') || queryLower.includes('chikalata') || queryLower.includes('nthano')) {
+      subjectText = 'Chichewa Language & Literature';
+      topicText = 'Chichewa literature core questions';
+    } else if (queryLower.includes('physics') || queryLower.includes('chem') || queryLower.includes('electric') || queryLower.includes('force') || queryLower.includes('acid') || queryLower.includes('science')) {
+      subjectText = 'Physical Sciences';
+      topicText = 'science and physical theory math';
+    } else if (queryLower.includes('history') || queryLower.includes('war') || queryLower.includes('politics') || queryLower.includes('colonial')) {
+      subjectText = 'History & Social Studies';
+      topicText = 'historic syllabus timelines';
+    } else if (queryLower.includes('geog') || queryLower.includes('map') || queryLower.includes('climate') || queryLower.includes('weather') || queryLower.includes('lake')) {
+      subjectText = 'Geography & Environmental Studies';
+      topicText = 'geography and climate factors';
+    } else if (queryLower.includes('math') || queryLower.includes('algebra') || queryLower.includes('geometry') || queryLower.includes('solve') || queryLower.includes('calculat')) {
+      subjectText = 'Mathematics';
+      topicText = 'mathematical calculations';
+    }
+
+    // Attempt to extract the absolute best 2-4 content words from the user message to show as target topic search
+    const cleanQuery = lastQuery.replace(/[?:,.!]/g, ' ');
+    const words = cleanQuery.split(/\s+/).filter(w => w.length > 4 && !['about', 'write', 'please', 'explain', 'what', 'where', 'which', 'their', 'there'].includes(w.toLowerCase()));
+    if (words.length > 0) {
+      topicText = words.slice(0, 3).join(' ');
+    } else if (cleanQuery.trim()) {
+      topicText = cleanQuery.trim();
+    }
+
     const statuses = [
-      'Emi is thinking...',
-      'Searching the 2025/2026 Malawi syllabus...',
-      'Analyzing curriculum subjects and recommended books...',
-      'Digging into literature books like Nthondo and Chamdothe...',
-      'Formulating explanation for business letters/reports formatting...',
-      'Drafting response with relevant Malawian examples...',
-      'Polishing the answer for you...'
+      `Emi is analyzing your "${topicText}" query...`,
+      `Searching 2025/2026 JCE & MSCE Malawi syllabus for "${topicText}"...`,
+      `Retrieving official school curriculum details for "${subjectText}"...`,
+      `Verifying recommended academic books and literary guides for "${topicText}"...`,
+      `Formulating standard, exam-ready response for "${topicText}" under MANEB...`,
+      `Drafting clear answer structure with Chichewa & English illustrations...`,
+      `Ensuring precise academic standards with helpful memory tips...`,
+      `Polishing model guidelines to help you score full marks...`
     ];
+
     let currentIndex = 0;
     setLoadingStatus(statuses[0]);
 
@@ -925,7 +1057,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
     }, 2800);
 
     return () => clearInterval(intervalId);
-  }, [isLoading]);
+  }, [isLoading, lastQuery]);
 
   const speakText = (text: string, id: string) => {
     if ('speechSynthesis' in window) {
@@ -1006,6 +1138,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
     
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setLastQuery(text);
     setIsLoading(true);
 
     const controller = new AbortController();
@@ -1224,9 +1357,13 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
             </div>
           ))}
           {isLoading && (
-            <div className="flex justify-start gap-2.5">
-              <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border shrink-0 overflow-hidden mt-1 shadow-sm flex items-center justify-center`}>
-                 <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
+            <div className="flex justify-start gap-2.5 animate-in fade-in duration-300">
+              <div className="relative shrink-0 mt-1">
+                <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border overflow-hidden shadow-sm flex items-center justify-center relative z-10`}>
+                   <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
+                </div>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-gray-900 rounded-full animate-ping pointer-events-none" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-gray-900 rounded-full pointer-events-none" />
               </div>
               <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-lg shadow-slate-200/50'} border rounded-2xl rounded-tl-sm px-4 py-3 pb-3.5 flex flex-col gap-1.5 max-w-[85%] font-medium`}>
                  <div className="flex items-center gap-2">
@@ -1251,14 +1388,28 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
       </div>
 
       {/* Input Area */}
-      <div className={`absolute bottom-0 left-0 right-0 z-40 ${theme === 'dark' ? 'bg-gray-950/80 border-gray-800' : 'bg-white/80 border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} backdrop-blur-xl border-t pb-safe-4`}>
+      <div className={`absolute bottom-0 left-0 right-0 z-40 ${theme === 'dark' ? 'bg-gray-950/85 border-gray-800' : 'bg-white/90 border-slate-200 shadow-[0_-4px_30px_rgba(0,0,0,0.08)]'} backdrop-blur-xl border-t pb-safe-4`}>
+        
+        {/* Beautiful Dynamic PRO Advertising Banner */}
+        {!profile?.isPro && !isAdDismissed && messages.filter(m => m.sender === 'user').length >= 1 && (
+          <EmiProAdvertisingBanner onUpgrade={onGoPro} onDismiss={handleDismissAd} theme={theme} />
+        )}
+
         <div className="flex px-4 pt-2 gap-2">
-          <button 
-            onClick={() => setUseSearch(!useSearch)}
-            className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-colors ${useSearch ? (theme === 'dark' ? 'bg-indigo-900 text-indigo-300 border-indigo-700' : 'bg-indigo-100 text-indigo-700 border-indigo-200') : (theme === 'dark' ? 'bg-transparent text-gray-500 border-gray-700' : 'bg-transparent text-gray-500 border-gray-300')}`}
+          <div 
+            className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border transition-all ${
+              theme === 'dark' 
+                ? 'bg-indigo-950/40 text-indigo-300 border-indigo-800 shadow-[0_0_10px_rgba(99,102,241,0.1)]' 
+                : 'bg-indigo-50/80 text-indigo-700 border-indigo-100 shadow-[0_0_10px_rgba(99,102,241,0.05)]'
+            }`}
           >
-            <Search size={12} /> {useSearch ? 'Live Search On' : 'Live Search Off'}
-          </button>
+            <span className="relative flex h-1.5 w-1.5 pr-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-600 dark:bg-indigo-400"></span>
+            </span>
+            <Search size={11} className="text-indigo-600 dark:text-indigo-400" />
+            <span className="tracking-wide">Malawi 2025/2026 Curriculum Search Active</span>
+          </div>
         </div>
         <div className="p-4 pt-3">
           <div className={`flex flex-col ${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/60'} rounded-3xl p-1.5 pl-4 border transition-all duration-300 focus-within:ring-2 focus-within:ring-indigo-500/20`}>
@@ -1930,7 +2081,7 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
           </h3>
           <div className="space-y-4">
             {loading ? (
-                <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
+                <div className="py-10 flex justify-center"><EmiSpinner size="md" theme={theme} /></div>
             ) : (
                 visibleItems.map(item => (
                     <div key={item.id}>
@@ -2599,10 +2750,7 @@ function ProfileView({
 
   if (!profile) {
     return (
-      <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
-        <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
-        <p className="text-gray-500 font-black uppercase text-[10px] tracking-widest">Loading Profile...</p>
-      </div>
+      <EmiLoader text="Loading Profile..." theme={theme} />
     );
   }
 
@@ -2993,351 +3141,300 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
 }
 
 function SubscriptionView({ onBack, profile, theme }: { onBack: () => void, profile: any, theme: 'light' | 'dark' }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showCelebrate, setShowCelebrate] = useState(false);
-  const [paychanguPublicKey, setPaychanguPublicKey] = useState<string | null>(null);
+  const [copiedPeter, setCopiedPeter] = useState(false);
+  const [copiedLiffa, setCopiedLiffa] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/payment/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.publicKey && !data.publicKey.includes('YOUR_PUBLIC_KEY')) {
-          setPaychanguPublicKey(data.publicKey);
-        }
-      })
-      .catch(err => {
-        console.warn("Error fetching dynamic paychangu key:", err);
-      });
-  }, []);
-
-  const handleSubscribe = async (amount: number, title: string) => {
-    if (!profile) return;
-    setLoading(true);
-    setError(null);
+  const handleCopyPeter = () => {
     try {
-      const txRef = `tx-${Math.random().toString(36).substring(2, 12)}`;
-      const publicKey = paychanguPublicKey || (import.meta as any).env.VITE_PAYCHANGU_PUBLIC_KEY;
-      
-      if (!publicKey || publicKey.includes('YOUR_PUBLIC_KEY') || publicKey === '') {
-         // Test mode simulation when no real key is provided
-         setTimeout(async () => {
-            if (auth.currentUser) {
-               const userRef = doc(db, 'users', auth.currentUser.uid);
-               await updateDoc(userRef, { isPro: true, proPlan: title });
-            }
-            setShowCelebrate(true);
-            setTimeout(() => onBack(), 4000);
-         }, 1500);
-         return;
-      }
+      navigator.clipboard.writeText("0987066051");
+      setCopiedPeter(true);
+      setTimeout(() => setCopiedPeter(false), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-      // Helper to wait for script if it's still loading
-      const getCheckoutFunc = () => {
-        return (window as any).PaychanguCheckout;
-      };
+  const handleCopyLiffa = () => {
+    try {
+      navigator.clipboard.writeText("0999136433");
+      setCopiedLiffa(true);
+      setTimeout(() => setCopiedLiffa(false), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-      let checkoutFunc = getCheckoutFunc();
-      
-      if (!checkoutFunc) {
-        // Try waiting for up to 3 seconds
-        let retries = 0;
-        const maxRetries = 15; // 15 * 200ms = 3000ms
-        
-        const waitForScript = async (): Promise<any> => {
-          return new Promise((resolve) => {
-            const interval = setInterval(() => {
-              const func = getCheckoutFunc();
-              retries++;
-              if (func || retries >= maxRetries) {
-                clearInterval(interval);
-                resolve(func);
-              }
-            }, 200);
-          });
-        };
-        
-        checkoutFunc = await waitForScript();
-      }
-      
-      if (!checkoutFunc) {
-        setError("PayChangu payment script is not active. Please check your internet or try again in a few seconds.");
-        setLoading(false);
-        return;
-      }
-
-      checkoutFunc({
-        public_key: publicKey,
-        tx_ref: txRef,
-        amount: amount,
-        currency: "MWK",
-        customer: {
-          email: profile.email || "student@educatemw.app",
-          first_name: profile.name || "Student",
-          last_name: "Mw",
-        },
-        customization: {
-          title: title,
-          description: `${amount} Access for ${title}`,
-        },
-        callback: async (response: any) => {
-          console.log("PayChangu Callback Response:", response);
-          if (response && (response.status === 'success' || response.message === 'Approved' || response.status === 'successful')) {
-            try {
-              const res = await fetch('/api/payment/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tx_ref: response.tx_ref || txRef })
-              });
-              const verifyData = await res.json();
-              
-              // If server verification succeeded OR server key is missing (allowing test mode)
-              if (verifyData.success || verifyData.error?.includes("missing PayChangu secret key")) {
-                if (auth.currentUser) {
-                  const userRef = doc(db, 'users', auth.currentUser.uid);
-                  await updateDoc(userRef, { isPro: true, proPlan: title });
-                }
-                setShowCelebrate(true);
-                setTimeout(() => onBack(), 4000);
-              } else {
-                setError('Payment verification failed. Support: 0987066051 (WhatsApp)');
-              }
-            } catch (err) {
-              setError('Verification error. Please contact 0987066051');
-            }
-          } else {
-             setError('Payment failed or canceled. Support: 0987066051');
-          }
-          setLoading(false);
-        },
-        onclose: () => {
-          setLoading(false);
-          setError('Payment popup closed. Support: 0987066051 on WhatsApp.');
-        }
-      });
-    } catch (err: any) {
-      setError(`Checkout error: ${err.message}`);
-      setLoading(false);
+  const handleOpenWhatsApp = (planName: string, price: string, isLiffa: boolean = false) => {
+    if (isLiffa) {
+      const message = encodeURIComponent(`Hi Mr. Liffa, I'm ${profile?.name || 'a student'} (${profile?.email || ''}). I've sent ${price} via Airtel Money to 0999136433 for the ${planName} plan including MANEB past papers. Here is my transaction screenshot.`);
+      window.open(`https://wa.me/265999136433?text=${message}`, '_blank');
+    } else {
+      const message = encodeURIComponent(`Hi Peter, I'm ${profile?.name || 'a student'} (${profile?.email || ''}). I've sent ${price} via Airtel Money to 0987066051 for the ${planName} AI plan. Here is my transaction screenshot.`);
+      window.open(`https://wa.me/265987066051?text=${message}`, '_blank');
     }
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} overflow-y-auto`}>
+    <div className={`fixed inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} overflow-y-auto animate-in fade-in duration-300`}>
       {/* Header */}
       <div className={`p-5 flex items-center justify-between sticky top-0 z-20 ${theme === 'dark' ? 'bg-gray-950/80' : 'bg-white/80'} backdrop-blur-xl border-b ${theme === 'dark' ? 'border-gray-800' : 'border-slate-200'}`}>
         <button onClick={onBack} className={`w-10 h-10 rounded-full flex items-center justify-center border transition-colors ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white hover:bg-gray-800' : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100'}`}>
           <ArrowLeft size={20} />
         </button>
         <div className="flex flex-col items-center">
-             <h2 className="text-sm font-black uppercase tracking-widest">Subscription</h2>
-             <p className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Upgrade Plan</p>
+             <h2 className="text-sm font-black uppercase tracking-widest">Upgrade to Pro</h2>
+             <p className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Airtel Money Manual Mode</p>
         </div>
         <div className="w-10" />
       </div>
 
-      <div className="flex-1 p-5 pb-20 space-y-6">
-        {/* Celebration Animation */}
-        {showCelebrate && (
-           <motion.div 
-             initial={{ scale: 0, opacity: 0 }}
-             animate={{ scale: 1, opacity: 1 }}
-             className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-indigo-600/90 backdrop-blur-sm"
-           >
-              <Crown size={80} className="text-yellow-400 mb-4 animate-bounce" />
-              <h1 className="text-3xl font-black text-white uppercase tracking-widest mb-2">You are Pro!</h1>
-              <p className="text-white/80 font-bold max-w-xs text-center">Your Emi AI is now unlimited. Time to achieve those MSCE goals.</p>
-           </motion.div>
-        )}
+      <div className="flex-1 p-5 pb-20 max-w-5xl mx-auto w-full space-y-6">
+        
+        {/* Top Feature Card with Airtel money logo & copy widgets */}
+        <div className={`${theme === 'dark' ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-white border-indigo-100 shadow-md'} rounded-3xl p-6 border relative overflow-hidden`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+          
+          <h3 className="text-sm font-black uppercase tracking-widest text-red-500 mb-4 flex items-center gap-2">
+            <img src="https://i.ibb.co/KxWc20jw/images-1.png" alt="Airtel" className="w-5 h-5 object-contain" referrerPolicy="no-referrer" />
+            Official Airtel Money Manual Accounts
+          </h3>
 
-        <div className="space-y-6">
-          {/* Plan 1: Standard Pro */}
-          <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/30' : 'bg-white border-indigo-200 shadow-xl shadow-indigo-600/10'} rounded-3xl p-6 border-2 relative overflow-hidden`}>
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
-                <Crown size={28} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black">Emi AI Standard Pro</h3>
-                <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Bypass basic limits</p>
-              </div>
-            </div>
-
-            <div className="mb-6">
-               <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-black">K500</span>
-               </div>
-               <p className={`text-xs mt-1 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>One-time access fee</p>
-            </div>
-
-            <div className="space-y-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+            {/* Account 1: Peter for AI */}
+            <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-gray-900/60 border-gray-800' : 'bg-slate-50 border-slate-100'} flex flex-col justify-between`}>
               <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Emi AI Text Questions</p>
-              </div>
-              <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Voice Call duration</p>
-              </div>
-              <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-indigo-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Priority for faster responses</p>
-              </div>
-            </div>
-
-            <button 
-               onClick={() => handleSubscribe(500, "Emi AI Standard Pro")}
-               disabled={loading || profile?.isPro}
-               className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all ${profile?.isPro ? 'bg-emerald-500 opacity-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95'}`}
-            >
-               {loading ? 'Processing...' : (profile?.isPro ? 'Already Pro' : 'Pay K500')}
-            </button>
-
-            {!profile?.isPro && (
-              <div className="mt-8 pt-6 border-t border-dashed border-gray-200 dark:border-gray-800">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Manual Payment (K500)</p>
-                <div className={`${theme === 'dark' ? 'bg-gray-950/50' : 'bg-slate-50'} p-4 rounded-2xl border ${theme === 'dark' ? 'border-gray-800' : 'border-slate-100'} mb-4`}>
-                   <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                         <span className="font-bold text-gray-500">Number:</span>
-                         <div className="flex items-center gap-1">
-                            <img src="https://i.ibb.co/KxWc20jw/images-1.png" alt="Airtel" className="w-4 h-4 object-contain" />
-                            <span className="font-black">0987066051</span>
-                         </div>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                         <span className="font-bold text-gray-500">Name:</span>
-                         <div className="flex items-center gap-1.5">
-                            <img src="https://i.ibb.co/cXpLmLVC/20260516-210805.jpg" alt="Peter" className="w-5 h-5 rounded-full object-cover border border-indigo-200" />
-                            <span className="font-black text-indigo-500">Peter Damiano (Dev)</span>
-                         </div>
-                      </div>
-                   </div>
+                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-bold text-indigo-500">AI</span>
                 </div>
-
-                <button 
-                   onClick={() => {
-                     const message = encodeURIComponent(`Hi Peter, I'm ${profile?.name || 'a student'} (${profile?.email || ''}). I've paid K500 for Standard Pro. Here is my screenshot.`);
-                     window.open(`https://wa.me/265987066051?text=${message}`, '_blank');
-                   }}
-                   className={`w-full py-3 rounded-xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] ${theme === 'dark' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white transition-all active:scale-95`}
-                >
-                   <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-5 h-5 rounded-full object-cover" />
-                   Verify on WhatsApp
-                </button>
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">EMI AI PLAN ACCOUNT (K500 / K1500)</p>
+                  <h4 className="font-extrabold text-sm tracking-tight">Peter Damiano</h4>
+                  <p className={`text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>0987066051 Airtel Money</p>
+                </div>
               </div>
-            )}
+              <button 
+                onClick={handleCopyPeter}
+                className={`mt-4 w-full py-2 rounded-xl border font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  copiedPeter 
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' 
+                    : theme === 'dark' 
+                      ? 'bg-gray-950 border-gray-800 text-white hover:bg-gray-800' 
+                      : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'
+                }`}
+              >
+                {copiedPeter ? 'Copied Account!' : 'Copy Peter\'s Number'}
+              </button>
+            </div>
+
+            {/* Account 2: Mr S. Liffa for Past papers */}
+            <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-gray-900/60 border-gray-800' : 'bg-slate-50 border-slate-100'} flex flex-col justify-between`}>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-bold text-amber-500">HQ</span>
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">FULL PRO + PAST PAPERS CARD (K5000)</p>
+                  <h4 className="font-extrabold text-sm tracking-tight">S. Liffa (Teacher)</h4>
+                  <p className={`text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>0999136433 Airtel Money</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCopyLiffa}
+                className={`mt-4 w-full py-2 rounded-xl border font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  copiedLiffa 
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' 
+                    : theme === 'dark' 
+                      ? 'bg-gray-950 border-gray-800 text-white hover:bg-gray-800' 
+                      : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'
+                }`}
+              >
+                {copiedLiffa ? 'Copied Account!' : 'Copy Teacher\'s Number'}
+              </button>
+            </div>
           </div>
 
-          {/* Plan 2: Full Pro Access */}
-          <div className={`${theme === 'dark' ? 'bg-gray-900 border-amber-500/30 shadow-[0_20px_50px_rgba(245,158,11,0.1)]' : 'bg-white border-amber-200 shadow-xl shadow-amber-600/10'} rounded-3xl p-6 border-2 relative overflow-hidden`}>
-            <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3 rounded-bl-xl">Elite</div>
-            
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
-                <Rocket size={28} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black">Full Pro Access</h3>
-                <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>The Ultimate Student Pack</p>
-              </div>
+          <div className="mt-5 pt-4 border-t border-dashed border-gray-200 dark:border-gray-800 flex flex-col gap-2.5 text-left text-xs font-semibold">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+              <span>How to pay: Dial *211# on Airtel SIM CARD. Select option to Send Money.</span>
             </div>
-
-            <div className="mb-6">
-               <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-black">K5000</span>
-                  <span className="text-xs font-bold text-gray-500">/ month</span>
-               </div>
-               <p className={`text-xs mt-1 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>Full access to all features</p>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+              <span>For AI-only plans: Send to Peter Damiano (0987066051). For Full Pro + Past Papers: Send to S. Liffa (0999136433).</span>
             </div>
-
-            <div className="space-y-4 mb-8">
-              <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>No limits for Emi AI questions</p>
-              </div>
-              <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Unlimited Book Downloads</p>
-              </div>
-              <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Early access to NEW features</p>
-              </div>
-              <div className="flex items-start gap-3">
-                 <CheckCircle2 size={20} className="text-amber-500 mt-0.5 shrink-0" />
-                 <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>Improved model with grounding (MSCE/Malawi localized info)</p>
-              </div>
-            </div>
-
-            <button 
-               onClick={() => handleSubscribe(5000, "Full Pro Access")}
-               className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-white transition-all bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/20 active:scale-95`}
-            >
-               Pay K5000
-            </button>
-
-            <div className="mt-8 pt-6 border-t border-dashed border-gray-200 dark:border-gray-800">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Manual Payment (K5000)</p>
-                <div className={`${theme === 'dark' ? 'bg-gray-950/50' : 'bg-slate-50'} p-4 rounded-2xl border ${theme === 'dark' ? 'border-gray-800' : 'border-slate-100'} mb-4`}>
-                   <div className="space-y-2">
-                       <div className="flex justify-between items-center text-xs">
-                         <span className="font-bold text-gray-500">Number:</span>
-                         <div className="flex items-center gap-1">
-                            <img src="https://i.ibb.co/KxWc20jw/images-1.png" alt="Airtel" className="w-4 h-4 object-contain" />
-                            <span className="font-black">0999136433</span>
-                         </div>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                         <span className="font-bold text-gray-500">Name:</span>
-                         <span className="font-black text-amber-600">S. Liffa (Teacher)</span>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="space-y-2">
-                   <button 
-                      onClick={() => {
-                        const message = encodeURIComponent(`Hi Mr. Liffa, I'm ${profile?.name || 'a student'} (${profile?.email || ''}). I've paid K5000 for Full Pro Access. Here is my screenshot proof for approval.`);
-                        window.open(`https://wa.me/265999136433?text=${message}`, '_blank');
-                      }}
-                      className={`w-full py-3 rounded-xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] ${theme === 'dark' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600'} text-white transition-all active:scale-95`}
-                   >
-                      <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-5 h-5 rounded-full object-cover" />
-                      Verify with S. Liffa
-                   </button>
-                   <button 
-                      onClick={() => {
-                        const message = encodeURIComponent(`Hi Peter, Mr. Liffa hasn't responded to my K5000 payment for Full Pro. My username is ${profile?.name || ''} (${profile?.email || ''}). Please check for me.`);
-                        window.open(`https://wa.me/265987066051?text=${message}`, '_blank');
-                      }}
-                      className={`w-full py-2 rounded-xl flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-[9px] ${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-slate-800'} transition-all`}
-                   >
-                      Contact Developer (Backup)
-                   </button>
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+              <span>Take a screenshot of the confirmation message & click the matching button below to instantly verify on WhatsApp.</span>
             </div>
           </div>
         </div>
 
-        {error && (
-          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center">
-            {error}
-          </div>
-        )}
+        {/* Plan Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Weekly Plan */}
+          <div className={`${theme === 'dark' ? 'bg-gray-900 border-indigo-500/20' : 'bg-white border-indigo-100 shadow-lg'} rounded-3xl p-6 border flex flex-col justify-between relative`}>
+            <div>
+              <div className="inline-flex items-center bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1 rounded-full border border-indigo-100 dark:border-indigo-900/40 mb-4">
+                <span className="text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">WEEKLY ACCESS</span>
+              </div>
+              <h3 className="text-xl font-black mb-1">Weekly AI Pro</h3>
+              <p className={`text-xs font-bold mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Fast booster for study sessions</p>
+              
+              <div className="mb-6 flex items-baseline gap-1.5">
+                <span className="text-4xl font-black">K500</span>
+                <span className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>/ week</span>
+              </div>
 
-        <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-3xl p-6 border`}>
-           <h4 className="font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
-             <Shield size={16} /> Free Tier Limits
+              <div className="space-y-3 mb-8 text-left">
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">Unlimited Emi AI Text & Questions</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">Unlimited Live Voice Call duration</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">Priority answer delivery system</span>
+                </div>
+                <div className="flex items-start gap-2.5 text-slate-400">
+                   <span className="text-xs font-bold line-through">• No MANEB Past Papers files</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleOpenWhatsApp("Weekly AI Pro", "K500", false)}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
+            >
+              <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-4 h-4 rounded-full" />
+              Verify Weekly Pro (K500)
+            </button>
+          </div>
+
+          {/* Monthly Plan with Discount */}
+          <div className={`${theme === 'dark' ? 'bg-gray-900 border-pink-500/20' : 'bg-white border-pink-100 shadow-lg'} rounded-3xl p-6 border flex flex-col justify-between relative`}>
+            <div className="absolute top-0 right-0 bg-pink-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3 rounded-bl-xl">
+              25% DISCOUNT
+            </div>
+
+            <div>
+              <div className="inline-flex items-center bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/20 mb-4">
+                <span className="text-[9px] font-black uppercase tracking-wider text-pink-600 dark:text-pink-400">POPULAR AI</span>
+              </div>
+              <h3 className="text-xl font-black mb-1">Monthly AI Gold</h3>
+              <p className={`text-xs font-bold mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>MANEB curriculum AI success</p>
+              
+              <div className="mb-6 flex items-baseline gap-1.5">
+                <span className="text-4xl font-black text-pink-500">K1500</span>
+                <span className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>/ month</span>
+                <span className="text-xs line-through text-gray-400 font-bold ml-1">K2000</span>
+              </div>
+
+              <div className="space-y-3 mb-8 text-left">
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-pink-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">Everything in Weekly AI included</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-pink-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">Complete Emi AI Unlimited Access</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-pink-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-black text-pink-600 dark:text-pink-400">SAVE K500 Compared to Weekly!</span>
+                </div>
+                <div className="flex items-start gap-2.5 text-slate-400">
+                   <span className="text-xs font-bold line-through">• No MANEB Past Papers files</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleOpenWhatsApp("Monthly AI Gold Pass", "K1500", false)}
+              className="w-full py-4 bg-pink-600 hover:bg-pink-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-pink-600/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
+            >
+              <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-4 h-4 rounded-full" />
+              Verify Monthly AI (K1500)
+            </button>
+          </div>
+
+          {/* K5000 Monthly Plan - Full Pro Access including pastpapers */}
+          <div className={`${theme === 'dark' ? 'bg-gray-900 border-amber-500/30 shadow-[0_20px_50px_rgba(245,158,11,0.08)]' : 'bg-white border-amber-200 shadow-xl shadow-amber-600/10'} rounded-3xl p-6 border-2 flex flex-col justify-between relative overflow-hidden`}>
+            <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-4 rounded-bl-xl">
+              ELITE PACK
+            </div>
+
+            <div>
+              <div className="inline-flex items-center bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-4">
+                <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">COMPLETE SUITE</span>
+              </div>
+              <h3 className="text-xl font-black mb-1 font-sans">Full Pro Access</h3>
+              <p className={`text-xs font-bold mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>The Ultimate Student Pack with Pastpapers</p>
+              
+              <div className="mb-6 flex items-baseline gap-1.5">
+                <span className="text-4xl font-black text-amber-500">K5000</span>
+                <span className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`}>/ month</span>
+              </div>
+
+              <div className="space-y-3 mb-8 text-left">
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">No limits for Emi AI questions</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold">Unlimited eBook & Notes downloads</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-black text-amber-600 dark:text-amber-400">UNLIMITED JCE & MSCE PAST PAPERS</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                   <CheckCircle2 size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                   <span className="text-xs font-bold animate-pulse">Official MANEB study guidelines & answers</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => handleOpenWhatsApp("Full Pro Access with Pastpapers", "K5000", true)}
+                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
+              >
+                <img src="https://i.ibb.co/B5nZcRNC/images-3.jpg" alt="WA" className="w-4 h-4 rounded-full" />
+                Verify with S. Liffa
+              </button>
+              <button
+                onClick={() => {
+                  const message = encodeURIComponent(`Hi Peter, Mr. Liffa hasn't responded to my K5000 payment for Full Pro Access. My username is ${profile?.name || ''} (${profile?.email || ''}). Please check for me.`);
+                  window.open(`https://wa.me/265987066051?text=${message}`, '_blank');
+                }}
+                className={`w-full py-2 rounded-xl flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-[9px] ${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-slate-800'} transition-all`}
+              >
+                Contact Developer (Backup)
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Free Limits card for clarity */}
+        <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-slate-100/60 border-slate-200'} rounded-3xl p-6 border text-left`}>
+           <h4 className="font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2 text-indigo-500">
+             <Shield size={14} /> Free Tier Status & Core Limits
            </h4>
-           <div className="space-y-3">
-              <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} leading-relaxed`}>• <span className="text-indigo-400">4 Points</span> / 2 Emi AI text questions per day.</p>
-              <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} leading-relaxed`}>• <span className="text-indigo-400">2 Calls</span> / 5 min limit each per day.</p>
-              <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} leading-relaxed`}>• Resets daily globally.</p>
+           <div className="space-y-2 text-xs font-semibold">
+              <p className={theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}>• <span className="font-extrabold text-indigo-400">4 Points</span> / 2 Emi AI text questions per day limit.</p>
+              <p className={theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}>• <span className="font-extrabold text-indigo-400">2 Calls</span> / 5 min limit each per day limit.</p>
+              <p className={theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}>• Daily limits reset globally at UTC 00:00.</p>
            </div>
         </div>
 
-        <div className="text-center pt-4 opacity-60">
-           <p className="text-[10px] font-black uppercase tracking-widest">Support: 0987066051 (WhatsApp)</p>
+        <div className="text-center pt-2 opacity-60">
+           <p className="text-[10px] font-black uppercase tracking-widest">Airtel money payments managed directly by Peter Damiano. Support & Help: 0987066051</p>
         </div>
       </div>
     </div>
@@ -3553,7 +3650,7 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 
           <div className="flex-1 overflow-y-auto px-1 space-y-4 hide-scrollbar">
              {loading ? (
-                <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
+                <div className="py-20 flex justify-center"><EmiSpinner size="md" theme={theme} /></div>
              ) : notifications.length === 0 ? (
                 <div className="text-center py-20 opacity-50">
                    <BellOff size={32} className="mx-auto mb-3 text-gray-600" />
@@ -3806,7 +3903,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
               </div>
             
             {loading ? (
-                <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
+                <div className="py-20 flex justify-center"><EmiSpinner size="md" theme={theme} /></div>
             ) : (
                 students
                   .filter(s => s !== null && (
@@ -4160,7 +4257,7 @@ function VideosView({ theme, onBack }: { theme: 'light' | 'dark', onBack: () => 
       </div>
       
       {loading ? (
-        <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" /></div>
+        <div className="py-20 flex justify-center"><EmiSpinner size="md" theme={theme} /></div>
       ) : videos.length === 0 ? (
         <div className="text-center py-20">
           <div className={`w-20 h-20 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white shadow-sm'} rounded-3xl flex items-center justify-center mx-auto mb-6 text-gray-500 border border-gray-200 dark:border-gray-800 rotate-3`}>
@@ -4238,9 +4335,7 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
   }, [slug]);
 
   if (loading) return (
-    <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
-       <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-    </div>
+    <EmiLoader text="Opening study material..." theme={theme} />
   );
 
   if (!material) return (
@@ -4371,6 +4466,306 @@ function LocalMaterialView({ url, title, onBack, theme }: { url: string, title: 
             </button>
          </div>
       </div>
+    </div>
+  );
+}
+
+function PwaInstallPrompt({ onInstall, onDismiss, theme }: { onInstall: () => void, onDismiss: () => void, theme: 'light' | 'dark' }) {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className={`w-full max-w-sm rounded-[32px] overflow-hidden border p-6 flex flex-col items-center text-center relative ${
+        theme === 'dark' 
+          ? 'bg-gray-900 border-gray-800 text-white shadow-[0_25px_60px_rgba(0,0,0,0.8)]' 
+          : 'bg-white border-slate-200 text-slate-800 shadow-[0_25px_60px_rgba(4,9,33,0.15)]'
+      } animate-in zoom-in-95 duration-300`}>
+        
+        {/* Close Button */}
+        <button 
+          onClick={onDismiss} 
+          className={`absolute top-4 right-4 p-2 rounded-full ${
+            theme === 'dark' ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
+          } transition-all active:scale-95`}
+        >
+          <X size={18} strokeWidth={2.5} />
+        </button>
+
+        {/* Circular glowing badge for app icon */}
+        <div className="relative mb-5 mt-2">
+          {/* Outer glow rings */}
+          <div className="absolute -inset-1.5 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-[24px] blur-sm opacity-60 animate-pulse"></div>
+          <div className={`relative w-20 h-20 rounded-[22px] overflow-hidden shadow-2xl ${
+            theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-white'
+          } border-2`}>
+            <img 
+              src="/app_icon_emi.png" 
+              alt="Educate MW App Icon" 
+              className="w-full h-full object-cover" 
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
+
+        {/* Title & Brand */}
+        <div className="inline-flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1 rounded-full border border-indigo-100 dark:border-indigo-900/40 mb-3">
+          <Sparkles size={11} className="text-indigo-600 dark:text-indigo-400 animate-spin" style={{ animationDuration: '4s' }} />
+          <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">FAST LAUNCH ACTIVE</span>
+        </div>
+
+        <h3 className={`text-xl font-black tracking-tight leading-tight mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          Install Educate MW
+        </h3>
+
+        <p className={`text-xs leading-relaxed font-semibold mb-5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'} max-w-[280px]`}>
+          Add the #1 Study App for Malawi to your Home Screen for easy 1-click access, super-fast load speeds, and fully offline MSCE / JCE study session packs!
+        </p>
+
+        {/* Features list */}
+        <div className={`w-full rounded-2xl p-4 mb-6 flex flex-col gap-3 text-left border ${
+          theme === 'dark' ? 'bg-gray-950/50 border-gray-800' : 'bg-slate-50/80 border-slate-100'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-500 shrink-0">
+              <CheckCircle size={12} strokeWidth={3} />
+            </div>
+            <span className="text-[11px] font-bold">1-Click Fast Home Screen Launcher</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-indigo-500/15 flex items-center justify-center text-indigo-500 shrink-0">
+               <Download size={12} strokeWidth={3} />
+            </div>
+            <span className="text-[11px] font-bold">Full Offline Note Downloads</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-500 shrink-0">
+              <Sparkles size={12} strokeWidth={3} />
+            </div>
+            <span className="text-[11px] font-bold">Optimized Battery & Network Speeds</span>
+          </div>
+        </div>
+
+        {/* Access Buttons */}
+        <div className="flex flex-col gap-2 w-full">
+          <button
+            onClick={onInstall}
+            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black uppercase tracking-wider text-[11px] rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Download size={14} strokeWidth={2.5} /> Install Now
+          </button>
+          <button
+            onClick={onDismiss}
+            className="w-full py-3 text-[11px] font-black uppercase tracking-wider text-gray-500 hover:text-gray-400"
+          >
+            Maybe Later
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmiProAdvertisingBanner({ onUpgrade, onDismiss, theme }: { onUpgrade: () => void, onDismiss: () => void, theme: 'light' | 'dark' }) {
+  return (
+    <div className={`px-4 py-4.5 border-t border-b ${
+      theme === 'dark' 
+        ? 'bg-gradient-to-br from-indigo-950 via-gray-950 to-indigo-950 border-indigo-500/20' 
+        : 'bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 border-indigo-500/30'
+    } text-white shadow-2xl relative overflow-hidden animate-in slide-in-from-bottom duration-400 flex flex-col sm:flex-row items-center gap-4 justify-between`}>
+      
+      {/* Background radial overlays */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
+
+      {/* Title block with sparkles */}
+      <div className="flex items-start gap-3 flex-1">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-500/15">
+           <Sparkles size={20} fill="currentColor" fillOpacity={0.2} />
+        </div>
+        <div className="text-left">
+           <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-500/30">
+                 EXAM READY
+              </span>
+              <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500/25 text-amber-300 px-2 py-0.5 rounded-md">
+                 LIMITED FREE ACCOUNTS
+              </span>
+           </div>
+           <h4 className="font-black text-sm tracking-tight leading-tight mt-1 mb-0.5">
+              Unlock Unlimited MSCE & JCE Exam Success!
+           </h4>
+           <p className="text-[11px] text-gray-300 font-semibold leading-relaxed max-w-xl">
+              You are currently using Emi AI in free tier mode with limited question credits. Upgrade to **Educate MW PRO** for only K500/week or K1500/month (Airtel Money) to ask unlimited syllabus questions, voice-call Emi, and download exam materials!
+           </p>
+        </div>
+      </div>
+
+      {/* Actions and Payment opener */}
+      <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 relative z-10 justify-end">
+         <button 
+           onClick={onUpgrade}
+           className="flex-1 sm:flex-none px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-wider text-[10px] rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-center"
+         >
+           Unlock Unlimited PRO Access
+         </button>
+         <button 
+           onClick={onDismiss}
+           className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white/80 font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all text-center"
+         >
+           Hide Offer
+         </button>
+      </div>
+    </div>
+  );
+}
+
+function EmiLoader({ text = "Loading Emi AI...", theme = "dark" }: { text?: string, theme?: 'light' | 'dark' }) {
+  const tips = [
+    "Unlocking national syllabus references...",
+    "Connecting with localized Malawi answers...",
+    "Activating high-speed intelligence units...",
+    "Preparing offline study papers...",
+    "Emi is loading your curriculum..."
+  ];
+
+  const [tipIndex, setTipIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTipIndex(prev => (prev + 1) % tips.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} overflow-hidden select-none`}>
+      {/* Visual background atmospheric lights */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-pink-500/5 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Main Container */}
+      <div className="flex flex-col items-center max-w-sm px-6 text-center z-10 relative animate-in fade-in duration-500">
+        
+        {/* Animated Orbits & Logo */}
+        <div className="relative w-28 h-28 mb-8 flex items-center justify-center">
+          
+          {/* Outer expansion ring */}
+          <motion.div 
+            className="absolute inset-0 rounded-full border border-indigo-500/10"
+            animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+          />
+
+          {/* Rotating dashed ring */}
+          <motion.div 
+            className="absolute -inset-2 rounded-full border-2 border-dashed border-indigo-500/20"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 12, ease: "linear" }}
+          />
+
+          {/* Sparkles / Orbs orbit */}
+          <motion.div 
+            className="absolute inset-0"
+            animate={{ rotate: -360 }}
+            transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+          >
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-2.5 h-2.5 bg-gradient-to-tr from-indigo-500 to-pink-500 rounded-full shadow-lg shadow-indigo-500/50" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-2 h-2 bg-gradient-to-tr from-pink-500 to-amber-400 rounded-full shadow-lg shadow-pink-500/50" />
+          </motion.div>
+
+          {/* Logo container with inner glowing backdrop */}
+          <motion.div 
+            className={`w-18 h-18 rounded-3xl ${theme === 'dark' ? 'bg-gray-900/90 border-gray-805' : 'bg-white border-indigo-50 shadow-xl shadow-indigo-500/5'} border flex items-center justify-center p-2 relative z-10`}
+            animate={{ scale: [0.97, 1.03, 0.97] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+          >
+            <img 
+              src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" 
+              alt="Emi AI Logo" 
+              className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(99,102,241,0.15)]" 
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+          
+          {/* Left/Right academic decorations */}
+          <div className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-25">
+            <BookOpen size={16} className="text-indigo-400" />
+          </div>
+          <div className="absolute -right-6 top-1/2 -translate-y-1/2 opacity-25">
+            <GraduationCap size={18} className="text-pink-400" />
+          </div>
+        </div>
+
+        {/* Loading text block */}
+        <div className="space-y-2 mt-2">
+          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-400">
+            {text}
+          </h3>
+          
+          {/* Carousel Tips */}
+          <div className="h-4.5 overflow-hidden">
+            <motion.p 
+              key={tipIndex}
+              initial={{ y: 8, opacity: 0 }}
+              animate={{ y: 0, opacity: 0.7 }}
+              exit={{ y: -8, opacity: 0 }}
+              className={`text-[11px] font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}
+            >
+              {tips[tipIndex]}
+            </motion.p>
+          </div>
+        </div>
+
+        {/* Elegant Knowledge Stream Line Progress Bar */}
+        <div className="w-32 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6 relative">
+          <motion.div 
+            className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 via-pink-500 to-indigo-500 rounded-full w-[40%]"
+            animate={{ left: ["-40%", "100%"] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+          />
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function EmiSpinner({ size = "md", theme = "dark" }: { size?: 'sm' | 'md' | 'lg', theme?: 'light' | 'dark' }) {
+  const dimensions = {
+    sm: "w-6 h-6",
+    md: "w-10 h-10",
+    lg: "w-14 h-14"
+  };
+
+  const innerDoms = {
+    sm: "w-4 h-4 p-0.5 rounded-lg",
+    md: "w-7 h-7 p-1 rounded-xl",
+    lg: "w-10 h-10 p-1.5 rounded-2xl"
+  };
+
+  return (
+    <div className="relative flex items-center justify-center select-none shrink-0" style={{ width: size === 'sm' ? 24 : size === 'md' ? 40 : 56, height: size === 'sm' ? 24 : size === 'md' ? 40 : 56 }}>
+      {/* Spin Ring */}
+      <motion.div 
+        className="absolute inset-0 rounded-full border-2 border-indigo-500/15 border-t-indigo-500"
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+        style={{ width: size === 'sm' ? 24 : size === 'md' ? 40 : 56, height: size === 'sm' ? 24 : size === 'md' ? 40 : 56 }}
+      />
+      
+      {/* Glowing breathing center panel with miniature EMI icon */}
+      <motion.div 
+        className={`${innerDoms[size]} ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100'} flex items-center justify-center border shadow-sm`}
+        animate={{ scale: [0.93, 1.07, 0.93] }}
+        transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+      >
+        <img 
+          src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" 
+          alt="E" 
+          className="w-full h-full object-contain"
+          referrerPolicy="no-referrer"
+        />
+      </motion.div>
     </div>
   );
 }

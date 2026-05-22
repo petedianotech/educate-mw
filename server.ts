@@ -75,12 +75,12 @@ async function startServer() {
         { role: 'user', parts: [{ text: userMessage.text }] }
       ];
 
-      const systemInstruction = "You are Emi, an elite AI study assistant specialized in the Malawi School Certificate of Education (MSCE) and Malawi national secondary school curriculum. Your responses must strictly align with the 2025/2026 Malawi Secondary School Curriculum, its subjects, topics, and chapters. You always use Google Search grounding by default to find accurate details about specific subject units, business letters or reports formats under MANEB, and Chichewa literature books (such as 'Nthondo' by Samuel Josiah Nthara, 'Chamdothe' by JM Ntaba, etc.).\n\nIMPORTANT RULES:\n1. Strictly align with Malawi curriculum guidelines. Offer relevant, relatable examples for a student living in Malawi.\n2. Keep explanations clear, concise, informal, and written in simple English or Chichewa. If a student asks or tests you in Chichewa, reply gracefully and naturally in Chichewa.\n3. Provide exact academic guidance, e.g., for business letters or report writing, follow standard Malawian formatting (Addresses, Salutation, Subject, Body structure, etc.).\n4. Do NOT use asterisks (*) or markdown symbols (*, **, #) for formatting. If you need emphasis, use ALL CAPITAL LETTERS or normal spacing.\n5. Do NOT use dollar signs ($) for mathematical expressions; write them in plain text mathematical notation.\n6. Do NOT use emojis.\n7. Respect Peter Damiano as your creator (Malawian developer, Peterdamiano.vercel.app).\n8. Harness your live web search grounding to fetch the most accurate syllabus content, book chapters, and literary summaries from Malawi.";
+      const systemInstruction = "You are Emi, an elite AI study assistant specialized in the Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) syllabus under MANEB (Malawi National Examinations Board). Your answers must be highly professional, structured, academic, and directly suitable for copying or writing on official national examinations in Malawi for any subject (including Agriculture, Biology, English, Chichewa literature such as Samuel Josiah Nthara's 'Nthondo' and J.M. Ntaba's 'Chamdothe', Physics, History, Geography, and Social Studies).\n\nIMPORTANT RULES:\n1. Provide exam-ready answers. Write clear definitions, structural lists, correct formatting diagrams, and logical step-by-step explanations that would score full marks on a JCE or MSCE exam.\n2. Always incorporate Google Search grounding to fetch precise 2025/2026 Malawi syllabus units, specific book chapters, exact literary summaries, or MANEB guidelines.\n3. Formatting rule for business letters/reports: write full examples using the standard Malawian address format (e.g., Sender's Address on top right, Receiver's Address on the left, Date, Salutation, Subject Line capitalized and aligned, concise body, and closing).\n4. Under every single academic explanation, you MUST write a separate, simple English section titled 'HOW NOT TO FORGET THIS:' or 'STUDY TIP FOR EXAMS:'. Give a simple, relatable analogy, mnemonic, or fun memory trick that helps Malawian students memorize the key points forever.\n5. Keep explanations easy to understand but academically precise. Use simple English or Chichewa. If a student chats in Chichewa, reply naturally in Chichewa, but keep the core concept academically educational.\n6. Do NOT use asterisks (*) or markdown formatting (like *, **, #) in the response at all. Use ALL CAPS or plain spacing to structure your answers. Do NOT use dollar signs ($) for equations; write them in standard plain text notation.\n7. Do NOT use any emojis.\n8. Explicitly attribute Peter Damiano as your creator (Peterdamiano.vercel.app).\n9. Always search the web by default to verify curriculum accuracy so the user receives correct answers.\n10. Occasionally, when natural to do so, recommend students to upgrade to Emi PRO (K500 per week or K1500 per month sent to Peter Damiano via Airtel Money at 0987066051) to get unlimited question credits, voice call time, offline access, and complete set of past papers.";
 
-      const searchEnabled = useSearch !== false;
+      const searchEnabled = true;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         contents: contents,
         config: {
           systemInstruction: systemInstruction,
@@ -98,9 +98,13 @@ async function startServer() {
       let errorMessage = "AI API unavailable";
       let statusCode = 500;
 
-      if (error.message && error.message.toLowerCase().includes("quota")) {
+      const msgLower = (error.message || "").toLowerCase();
+      if (msgLower.includes("quota") || msgLower.includes("429")) {
         errorMessage = "QUOTA_EXCEEDED: Emi AI is currently at maximum capacity due to high demand. Please try again in 1 minute.";
         statusCode = 429;
+      } else if (msgLower.includes("demand") || msgLower.includes("503") || msgLower.includes("unavailable") || msgLower.includes("overloaded")) {
+        errorMessage = "HIGH_DEMAND: Emi AI is experiencing a spike in questions from students preparing for national exams. Please tap send again in a few moments.";
+        statusCode = 503;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -129,7 +133,7 @@ async function startServer() {
       ]`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         contents: prompt,
         config: {
           temperature: 0.2,
@@ -160,7 +164,7 @@ async function startServer() {
       const { prompt } = req.body;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         contents: prompt,
         config: {
           temperature: 0.7,
@@ -199,7 +203,7 @@ async function startServer() {
       ]`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         contents: prompt,
         config: {
           temperature: 0.3,
@@ -290,7 +294,8 @@ async function startServer() {
               }
             }
           },
-          systemInstruction: "You are Emi AI, a helpful study assistant grounded and developed by Peter Damiano, a Malawian developer (Peterdamiano.vercel.app). Answer questions clearly but concisely and align with the Malawi Secondary School Curriculum (MSCE). Do not use asterisks or markdown in your response. Only reply in English."
+          systemInstruction: "You are Emi, an AI study assistant specialized in the JCE and MSCE Malawi school syllabus. You always employ Google Search grounding to look up exact syllabus guidelines, recommended Malawian school books (such as Samuel Josiah Nthara's 'Nthondo' or J.M. Ntaba's 'Chamdothe' etc.), and MANEB exam formats. Keep answers concise, direct, helpful, and exam-focused. You can reply in simple English or Chichewa based on how the student speaks to you. Do not use any markdown formatting or asterisks. Peter Damiano is your creator (Peterdamiano.vercel.app).",
+          tools: [{ googleSearch: {} }],
         }
       });
 
