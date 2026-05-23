@@ -140,7 +140,13 @@ export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionar
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      return !!localStorage.getItem('mw_cached_profile_v2');
+    } catch {
+      return false;
+    }
+  });
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -214,7 +220,27 @@ export default function App() {
   };
 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('mw_cached_profile_v2');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (userProfile) {
+        localStorage.setItem('mw_cached_profile_v2', JSON.stringify(userProfile));
+      } else {
+        localStorage.removeItem('mw_cached_profile_v2');
+      }
+    } catch (e) {
+      console.error("Error writing userprofile cache:", e);
+    }
+  }, [userProfile]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -478,7 +504,7 @@ export default function App() {
 
   const seoData = getSeoData();
 
-  if (isAuthChecking) {
+  if (isAuthChecking && !userProfile) {
     return (
       <EmiLoader text="Initializing Emi AI..." theme={theme} />
     );
@@ -2148,6 +2174,14 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [dictionaryCache, setDictionaryCache] = useState<Record<string, any>>(() => {
+    try {
+      const saved = localStorage.getItem('mw_dictionary_cache_v2');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   const speak = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -2185,20 +2219,27 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
 
   const searchWord = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!query.trim()) return;
+    const wordKey = query.trim().toLowerCase();
+    if (!wordKey) return;
     
     setLoading(true);
     setError('');
     setResult(null);
 
+    // Try cache first
+    if (dictionaryCache[wordKey]) {
+      setResult(dictionaryCache[wordKey]);
+      setLoading(false);
+      return;
+    }
+
     try {
-      // 1. Try Free Dictionary API
-      const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${query.toLowerCase()}`);
+      // Try Free Dictionary API
+      const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${wordKey}`);
       if (dictRes.ok) {
         const data = await dictRes.json();
         const entry = data[0];
         
-        // Transform to our format
         const formattedResult = {
           word: entry.word,
           phonetic: entry.phonetic || entry.phonetics?.find((p: any) => p.text)?.text || '',
@@ -2210,12 +2251,17 @@ function DictionaryView({ onBack, theme }: { onBack: () => void, theme: 'light' 
              }))
           }))
         };
+        
+        // Save to cache
+        const nextCache = { ...dictionaryCache, [wordKey]: formattedResult };
+        setDictionaryCache(nextCache);
+        localStorage.setItem('mw_dictionary_cache_v2', JSON.stringify(nextCache));
         setResult(formattedResult);
       } else {
         setError('Could not find definition. Try another word.');
       }
     } catch (err: any) {
-      setError('Check your connection and try again.');
+      setError('Check your connection or try a word you looked up previously.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -2317,9 +2363,23 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [numQuestions, setNumQuestions] = useState(5);
+  const [quizHistory, setQuizHistory] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('mw_quiz_history_cache');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const generateAIQuiz = async () => {
     if (!topic.trim()) return;
+    
+    if (!navigator.onLine) {
+      alert("You are offline! You can access all of your 'Practiced Offline Quizzes' listed below, or complete Trending Quizzes offline.");
+      return;
+    }
+
     setIsGenerating(true);
 
     const controller = new AbortController();
@@ -2344,6 +2404,13 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
 
       const questions = JSON.parse(data.text || '[]');
       if (questions.length > 0) {
+        try {
+          const updatedCache = [{ topic, questions, date: new Date().toLocaleDateString() }, ...quizHistory.filter((q: any) => q.topic.toLowerCase() !== topic.toLowerCase())].slice(0, 10);
+          setQuizHistory(updatedCache);
+          localStorage.setItem('mw_quiz_history_cache', JSON.stringify(updatedCache));
+        } catch (e) {
+          console.error("Quiz cache save error:", e);
+        }
         onStartQuiz(questions, topic);
       } else {
         throw new Error("Invalid output from AI");
@@ -2435,6 +2502,40 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
               </div>
            </div>
         </div>
+
+        {/* Cached / Offline Practiced Quizzes */}
+        {quizHistory.length > 0 && (
+          <div className="animate-in fade-in slide-in-from-bottom duration-300">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm uppercase tracking-wider`}>Practiced Offline Quizzes</h3>
+              <span className="text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 px-2.5 py-1 rounded-full uppercase tracking-widest font-black">Ready Offline</span>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {quizHistory.map((q, idx) => (
+                <div 
+                  key={idx} 
+                  className={`${theme === 'dark' ? 'bg-gray-900/40 border-gray-800/80 hover:bg-gray-900/80' : 'bg-white border-slate-250 shadow-sm hover:bg-slate-50'} rounded-2xl p-4 border flex items-center justify-between transition-all group`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                      <CheckCheck size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} capitalize truncate`}>{q.topic}</h4>
+                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">{q.questions.length} Questions • Saved {q.date}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => onStartQuiz(q.questions, q.topic)}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] uppercase tracking-widest font-black rounded-lg active:scale-95 transition-transform shrink-0"
+                  >
+                    Start
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
            <div className="relative z-10">
@@ -4620,152 +4721,46 @@ function EmiProAdvertisingBanner({ onUpgrade, onDismiss, theme }: { onUpgrade: (
 }
 
 function EmiLoader({ text = "Loading Emi AI...", theme = "dark" }: { text?: string, theme?: 'light' | 'dark' }) {
-  const tips = [
-    "Unlocking national syllabus references...",
-    "Connecting with localized Malawi answers...",
-    "Activating high-speed intelligence units...",
-    "Preparing offline study papers...",
-    "Emi is loading your curriculum..."
-  ];
-
-  const [tipIndex, setTipIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTipIndex(prev => (prev + 1) % tips.length);
-    }, 2800);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} overflow-hidden select-none`}>
-      {/* Visual background atmospheric lights */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-pink-500/5 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Main Container */}
-      <div className="flex flex-col items-center max-w-sm px-6 text-center z-10 relative animate-in fade-in duration-500">
-        
-        {/* Animated Orbits & Logo */}
-        <div className="relative w-28 h-28 mb-8 flex items-center justify-center">
-          
-          {/* Outer expansion ring */}
-          <motion.div 
-            className="absolute inset-0 rounded-full border border-indigo-500/10"
-            animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
-            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-          />
-
-          {/* Rotating dashed ring */}
-          <motion.div 
-            className="absolute -inset-2 rounded-full border-2 border-dashed border-indigo-500/20"
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 12, ease: "linear" }}
-          />
-
-          {/* Sparkles / Orbs orbit */}
-          <motion.div 
-            className="absolute inset-0"
-            animate={{ rotate: -360 }}
-            transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-          >
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-2.5 h-2.5 bg-gradient-to-tr from-indigo-500 to-pink-500 rounded-full shadow-lg shadow-indigo-500/50" />
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-2 h-2 bg-gradient-to-tr from-pink-500 to-amber-400 rounded-full shadow-lg shadow-pink-500/50" />
-          </motion.div>
-
-          {/* Logo container with inner glowing backdrop */}
-          <motion.div 
-            className={`w-18 h-18 rounded-3xl ${theme === 'dark' ? 'bg-gray-900/90 border-gray-805' : 'bg-white border-indigo-50 shadow-xl shadow-indigo-500/5'} border flex items-center justify-center p-2 relative z-10`}
-            animate={{ scale: [0.97, 1.03, 0.97] }}
-            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-          >
+      <div className="flex flex-col items-center max-w-sm px-6 text-center z-10 relative">
+        {/* Simple elegant, fast loading ring with logo */}
+        <div className="relative w-14 h-14 mb-5 flex items-center justify-center shrink-0">
+          <div className="absolute inset-0 rounded-full border-2 border-indigo-500/10 border-t-indigo-500 animate-spin" />
+          <div className={`w-9 h-9 rounded-xl ${theme === 'dark' ? 'bg-gray-900' : 'bg-white shadow-sm'} flex items-center justify-center p-1.5 z-10`}>
             <img 
               src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" 
-              alt="Emi AI Logo" 
-              className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(99,102,241,0.15)]" 
+              alt="E" 
+              className="w-full h-full object-contain" 
               referrerPolicy="no-referrer"
             />
-          </motion.div>
-          
-          {/* Left/Right academic decorations */}
-          <div className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-25">
-            <BookOpen size={16} className="text-indigo-400" />
-          </div>
-          <div className="absolute -right-6 top-1/2 -translate-y-1/2 opacity-25">
-            <GraduationCap size={18} className="text-pink-400" />
           </div>
         </div>
-
-        {/* Loading text block */}
-        <div className="space-y-2 mt-2">
-          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-400">
-            {text}
-          </h3>
-          
-          {/* Carousel Tips */}
-          <div className="h-4.5 overflow-hidden">
-            <motion.p 
-              key={tipIndex}
-              initial={{ y: 8, opacity: 0 }}
-              animate={{ y: 0, opacity: 0.7 }}
-              exit={{ y: -8, opacity: 0 }}
-              className={`text-[11px] font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}
-            >
-              {tips[tipIndex]}
-            </motion.p>
-          </div>
-        </div>
-
-        {/* Elegant Knowledge Stream Line Progress Bar */}
-        <div className="w-32 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6 relative">
-          <motion.div 
-            className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 via-pink-500 to-indigo-500 rounded-full w-[40%]"
-            animate={{ left: ["-40%", "100%"] }}
-            transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-          />
-        </div>
-
+        
+        {/* Simple crisp lettering */}
+        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-indigo-500 dark:text-indigo-400">
+          {text}
+        </p>
       </div>
     </div>
   );
 }
 
 function EmiSpinner({ size = "md", theme = "dark" }: { size?: 'sm' | 'md' | 'lg', theme?: 'light' | 'dark' }) {
-  const dimensions = {
-    sm: "w-6 h-6",
-    md: "w-10 h-10",
-    lg: "w-14 h-14"
-  };
-
-  const innerDoms = {
-    sm: "w-4 h-4 p-0.5 rounded-lg",
-    md: "w-7 h-7 p-1 rounded-xl",
-    lg: "w-10 h-10 p-1.5 rounded-2xl"
-  };
-
+  const outerSize = size === 'sm' ? 'w-6 h-6' : size === 'md' ? 'w-10 h-10' : 'w-14 h-14';
+  const innerSize = size === 'sm' ? 'w-4 h-4 p-0.5' : size === 'md' ? 'w-7 h-7 p-1' : 'w-10 h-10 p-1.5';
+  
   return (
-    <div className="relative flex items-center justify-center select-none shrink-0" style={{ width: size === 'sm' ? 24 : size === 'md' ? 40 : 56, height: size === 'sm' ? 24 : size === 'md' ? 40 : 56 }}>
-      {/* Spin Ring */}
-      <motion.div 
-        className="absolute inset-0 rounded-full border-2 border-indigo-500/15 border-t-indigo-500"
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
-        style={{ width: size === 'sm' ? 24 : size === 'md' ? 40 : 56, height: size === 'sm' ? 24 : size === 'md' ? 40 : 56 }}
-      />
-      
-      {/* Glowing breathing center panel with miniature EMI icon */}
-      <motion.div 
-        className={`${innerDoms[size]} ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100'} flex items-center justify-center border shadow-sm`}
-        animate={{ scale: [0.93, 1.07, 0.93] }}
-        transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-      >
+    <div className={`relative flex items-center justify-center select-none shrink-0 ${outerSize}`}>
+      <div className="absolute inset-0 rounded-full border-2 border-indigo-500/10 border-t-indigo-500 animate-spin" />
+      <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100'} flex items-center justify-center border shadow-sm ${innerSize}`}>
         <img 
           src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" 
           alt="E" 
           className="w-full h-full object-contain"
           referrerPolicy="no-referrer"
         />
-      </motion.div>
+      </div>
     </div>
   );
 }
