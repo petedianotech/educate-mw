@@ -63,31 +63,58 @@ async function startServer() {
     httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
   });
 
+  const callCerebras = async (messages: any[], systemInstruction: string = "", temperature: number = 0.7) => {
+    const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
+    if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY not found in environment");
+    
+    let apiMessages = [];
+    if (systemInstruction) {
+      apiMessages.push({ role: "system", content: systemInstruction });
+    }
+    
+    apiMessages.push(...messages);
+    
+    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CEREBRAS_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-oss-120b",
+        messages: apiMessages,
+        temperature: temperature
+      })
+    });
+    
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("Cerebras API Error:", err);
+      throw new Error(`Cerebras API failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      return { text: data.choices[0].message.content || "" };
+    }
+    return { text: "" };
+  };
+
   app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
       const { messages, userMessage, useSearch } = req.body;
       
-      const contents = [
+      const cerebrasMessages = [
         ...messages.map((m: any) => ({
-          role: m.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text }]
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.text
         })),
-        { role: 'user', parts: [{ text: userMessage.text }] }
+        { role: 'user', content: userMessage.text }
       ];
 
-      const systemInstruction = "You are Emi, an elite AI study assistant specialized in the Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) syllabus under MANEB (Malawi National Examinations Board). Your answers must be highly professional, structured, academic, and directly suitable for copying or writing on official national examinations in Malawi for any subject (including Agriculture, Biology, English, Chichewa literature such as Samuel Josiah Nthara's 'Nthondo' and J.M. Ntaba's 'Chamdothe', Physics, History, Geography, and Social Studies).\n\nIMPORTANT RULES:\n1. Provide exam-ready answers. Write clear definitions, structural lists, correct formatting diagrams, and logical step-by-step explanations that would score full marks on a JCE or MSCE exam.\n2. Always incorporate Google Search grounding to fetch precise 2025/2026 Malawi syllabus units, specific book chapters, exact literary summaries, or MANEB guidelines.\n3. Formatting rule for business letters/reports: write full examples using the standard Malawian address format (e.g., Sender's Address on top right, Receiver's Address on the left, Date, Salutation, Subject Line capitalized and aligned, concise body, and closing).\n4. Under every single academic explanation, you MUST write a separate, simple English section titled 'HOW NOT TO FORGET THIS:' or 'STUDY TIP FOR EXAMS:'. Give a simple, relatable analogy, mnemonic, or fun memory trick that helps Malawian students memorize the key points forever.\n5. Keep explanations easy to understand but academically precise. Use simple English or Chichewa. If a student chats in Chichewa, reply naturally in Chichewa, but keep the core concept academically educational.\n6. Do NOT use asterisks (*) or markdown formatting (like *, **, #) in the response at all. Use ALL CAPS or plain spacing to structure your answers. Do NOT use dollar signs ($) for equations; write them in standard plain text notation.\n7. Do NOT use any emojis.\n8. Explicitly attribute Peter Damiano as your creator (Peterdamiano.vercel.app).\n9. Always search the web by default to verify curriculum accuracy so the user receives correct answers.\n10. Occasionally, when natural to do so, recommend students to upgrade to Emi PRO (K500 per week or K1500 per month sent to Peter Damiano via Airtel Money at 0987066051) to get unlimited question credits, voice call time, offline access, and complete set of past papers.";
+      const systemInstruction = "You are Emi, an elite AI study assistant specialized in the Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) syllabus under MANEB (Malawi National Examinations Board).\n\nIMPORTANT RULES:\n1. Provide exam-ready answers. Be professional, structured, academic, and warm.\n2. If the user just says a short greeting (e.g. 'hi', 'hello'), reply conversationally with a brief, polite greeting offering your assistance with their studies. Do NOT include large upgrade pitches or creator credits for casual greetings.\n3. For academic questions, provide detailed, logical step-by-step explanations or standard formats. Under every academic explanation, optionally add a 'STUDY TIP FOR EXAMS:'.\n4. Keep explanations easy to understand but academically precise. Use simple English or Chichewa.\n5. Do NOT use asterisks (*) or markdown formatting (like *, **, #) in the response. Use normal sentence-case formatting, and line breaks or dashes for lists. Do NOT write in ALL CAPS under any circumstances.\n6. Do NOT use any emojis.\n7. Only when explaining long, complex academic topics, you may softly mention at the very end of your response that students can upgrade to Emi PRO (K500/week or K1500/month via Airtel Money to Peter Damiano at 0987066051) for unlimited past papers and offline access. Never mention this for short queries or greetings. Do not overdo it. Explicitly attribute Peter Damiano as your creator at the end. ";
 
-      const searchEnabled = true;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: contents,
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: 0.7,
-          tools: searchEnabled ? [{ googleSearch: {} }] : undefined,
-        }
-      });
+      const response = await callCerebras(cerebrasMessages, systemInstruction, 0.7);
 
       let responseText = response.text || "Sorry, I couldn't find an answer to that.";
       responseText = responseText.replace(/\*/g, '');
@@ -132,14 +159,7 @@ async function startServer() {
         }
       ]`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: prompt,
-        config: {
-          temperature: 0.2,
-          tools: [{ googleSearch: {} }],
-        }
-      });
+      const response = await callCerebras([{ role: 'user', content: prompt }], "", 0.2);
 
       const text = response.text || '';
       
@@ -163,14 +183,7 @@ async function startServer() {
     try {
       const { prompt } = req.body;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: prompt,
-        config: {
-          temperature: 0.7,
-          tools: [{ googleSearch: {} }],
-        }
-      });
+      const response = await callCerebras([{ role: 'user', content: prompt }], "", 0.7);
 
       let responseText = response.text || "I have some ideas for you. Let's discuss your interests further.";
       responseText = responseText.replace(/\*/g, '');
@@ -202,14 +215,7 @@ async function startServer() {
         }
       ]`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: prompt,
-        config: {
-          temperature: 0.3,
-          tools: [{ googleSearch: {} }],
-        }
-      });
+      const response = await callCerebras([{ role: 'user', content: prompt }], "", 0.3);
 
       const text = response.text || '';
       
@@ -269,7 +275,6 @@ async function startServer() {
       };
       
       const targetVoice = voiceMapping[voiceQuery || ''] || 'Zephyr';
-      console.log(`Connecting Live API to Gemini. Requested Voice: ${voiceQuery || 'default'}, target voice: ${targetVoice}`);
 
       session = await ai.live.connect({
         model: "gemini-3.1-flash-live-preview",
@@ -280,7 +285,6 @@ async function startServer() {
               clientWs.send(JSON.stringify({ audio }));
             }
             if (message.serverContent?.interrupted) {
-              console.log("Gemini session interrupted by student speaking.");
               clientWs.send(JSON.stringify({ interrupted: true }));
             }
           },
@@ -294,12 +298,10 @@ async function startServer() {
               }
             }
           },
-          systemInstruction: "You are Emi, an AI study assistant specialized in the JCE and MSCE Malawi school syllabus. You always employ Google Search grounding to look up exact syllabus guidelines, recommended Malawian school books (such as Samuel Josiah Nthara's 'Nthondo' or J.M. Ntaba's 'Chamdothe' etc.), and MANEB exam formats. Keep answers concise, direct, helpful, and exam-focused. You can reply in simple English or Chichewa based on how the student speaks to you. Do not use any markdown formatting or asterisks. Peter Damiano is your creator (Peterdamiano.vercel.app).",
+          systemInstruction: "You are Emi, an AI study assistant specialized in the JCE and MSCE Malawi school syllabus. Keep answers concise, direct, helpful, and exam-focused. You can reply in simple English or Chichewa based on how the student speaks to you. Do not use any markdown formatting or asterisks. Your creator is Peter Damiano.",
           tools: [{ googleSearch: {} }],
         }
       });
-
-      console.log("Gemini Live API bridge successfully established.");
 
       clientWs.on("message", (data) => {
          try {
@@ -308,17 +310,18 @@ async function startServer() {
             
             if (msg.audio) {
                base64Audio = msg.audio;
-            } else if (msg.realtimeInput?.mediaChunks?.[0]?.data) {
-               base64Audio = msg.realtimeInput.mediaChunks[0].data;
             }
 
             if (base64Audio && session) {
                voiceChunkCount++;
-               if (voiceChunkCount === 1) {
-                 console.log("Received initial student audio stream packages on the server.");
-               }
                session.sendRealtimeInput({
                  audio: { data: base64Audio, mimeType: "audio/pcm;rate=16000" }
+               });
+            }
+
+            if (msg.text && session) {
+               session.sendRealtimeInput({
+                 clientContent: { turns: [{ role: "user", parts: [{ text: msg.text }] }] }
                });
             }
          } catch(e) {
@@ -327,13 +330,10 @@ async function startServer() {
       });
 
       clientWs.on("close", () => {
-         console.log(`Student hangup. Closed WebSocket connection. Sent chunks: ${voiceChunkCount}`);
          if (session) {
            try {
              session.close();
-           } catch(e) {
-             console.error("Error closing Live API session:", e);
-           }
+           } catch(e) {}
          }
       });
     } catch (err) {

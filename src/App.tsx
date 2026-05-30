@@ -975,7 +975,6 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
   const [lastQuery, setLastQuery] = useState('');
   const [loadingStatus, setLoadingStatus] = useState('Emi is thinking...');
   const [isCalling, setIsCalling] = useState(false);
-  const [useSearch, setUseSearch] = useState(true);
   const [activeSpeechId, setActiveSpeechId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
@@ -1183,8 +1182,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: messages.slice(-10),
-          userMessage: { sender: 'user', text },
-          useSearch: useSearch
+          userMessage: { sender: 'user', text }
         }),
         signal: controller.signal
       });
@@ -1421,22 +1419,6 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           <EmiProAdvertisingBanner onUpgrade={onGoPro} onDismiss={handleDismissAd} theme={theme} />
         )}
 
-        <div className="flex px-4 pt-2 gap-2">
-          <div 
-            className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border transition-all ${
-              theme === 'dark' 
-                ? 'bg-indigo-950/40 text-indigo-300 border-indigo-800 shadow-[0_0_10px_rgba(99,102,241,0.1)]' 
-                : 'bg-indigo-50/80 text-indigo-700 border-indigo-100 shadow-[0_0_10px_rgba(99,102,241,0.05)]'
-            }`}
-          >
-            <span className="relative flex h-1.5 w-1.5 pr-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-600 dark:bg-indigo-400"></span>
-            </span>
-            <Search size={11} className="text-indigo-600 dark:text-indigo-400" />
-            <span className="tracking-wide">Malawi 2025/2026 Curriculum Search Active</span>
-          </div>
-        </div>
         <div className="p-4 pt-3">
           <div className={`flex flex-col ${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/60'} rounded-3xl p-1.5 pl-4 border transition-all duration-300 focus-within:ring-2 focus-within:ring-indigo-500/20`}>
             <div className="flex items-end gap-2 w-full">
@@ -1597,6 +1579,9 @@ function CallingView({ onEnd, profile, onUpdateProfile, onGoPro, theme }: { onEn
           const analyser = audioContext.createAnalyser();
           analyser.fftSize = 256;
           analyserRef.current = analyser;
+
+          // Send initial greeting prompt so the Live AI introduces itself!
+          ws.send(JSON.stringify({ text: "Hi Emi. Briefly introduce yourself and ask me how you can help with my MSCE/JCE studies today." }));
 
           const source = audioContext.createMediaStreamSource(stream);
           source.connect(analyser);
