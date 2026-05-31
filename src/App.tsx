@@ -2345,10 +2345,16 @@ function EmiChatView({
             </div>
           )}
           <button
-            onClick={() => setIsCalling(true)}
-            className={`w-10 h-10 ${theme === "dark" ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-50 text-indigo-600"} rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
+            onClick={() => {
+              alert("🚀 Live Call is coming soon! We're putting the finishing touches on Emi's voice. Stay tuned!");
+            }}
+            className={`w-10 h-10 relative group ${theme === "dark" ? "bg-indigo-500/10 text-indigo-400/50" : "bg-indigo-50 text-indigo-400"} rounded-full flex items-center justify-center shrink-0 transition-all opacity-80`}
+            title="Live Call Coming Soon"
           >
-            <Phone size={18} fill="currentColor" />
+            <Phone size={18} fill="currentColor" className="opacity-40" />
+            <div className="absolute -top-1 -right-1 bg-amber-500 text-[6px] font-black text-white px-1 py-0.5 rounded-full uppercase tracking-tighter shadow-sm whitespace-nowrap">
+              Soon
+            </div>
           </button>
         </div>
       </div>
@@ -8644,7 +8650,7 @@ function EmiProAdvertisingBanner({
             You are currently using Emi AI in free tier mode with limited
             question credits. Upgrade to **Educate MW PRO** for only K500/week
             or K1500/month (Airtel Money) to ask unlimited syllabus questions,
-            voice-call Emi, and download exam materials!
+            voice-call Emi (Coming Soon), and download exam materials!
           </p>
         </div>
       </div>
@@ -8687,7 +8693,7 @@ function EmiLoader({
             className={`w-9 h-9 rounded-xl ${theme === "dark" ? "bg-gray-900" : "bg-white shadow-sm"} flex items-center justify-center p-1.5 z-10`}
           >
             <img
-              src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
+              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
               alt="E"
               className="w-full h-full object-contain"
               referrerPolicy="no-referrer"
@@ -8729,7 +8735,7 @@ function EmiSpinner({
         className={`rounded-xl ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-100"} flex items-center justify-center border shadow-sm ${innerSize}`}
       >
         <img
-          src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
+          src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
           alt="E"
           className="w-full h-full object-contain"
           referrerPolicy="no-referrer"
