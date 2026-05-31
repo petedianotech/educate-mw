@@ -6,12 +6,14 @@ interface CloudinaryUploaderProps {
   onUploadSuccess: (url: string) => void;
   onClear: () => void;
   theme: 'light' | 'dark';
+  allowedType?: 'pdf' | 'video' | 'any';
 }
 
 export function CloudinaryUploader({ 
   onUploadSuccess, 
   onClear, 
-  theme 
+  theme,
+  allowedType = 'pdf'
 }: CloudinaryUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -32,16 +34,32 @@ export function CloudinaryUploader({
   };
 
   const processFile = async (selectedFile: File) => {
-    if (!selectedFile.name.toLowerCase().endsWith('.pdf')) {
+    const isPdf = selectedFile.name.toLowerCase().endsWith('.pdf');
+    const isVideo = selectedFile.type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/i.test(selectedFile.name);
+
+    if (allowedType === 'pdf' && !isPdf) {
       setStatus('error');
-      setErrorMsg('Strictly PDF files (.pdf) are supported for syllabus syllabus syllabus syllabus syllabus notes.');
+      setErrorMsg('Strictly PDF files (.pdf) are supported for syllabus / study notes.');
       return;
     }
 
-    // Limit to 25MB for typical Cloudinary unsigned accounts
-    if (selectedFile.size > 25 * 1024 * 1024) {
+    if (allowedType === 'video' && !isVideo) {
       setStatus('error');
-      setErrorMsg('File is too large. Maximum PDF size is 25MB.');
+      setErrorMsg('Strictly video files (.mp4, .mov, .avi, .mkv, .webm) are supported.');
+      return;
+    }
+
+    if (allowedType === 'any' && !isPdf && !isVideo) {
+      setStatus('error');
+      setErrorMsg('Only PDF and Video files are supported.');
+      return;
+    }
+
+    // Limit to 25MB for typical Cloudinary unsigned accounts (or 100MB for video)
+    const maxBytes = allowedType === 'video' ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (selectedFile.size > maxBytes) {
+      setStatus('error');
+      setErrorMsg(`File is too large. Maximum size is ${allowedType === 'video' ? '100MB' : '25MB'}.`);
       return;
     }
 
@@ -95,10 +113,10 @@ export function CloudinaryUploader({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">
-          Syllabus Notes PDF Upload
+          {allowedType === 'video' ? 'Study Video Upload' : 'Syllabus Notes PDF Upload'}
         </label>
         <span className="text-[8px] text-indigo-400 font-extrabold uppercase bg-indigo-500/10 px-2 py-0.5 rounded">
-          Cloudinary Deliver
+          Secure Upload
         </span>
       </div>
 
@@ -120,7 +138,7 @@ export function CloudinaryUploader({
           <input 
             ref={fileInputRef}
             type="file" 
-            accept=".pdf" 
+            accept={allowedType === 'video' ? 'video/*' : '.pdf'} 
             onChange={handleFileChange} 
             className="hidden" 
           />
@@ -131,10 +149,10 @@ export function CloudinaryUploader({
           </div>
           <div>
             <p className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              Drag & Drop syllabus PDF here
+              Drag & Drop {allowedType === 'video' ? 'video file' : 'syllabus PDF'} here
             </p>
             <p className="text-[10px] text-gray-400 font-bold mt-1">
-              or click to browse library files (Max 25MB)
+              or click to browse library files (Max {allowedType === 'video' ? '100MB' : '25MB'})
             </p>
           </div>
         </div>

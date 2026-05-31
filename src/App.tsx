@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import SEO from './components/SEO';
 import { BlogView, BlogPostView } from './components/BlogSystem';
@@ -45,6 +45,7 @@ import { EmiVisualizer } from './components/EmiVisualizer';
 import { GroupChat } from './components/GroupChat';
 import { FlashcardsView } from './components/FlashcardsView';
 import { CommunityView } from './components/CommunityView';
+import { CertificatesCleanView } from './components/CertificatesCleanView';
 import { CloudinaryUploader } from './components/CloudinaryUploader';
 import { triggerExplicitDownload } from './lib/cloudinary';
 import {
@@ -133,6 +134,7 @@ import {
   Moon,
   Trash2,
   Square,
+  MessageSquare,
   Pause,
   Clock,
   ArrowLeft,
@@ -143,10 +145,11 @@ import {
   Upload,
   FileText as FileIcon,
   Activity,
-  Save
+  Save,
+  Award
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view';
+export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view' | 'certificates';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -174,6 +177,19 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const verifyCode = urlParams.get('verify');
+      if (verifyCode) {
+        setCurrentView('certificates');
+        localStorage.setItem('mw_auto_verify_code', verifyCode);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -376,12 +392,10 @@ export default function App() {
 
             if (lastActiveMs > 0) {
                 const today = new Date();
-                today.setHours(0, 0, 0, 0);
                 const last = new Date(lastActiveMs);
-                last.setHours(0, 0, 0, 0);
-                
-                const diffTime = today.getTime() - last.getTime();
-                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                const d1 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const d2 = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+                const diffDays = Math.round((d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
                 
                 if (diffDays === 1) {
                     newStreak += 1;
@@ -470,8 +484,8 @@ export default function App() {
         };
       case 'library':
         return {
-          title: "MSCE Notes Library - Free Study Materials Malawi",
-          description: "Access a comprehensive library of MSCE notes for Form 1 to Form 4. Biology, Chemistry, Physics, Math, and more.",
+          title: "MSCE Notes Library - Form 1 to 4 Subjects & Biology Notes Malawi",
+          description: "Download MSCE past papers, Biology form 3 notes, mathematics, agriculture and physics free study notes in Malawi via Educate MW.",
           canonical: "https://educatemw.app/library",
           ogImage: defaultOgImage
         };
@@ -591,6 +605,14 @@ export default function App() {
                 />
               )}
               {currentView === 'flashcards' && <FlashcardsView onBack={() => navigateTo('home')} theme={theme} />}
+              {currentView === 'certificates' && (
+                <CertificatesCleanView 
+                  onBack={() => navigateTo('home')} 
+                  theme={theme} 
+                  profile={userProfile} 
+                  onUpdateProfile={setUserProfile}
+                />
+              )}
               {currentView === 'community' && <CommunityView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'blog' && (
                 <BlogView 
@@ -638,7 +660,7 @@ export default function App() {
         </div>
 
         {/* Bottom Navigation */}
-        {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos'].includes(currentView) && (
+        {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos', 'certificates'].includes(currentView) && (
           <div className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === 'dark' ? 'bg-gray-950 border-gray-900' : 'bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} border-t pb-safe pt-2 px-1`}>
             <div className="flex justify-around items-center w-full max-w-2xl mx-auto">
               <NavItem icon={<Home size={26} fill={currentView === 'home' ? 'currentColor' : 'none'} />} label="Home" active={currentView === 'home'} onClick={() => navigateTo('home')} theme={theme} />
@@ -688,6 +710,7 @@ export default function App() {
               <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
                 <SidebarItem theme={theme} icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="MSCE Pro Access" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
                 <SidebarItem theme={theme} icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
+                <SidebarItem theme={theme} icon={<Award size={20} className="text-amber-500" strokeWidth={2.5} />} label="Certificates" onClick={() => { navigateTo('certificates'); setIsSidebarOpen(false); }} active={currentView === 'certificates'} />
                 
                 {isAdmin && (
                   <SidebarItem theme={theme} icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
@@ -998,6 +1021,153 @@ function EmiChatView({ onBack, theme, profile, appSettings, onUpdateProfile, onG
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackMsgId, setFeedbackMsgId] = useState('');
+  const [feedbackType, setFeedbackType] = useState<'positive'|'negative'>('positive');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const chatBubbles = useMemo(() => {
+    return messages.map((msg) => (
+      <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'w-full'}`}>
+        <div className={`${msg.sender === 'user' ? 'max-w-[85%]' : 'w-full'} relative group`}>
+
+          {msg.sender === 'user' ? (
+            <div className={`p-4 shadow-sm relative bg-indigo-600 text-white rounded-2xl rounded-tr-sm font-medium`}>
+               <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">{msg.text}</p>
+               <div className="flex items-center gap-1.5 mt-2 justify-end text-white/70 text-[10px] font-bold">
+                 <span>{msg.timestamp}</span>
+                 <CheckCheck size={10} strokeWidth={3} />
+               </div>
+            </div>
+          ) : (
+            <div className={`p-5 md:p-6 shadow-sm relative ${theme === 'dark' ? 'bg-gray-950 border-y border-gray-900 text-gray-200' : 'bg-white border-y border-slate-200 text-slate-800'} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium`}>
+               {/* Elegant Header Inside Full-Width Card */}
+               <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100 dark:border-gray-900/50">
+                 <div className="flex items-center gap-2.5">
+                   <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}>
+                      <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-0.5" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
+                   </div>
+                   <div>
+                     <div className="flex items-center gap-1">
+                       <span className={`text-[12px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Emi AI</span>
+                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                     </div>
+                     <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">Secondary School Guide</p>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-2">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); speakText(msg.text, msg.id); }} 
+                     className={`w-8 h-8 rounded-full flex justify-center items-center ${activeSpeechId === msg.id ? 'bg-red-500 text-white animate-pulse' : (theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900/80' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100')} transition-colors`}
+                     title={activeSpeechId === msg.id ? "Stop voice" : "Read aloud"}
+                   >
+                     {activeSpeechId === msg.id ? <Pause size={14} /> : <Volume2 size={14} />}
+                   </button>
+                   <span className="text-[10px] text-gray-500 font-bold">{msg.timestamp}</span>
+                 </div>
+               </div>
+
+               <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert prose-p:text-gray-200' : 'prose-p:text-slate-800'} prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-900/80`}>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm, remarkMath]} 
+                    rehypePlugins={[rehypeKatex]}
+                    components={{
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        const childStr = String(children).replace(/\n$/, '');
+                        
+                        if (match) {
+                          const lang = match[1].toLowerCase();
+                          const isVisual = ['plot', 'graph', 'geom', 'shape', 'cube', 'sphere', 'tess', 'poly'].some(x => lang.includes(x));
+                          if (isVisual) {
+                            return (
+                              <EmiVisualizer 
+                                code={childStr} 
+                                language={lang} 
+                                theme={theme} 
+                              />
+                            );
+                          }
+                        }
+                        
+                        const isInline = !className;
+                        if (isInline) {
+                          return <code className="bg-slate-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[13px] font-mono font-bold text-indigo-500 dark:text-indigo-400" {...props}>{children}</code>;
+                        }
+                        return (
+                          <pre className="p-4 bg-gray-950 text-indigo-300 rounded-2xl overflow-x-auto text-xs font-mono my-3 shadow-md border border-gray-100 dark:border-gray-900/50">
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          </pre>
+                        );
+                      }
+                    }}
+                  >
+                     {msg.text}
+                  </ReactMarkdown>
+               </div>
+
+               <div className="flex gap-4 mt-4 border-t pt-3 border-slate-100 dark:border-gray-900/40 opacity-100 transition-opacity">
+                 <button onClick={(e) => { e.stopPropagation(); handleCopy(msg.text, msg.id); }} className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${copiedId === msg.id ? 'text-emerald-500' : 'text-gray-400 hover:text-indigo-400'}`}>
+                   {copiedId === msg.id ? <><CheckCircle size={14} /> Copied</> : <><Copy size={12} /> Copy</>}
+                 </button>
+                 <button onClick={(e) => { e.stopPropagation(); openFeedback(msg.id, 'positive'); }} className="text-gray-400 hover:text-emerald-500 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"><ThumbsUp size={12} /> Helpful</button>
+                 <button onClick={(e) => { e.stopPropagation(); openFeedback(msg.id, 'negative'); }} className="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"><ThumbsDown size={12} /> Issue</button>
+               </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    ));
+  }, [messages, theme, activeSpeechId, copiedId]);
+
+  const openFeedback = (msgId: string, type: 'positive'|'negative') => {
+    setFeedbackMsgId(msgId);
+    setFeedbackType(type);
+    setFeedbackText('');
+    setFeedbackModalOpen(true);
+  };
+
+  const submitFeedback = async () => {
+    if(!feedbackMsgId) return;
+    setSubmittingFeedback(true);
+    try {
+      const msgIndex = messages.findIndex(m => m.id === feedbackMsgId);
+      if (msgIndex === -1) return;
+      const msg = messages[msgIndex];
+      let prompt = '';
+      for(let i=msgIndex-1; i>=0; i--) {
+         if(messages[i].sender === 'user') {
+             prompt = messages[i].text;
+             break;
+         }
+      }
+      
+      await addDoc(collection(db, 'ai_feedback'), {
+          messageId: msg.id,
+          prompt: prompt,
+          generation: msg.text,
+          type: feedbackType,
+          comment: feedbackText,
+          userEmail: profile?.email || 'Unknown',
+          userName: profile?.name || 'Unknown',
+          userLevel: profile?.level || 'Unknown',
+          createdAt: serverTimestamp()
+      });
+      setFeedbackModalOpen(false);
+      alert('Thank you for your feedback!');
+    } catch(err) {
+      console.error("Feedback error", err);
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [isAdDismissed, setIsAdDismissed] = useState(() => {
@@ -1213,7 +1383,8 @@ function EmiChatView({ onBack, theme, profile, appSettings, onUpdateProfile, onG
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: messages.slice(-10),
-          userMessage: { sender: 'user', text }
+          userMessage: { sender: 'user', text },
+          userLevel: profile?.level || 'Form 4'
         }),
         signal: controller.signal
       });
@@ -1374,101 +1545,7 @@ function EmiChatView({ onBack, theme, profile, appSettings, onUpdateProfile, onG
 
         {/* Chat Bubbles */}
         <div className="space-y-6 animate-in fade-in duration-300">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'w-full'}`}>
-              <div className={`${msg.sender === 'user' ? 'max-w-[85%]' : 'w-full'} relative group`}>
-
-                {msg.sender === 'user' ? (
-                  <div className={`p-4 shadow-sm relative bg-indigo-600 text-white rounded-2xl rounded-tr-sm font-medium`}>
-                     <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">{msg.text}</p>
-                     <div className="flex items-center gap-1.5 mt-2 justify-end text-white/70 text-[10px] font-bold">
-                       <span>{msg.timestamp}</span>
-                       <CheckCheck size={10} strokeWidth={3} />
-                     </div>
-                  </div>
-                ) : (
-                  <div className={`p-5 md:p-6 shadow-sm relative ${theme === 'dark' ? 'bg-gray-950 border-y border-gray-900 text-gray-200' : 'bg-white border-y border-slate-200 text-slate-800'} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium`}>
-                     {/* Elegant Header Inside Full-Width Card */}
-                     <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100 dark:border-gray-900/50">
-                       <div className="flex items-center gap-2.5">
-                         <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}>
-                            <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-0.5" />
-                            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
-                         </div>
-                         <div>
-                           <div className="flex items-center gap-1">
-                             <span className={`text-[12px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Emi AI</span>
-                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                           </div>
-                           <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">Secondary School Guide</p>
-                         </div>
-                       </div>
-                       
-                       <div className="flex items-center gap-2">
-                         <button 
-                           onClick={(e) => { e.stopPropagation(); speakText(msg.text, msg.id); }} 
-                           className={`w-8 h-8 rounded-full flex justify-center items-center ${activeSpeechId === msg.id ? 'bg-red-500 text-white animate-pulse' : (theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900/80' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100')} transition-colors`}
-                           title={activeSpeechId === msg.id ? "Stop voice" : "Read aloud"}
-                         >
-                           {activeSpeechId === msg.id ? <Pause size={14} /> : <Volume2 size={14} />}
-                         </button>
-                         <span className="text-[10px] text-gray-500 font-bold">{msg.timestamp}</span>
-                       </div>
-                     </div>
-
-                     <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert prose-p:text-gray-200' : 'prose-p:text-slate-800'} prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-900/80`}>
-                        <ReactMarkdown 
-                          remarkPlugins={[remarkGfm, remarkMath]} 
-                          rehypePlugins={[rehypeKatex]}
-                          components={{
-                            code({ className, children, ...props }) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              const childStr = String(children).replace(/\n$/, '');
-                              
-                              if (match) {
-                                const lang = match[1].toLowerCase();
-                                const isVisual = ['plot', 'graph', 'geom', 'shape', 'cube', 'sphere', 'tess', 'poly'].some(x => lang.includes(x));
-                                if (isVisual) {
-                                  return (
-                                    <EmiVisualizer 
-                                      code={childStr} 
-                                      language={lang} 
-                                      theme={theme} 
-                                    />
-                                  );
-                                }
-                              }
-                              
-                              const isInline = !className;
-                              if (isInline) {
-                                return <code className="bg-slate-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[13px] font-mono font-bold text-indigo-500 dark:text-indigo-400" {...props}>{children}</code>;
-                              }
-                              return (
-                                <pre className="p-4 bg-gray-950 text-indigo-300 rounded-2xl overflow-x-auto text-xs font-mono my-3 shadow-md border border-gray-100 dark:border-gray-900/50">
-                                  <code className={className} {...props}>
-                                    {children}
-                                  </code>
-                                </pre>
-                              );
-                            }
-                          }}
-                        >
-                           {msg.text}
-                        </ReactMarkdown>
-                     </div>
-
-                     <div className="flex gap-4 mt-4 border-t pt-3 border-slate-100 dark:border-gray-900/40 opacity-100 transition-opacity">
-                       <button onClick={(e) => { e.stopPropagation(); handleCopy(msg.text, msg.id); }} className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${copiedId === msg.id ? 'text-emerald-500' : 'text-gray-400 hover:text-indigo-400'}`}>
-                         {copiedId === msg.id ? <><CheckCircle size={14} /> Copied</> : <><Copy size={12} /> Copy</>}
-                       </button>
-                       <button onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-indigo-400 flex items-center gap-1 text-[10px] font-bold uppercase"><ThumbsUp size={12} /> Helpful</button>
-                     </div>
-                  </div>
-                )}
-
-              </div>
-            </div>
-          ))}
+          {chatBubbles}
           {isLoading && (
             <div className={`p-5 md:p-6 shadow-sm relative ${theme === 'dark' ? 'bg-gray-950 border-y border-gray-900 text-gray-200 animate-pulse' : 'bg-white border-y border-slate-200 text-slate-800 animate-pulse'} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium flex flex-col gap-2`}>
               <div className="flex items-center gap-2.5">
@@ -1560,6 +1637,40 @@ function EmiChatView({ onBack, theme, profile, appSettings, onUpdateProfile, onG
                   onClick={clearChat}
                   className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20"
                  >Delete</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Feedback Modal */}
+      {feedbackModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFeedbackModalOpen(false)}></div>
+           <div className={`relative ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-white border-slate-200'} p-8 rounded-[2.5rem] border shadow-2xl max-w-[22rem] w-full text-center`}>
+              <div className={`w-14 h-14 ${feedbackType === 'positive' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'} rounded-2xl flex items-center justify-center mx-auto mb-6`}>
+                 {feedbackType === 'positive' ? <ThumbsUp size={28} /> : <ThumbsDown size={28} />}
+              </div>
+              <h3 className={`text-xl font-black mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{feedbackType === 'positive' ? 'Great Answer!' : 'Report Issue'}</h3>
+              <p className={`text-xs mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'} font-bold`}>
+                {feedbackType === 'positive' 
+                  ? 'Let us know how this helped you (optional).'
+                  : 'Tell us what was wrong or missing so we can improve Emi (optional).'}
+              </p>
+              
+              <textarea 
+                value={feedbackText}
+                onChange={e => setFeedbackText(e.target.value)}
+                autoFocus
+                placeholder={feedbackType === 'positive' ? "Example: Perfect explanation of algebra!" : "Example: The formula was wrong..."}
+                rows={3}
+                className={`w-full p-4 rounded-2xl mb-6 text-sm font-bold resize-none ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-slate-100 text-slate-900 border-transparent'} border focus:border-indigo-500 outline-none transition-colors text-left`}
+              />
+              
+              <div className="flex gap-3">
+                 <button onClick={() => setFeedbackModalOpen(false)} className={`flex-1 py-4 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-200 text-slate-800'} font-bold rounded-2xl transition-all active:scale-95 text-[10px] uppercase tracking-widest`}>Cancel</button>
+                 <button onClick={submitFeedback} disabled={submittingFeedback} className={`flex-1 py-4 ${feedbackType === 'positive' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50 text-[10px] uppercase tracking-widest flex items-center justify-center gap-2`}>
+                   {submittingFeedback ? 'Sending...' : 'Submit'}
+                 </button>
               </div>
            </div>
         </div>
@@ -2080,6 +2191,8 @@ function NavItem({ icon, label, active = false, onClick, theme }: { icon: React.
 
 function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSearch = '' }: { onBack: () => void, theme: 'light' | 'dark', onSelectItem: (slug: string) => void, onSelectLocalFile: (url: string, name: string) => void, initialSearch?: string }) {
   const [filter, setFilter] = useState<'all' | 'offline'>('all');
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterLevel, setFilterLevel] = useState('');
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -2137,10 +2250,20 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
     }
   };
 
+  const uniqueSubjects = Array.from(new Set((materials || []).map(m => m.subject).filter(Boolean))) as string[];
+  const uniqueLevels = Array.from(new Set((materials || []).map(m => m.level).filter(Boolean))) as string[];
+
   const visibleItems = (materials || [])
     .filter(item => item.type !== 'blog')
     .filter(item => filter === 'offline' ? (downloadedIds || []).includes(item.id) : true)
-    .filter(item => !searchQuery.trim() || item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || item.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter(item => !filterSubject || item.subject === filterSubject)
+    .filter(item => !filterLevel || item.level === filterLevel)
+    .filter(item => !searchQuery.trim() || item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || item.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+        return dateB - dateA;
+    });
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} animate-in slide-in-from-right duration-300`}>
@@ -2169,7 +2292,7 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
         </div>
 
         {/* Filter Tabs */}
-        <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-1.5 rounded-2xl border`}>
+        <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-1.5 rounded-2xl border flex`}>
            <button 
              onClick={() => setFilter('all')}
              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${filter === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
@@ -2178,6 +2301,30 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
              onClick={() => setFilter('offline')}
              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all flex items-center justify-center gap-2 ${filter === 'offline' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500'}`}
            ><Download size={14} /> OFFLINE</button>
+        </div>
+
+        <div className="flex gap-2">
+            <select
+               value={filterSubject}
+               onChange={(e) => setFilterSubject(e.target.value)}
+               className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} border outline-none`}
+            >
+               <option value="">All Subjects</option>
+               {uniqueSubjects.map(sub => (
+                   <option key={sub} value={sub}>{sub}</option>
+               ))}
+            </select>
+
+            <select
+               value={filterLevel}
+               onChange={(e) => setFilterLevel(e.target.value)}
+               className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold ${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} border outline-none`}
+            >
+               <option value="">All Levels</option>
+               {uniqueLevels.map(lvl => (
+                   <option key={lvl} value={lvl}>{lvl}</option>
+               ))}
+            </select>
         </div>
 
         <div>
@@ -2189,20 +2336,27 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
             {loading ? (
                 <div className="py-10 flex justify-center"><EmiSpinner size="md" theme={theme} /></div>
             ) : (
-                visibleItems.map(item => (
-                    <div key={item.id}>
-                        <LibraryItem 
-                        title={item.title}
-                        type={item.type}
-                        date={item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : 'New'}
-                        color={item.type === 'pdf' ? "bg-red-500/20 text-red-500" : item.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-emerald-500/20 text-emerald-500"}
-                        isDownloaded={downloadedIds.includes(item.id)} 
-                        onDownload={() => handleDownload(item)}
-                        onClick={() => onSelectItem(item.slug || item.id)}
-                        theme={theme}
-                        />
-                    </div>
-                ))
+                visibleItems.map(item => {
+                    const isCloudinaryPdf = item.type === 'pdf' && item.content && item.content.includes('res.cloudinary.com');
+                    const previewUrl = isCloudinaryPdf ? item.content.replace('.pdf', '.jpg') : undefined;
+                    return (
+                        <div key={item.id}>
+                            <LibraryItem 
+                            title={item.title}
+                            type={item.type}
+                            date={item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : 'New'}
+                            color={item.type === 'pdf' ? "bg-red-500/20 text-red-500" : item.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-emerald-500/20 text-emerald-500"}
+                            isDownloaded={downloadedIds.includes(item.id)} 
+                            onDownload={() => handleDownload(item)}
+                            onClick={() => onSelectItem(item.slug || item.id)}
+                            previewUrl={previewUrl}
+                            subject={item.subject}
+                            level={item.level}
+                            theme={theme}
+                            />
+                        </div>
+                    );
+                })
             )}
             {!loading && visibleItems.length === 0 && (
               <div className="text-center py-10">
@@ -2220,23 +2374,43 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
   );
 }
 
-function LibraryItem({ title, type, date, color, isDownloaded, onDownload, onClick, theme }: { title: string, type: string, date: string, color: string, isDownloaded?: boolean, onDownload?: () => void, onClick?: () => void, theme: 'light' | 'dark' }) {
+function LibraryItem({ title, type, date, color, isDownloaded, onDownload, onClick, previewUrl, theme, subject, level }: { title: string, type: string, date: string, color: string, isDownloaded?: boolean, onDownload?: () => void, onClick?: () => void, previewUrl?: string, theme: 'light' | 'dark', subject?: string, level?: string }) {
   return (
-    <div onClick={onClick} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 active:bg-gray-800/50' : 'bg-white border-slate-200 active:bg-slate-50 shadow-sm'} rounded-[24px] p-4 flex items-center border gap-4 transition-all cursor-pointer group`}>
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${color} shadow-inner`}>
-        {type === 'pdf' && <ScrollText size={22} />}
-        {type === 'video' && <Video size={22} />}
-        {type === 'text' && <FileText size={22} />}
-        {type === 'image' && <Layers size={22} />}
-        {type === 'book' && <Library size={22} />}
-        {type === 'doc' && <Bookmark size={22} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-[14px] mb-1 truncate leading-tight`}>{title}</h4>
-        <div className="flex items-center gap-2">
-           <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{type}</span>
-           <span className="w-1 h-1 rounded-full bg-gray-700"></span>
-           <span className="text-[10px] font-bold text-gray-500">{date}</span>
+    <div onClick={onClick} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 active:bg-gray-800/50' : 'bg-white border-slate-200 active:bg-slate-50 shadow-sm'} rounded-[24px] p-4 flex flex-col sm:flex-row sm:items-center border gap-4 transition-all cursor-pointer group`}>
+      <div className="flex items-center gap-4 flex-1">
+        {previewUrl ? (
+          <div className="w-14 h-14 rounded-2xl shrink-0 overflow-hidden bg-gray-100 flex items-center justify-center border shadow-inner">
+             <img src={previewUrl} alt={title} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${color} shadow-inner`}>
+            {type === 'pdf' && <ScrollText size={22} />}
+            {type === 'video' && <Video size={22} />}
+            {type === 'text' && <FileText size={22} />}
+            {type === 'image' && <Layers size={22} />}
+            {type === 'book' && <Library size={22} />}
+            {type === 'doc' && <Bookmark size={22} />}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-[14px] mb-1 truncate leading-tight`}>{title}</h4>
+          <div className="flex flex-wrap items-center gap-2">
+             <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{type}</span>
+             {subject && (
+               <>
+                 <span className="w-1 h-1 rounded-full bg-gray-700"></span>
+                 <span className="text-[10px] font-bold text-indigo-400">{subject}</span>
+               </>
+             )}
+             {level && (
+               <>
+                 <span className="w-1 h-1 rounded-full bg-gray-700"></span>
+                 <span className="text-[10px] font-bold text-amber-500">{level}</span>
+               </>
+             )}
+             <span className="w-1 h-1 rounded-full bg-gray-700"></span>
+             <span className="text-[10px] font-bold text-gray-500">{date}</span>
+          </div>
         </div>
       </div>
       <button 
@@ -2443,6 +2617,16 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [numQuestions, setNumQuestions] = useState(5);
+  const [publicQuizzes, setPublicQuizzes] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const q = query(collection(db, 'quizzes'), orderBy('createdAt', 'desc'), limit(10));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPublicQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [quizHistory, setQuizHistory] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('mw_quiz_history_cache');
@@ -2488,8 +2672,14 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
           const updatedCache = [{ topic, questions, date: new Date().toLocaleDateString() }, ...quizHistory.filter((q: any) => q.topic.toLowerCase() !== topic.toLowerCase())].slice(0, 10);
           setQuizHistory(updatedCache);
           localStorage.setItem('mw_quiz_history_cache', JSON.stringify(updatedCache));
+          
+          await addDoc(collection(db, 'quizzes'), {
+            topic,
+            questions,
+            createdAt: serverTimestamp()
+          });
         } catch (e) {
-          console.error("Quiz cache save error:", e);
+          console.error("Quiz cache/db save error:", e);
         }
         onStartQuiz(questions, topic);
       } else {
@@ -2632,31 +2822,35 @@ function QuizzesView({ onBack, theme, onStartQuiz }: { onBack: () => void, theme
         </div>
 
         <div>
-          <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg mb-6 px-1 uppercase tracking-tight`}>Trending Quizzes</h3>
+          <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg mb-6 px-1 uppercase tracking-tight`}>Community Quizzes</h3>
           <div className="grid grid-cols-1 gap-5">
-            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-[32px] p-6 border flex flex-col items-center text-center group relative overflow-hidden`}>
-               <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
-               <div className={`w-16 h-16 ${theme === 'dark' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'} rounded-2xl flex items-center justify-center mb-5 border group-hover:scale-110 transition-transform`}>
-                  <CheckCheck size={32} strokeWidth={2.5} />
-               </div>
-               <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tight`}>Math Fundamentals</h3>
-               <p className="text-xs text-gray-500 font-bold mb-6 px-4 leading-relaxed">Master the core concepts of algebra and geometry step by step.</p>
-               <button onClick={() => startPredefinedQuiz('Math Fundamentals')} className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white hover:bg-gray-800' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'} font-black py-4 rounded-2xl border active:scale-95 transition-all text-[11px] tracking-widest uppercase`}>
-                 Begin Test
-               </button>
-            </div>
-
-            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-[32px] p-6 border flex flex-col items-center text-center group relative overflow-hidden`}>
-               <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
-               <div className={`w-16 h-16 ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-100'} rounded-2xl flex items-center justify-center mb-5 border group-hover:scale-110 transition-transform`}>
-                  <BrainCircuit size={32} strokeWidth={2.5} />
-               </div>
-               <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tight`}>Science Trivia</h3>
-               <p className="text-xs text-gray-500 font-bold mb-6 px-4 leading-relaxed">Physics, chemistry, and biology combined in one rapid-fire round.</p>
-               <button onClick={() => startPredefinedQuiz('Science Trivia')} className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white hover:bg-gray-800' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'} font-black py-4 rounded-2xl border active:scale-95 transition-all text-[11px] tracking-widest uppercase`}>
-                 Begin Test
-               </button>
-            </div>
+            {publicQuizzes.length > 0 ? (
+              publicQuizzes.map((quiz, i) => (
+                <div key={quiz.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-[32px] p-6 border flex flex-col items-center text-center group relative overflow-hidden`}>
+                   <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+                   <div className={`w-16 h-16 ${theme === 'dark' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-100'} rounded-2xl flex items-center justify-center mb-5 border group-hover:scale-110 transition-transform`}>
+                      <BrainCircuit size={32} strokeWidth={2.5} />
+                   </div>
+                   <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tight`}>{quiz.topic}</h3>
+                   <p className="text-xs text-gray-500 font-bold mb-6 px-4 leading-relaxed">{quiz.questions?.length || 5} Questions • Community Generated</p>
+                   <button onClick={() => onStartQuiz(quiz.questions, quiz.topic)} className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white hover:bg-gray-800' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'} font-black py-4 rounded-2xl border active:scale-95 transition-all text-[11px] tracking-widest uppercase`}>
+                     Begin Test
+                   </button>
+                </div>
+              ))
+            ) : (
+                <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} rounded-[32px] p-6 border flex flex-col items-center text-center group relative overflow-hidden`}>
+                   <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
+                   <div className={`w-16 h-16 ${theme === 'dark' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'} rounded-2xl flex items-center justify-center mb-5 border group-hover:scale-110 transition-transform`}>
+                      <CheckCheck size={32} strokeWidth={2.5} />
+                   </div>
+                   <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tight`}>Math Fundamentals</h3>
+                   <p className="text-xs text-gray-500 font-bold mb-6 px-4 leading-relaxed">Master the core concepts of algebra and geometry step by step.</p>
+                   <button onClick={() => startPredefinedQuiz('Math Fundamentals')} className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white hover:bg-gray-800' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'} font-black py-4 rounded-2xl border active:scale-95 transition-all text-[11px] tracking-widest uppercase`}>
+                     Begin Test
+                   </button>
+                </div>
+            )}
           </div>
         </div>
       </div>
@@ -3864,7 +4058,7 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
   const [students, setStudents] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'settings'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'settings' | 'feedback'>('students');
   const [appSettings, setAppSettings] = useState({ freeDailyLimit: 10, totalApiCalls: 0 });
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
@@ -3873,6 +4067,8 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   const [realForm4, setRealForm4] = useState(0);
   const [newMaterial, setNewMaterial] = useState({ 
     title: '', 
+    subject: '',
+    level: '',
     content: '', 
     excerpt: '',
     image: '',
@@ -3882,6 +4078,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
   const [notification, setNotification] = useState({ title: '', body: '' });
   const [materials, setMaterials] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
 
   const stats = {
     total: realTotal || students.length,
@@ -3962,6 +4159,11 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
       setNotificationsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const qFeedback = query(collection(db, 'ai_feedback'), orderBy('createdAt', 'desc'), limit(50));
+    const unsubscribeFeedback = onSnapshot(qFeedback, (snapshot) => {
+      setFeedbackList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -3973,6 +4175,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
         unsubscribeStudents();
         unsubscribeMaterials();
         unsubscribeNotifications();
+        unsubscribeFeedback();
         unsubscribeSettings();
     };
   }, []);
@@ -4024,7 +4227,7 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
         authorId: auth.currentUser?.uid,
         createdAt: serverTimestamp()
       });
-      setNewMaterial({ title: '', content: '', excerpt: '', image: '', tags: '', type: 'pdf' });
+      setNewMaterial({ title: '', subject: '', level: '', content: '', excerpt: '', image: '', tags: '', type: 'pdf' });
       alert(`${newMaterial.type} published successfully!`);
     } catch (err) {
       console.error(err);
@@ -4073,6 +4276,12 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
             className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
         >
             Settings
+        </button>
+        <button 
+            onClick={() => setActiveTab('feedback')}
+            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'feedback' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+        >
+            Feedback
         </button>
       </div>
 
@@ -4180,10 +4389,33 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                             className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
                         />
                     </div>
+                    {newMaterial.type !== 'blog' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Subject</label>
+                                <input 
+                                    value={newMaterial.subject}
+                                    onChange={e => setNewMaterial({...newMaterial, subject: e.target.value})}
+                                    placeholder="Biology, Math..." 
+                                    className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Level / Class</label>
+                                <input 
+                                    value={newMaterial.level}
+                                    onChange={e => setNewMaterial({...newMaterial, level: e.target.value})}
+                                    placeholder="Form 1, Form 2..." 
+                                    className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
+                                />
+                            </div>
+                        </div>
+                    )}
                     {newMaterial.type === 'pdf' ? (
                         <div className="space-y-2">
                             <CloudinaryUploader 
                                 theme={theme}
+                                allowedType="pdf"
                                 onUploadSuccess={(url) => setNewMaterial(prev => ({ ...prev, content: url }))}
                                 onClear={() => setNewMaterial(prev => ({ ...prev, content: '' }))}
                             />
@@ -4191,6 +4423,31 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                                 <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
                                     <span>Uploaded Target URL:</span>
                                     <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">{newMaterial.content}</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : newMaterial.type === 'video' ? (
+                        <div className="space-y-3">
+                            <CloudinaryUploader 
+                                theme={theme}
+                                allowedType="video"
+                                onUploadSuccess={(url) => setNewMaterial(prev => ({ ...prev, content: url }))}
+                                onClear={() => setNewMaterial(prev => ({ ...prev, content: '' }))}
+                            />
+                            {newMaterial.content ? (
+                                <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
+                                    <span>Uploaded Video URL:</span>
+                                    <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">{newMaterial.content}</span>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Or Paste Video URL / YouTube Link</label>
+                                    <input 
+                                        value={newMaterial.content}
+                                        onChange={e => setNewMaterial({...newMaterial, content: e.target.value})}
+                                        placeholder="https://..." 
+                                        className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -4374,6 +4631,54 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                  </div>
               </div>
            </div>
+        )}
+
+        {activeTab === 'feedback' && (
+          <div className="space-y-4 pb-12">
+            <h2 className={`font-black text-xl px-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>User Feedback Logs</h2>
+            {feedbackList.length === 0 && <p className="text-sm font-bold text-gray-500 p-2">No feedback reported yet.</p>}
+            
+            {feedbackList.map(fb => (
+              <div key={fb.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} border p-5 rounded-3xl shadow-sm flex flex-col gap-4`}>
+                 <div className="flex justify-between items-start">
+                    <div>
+                       <div className="flex items-center gap-2 mb-1">
+                          <span className={`${fb.type === 'positive' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'} text-[10px] uppercase font-black px-2 py-1 rounded-lg tracking-widest flex items-center gap-1`}>
+                             {fb.type === 'positive' ? <ThumbsUp size={10} /> : <ThumbsDown size={10} />}
+                             {fb.type === 'positive' ? 'Positive' : 'Issue'}
+                          </span>
+                          <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-slate-400'}`}>
+                             {fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString() : 'Just now'}
+                          </span>
+                       </div>
+                       <div className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
+                          <span className={theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}>{fb.userName}</span> ({fb.userEmail}) • {fb.userLevel}
+                       </div>
+                    </div>
+                    {fb.comment && (
+                       <div className={`p-3 rounded-xl ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-gray-300' : 'bg-slate-50 border-slate-200 text-slate-700'} border text-xs font-bold max-w-xs break-words`}>
+                         "{fb.comment}"
+                       </div>
+                    )}
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} border p-4 rounded-2xl`}>
+                       <div className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-1">
+                          <MessageSquare size={12} /> User Prompt
+                       </div>
+                       <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-slate-900'}`}>{fb.prompt || '(No preceding prompt)'}</p>
+                    </div>
+                    <div className={`${theme === 'dark' ? 'bg-indigo-950/30 border-indigo-500/20' : 'bg-indigo-50/50 border-indigo-100'} border p-4 rounded-2xl`}>
+                       <div className="text-[10px] font-black uppercase text-indigo-500 tracking-widest mb-2 flex items-center gap-1">
+                          <Bot size={12} /> AI Generation
+                       </div>
+                       <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-slate-900'} max-h-40 overflow-y-auto hide-scrollbar line-clamp-6`} title={fb.generation}>{fb.generation}</p>
+                    </div>
+                 </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -4656,11 +4961,11 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
                       <div key={i} className="my-8 p-6 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center text-center">
                          <ScrollText size={40} className="text-indigo-500 mb-4" />
                          <h4 className="text-sm font-black uppercase tracking-widest mb-1">
-                           {para.trim().includes('cloudinary.com') ? 'Cloudinary Syllabus Document' : 'Reference Syllabus Document'}
+                           {para.trim().includes('cloudinary.com') ? 'Official Syllabus Document' : 'Reference Syllabus Document'}
                          </h4>
                          <p className="text-xs opacity-60 mb-6 leading-relaxed max-w-sm">
                            {para.trim().includes('cloudinary.com') 
-                             ? 'Highly optimized PDF notes stored directly in school vault for fast offline download.' 
+                             ? 'Highly optimized PDF notes securely stored for fast offline download.' 
                              : 'This document is hosted externally (e.g. Google Drive).'}
                          </p>
                          

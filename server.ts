@@ -102,7 +102,7 @@ async function startServer() {
 
   app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
-      const { messages, userMessage, useSearch } = req.body;
+      const { messages, userMessage, useSearch, userLevel } = req.body;
       
       const cerebrasMessages = [
         ...messages.map((m: any) => ({
@@ -117,6 +117,7 @@ Your primary goal is to help Malawian students understand their school subjects,
 build confidence, and prepare effectively to pass their exams, including the
 Junior Certificate of Education (JCE) and the Malawi School Certificate of
 Education (MSCE).
+${userLevel ? `\nCRITICAL CONTEXT: The student you are currently teaching is in ${userLevel}. You MUST tailor your vocabulary, examples, and depth of content specifically to the ${userLevel} syllabus level. Do not provide advanced concepts beyond their current grade unless explicitly asked.` : ''}
 
 Instructions & Guidelines:
 
@@ -362,7 +363,20 @@ Instructions & Guidelines:
     console.log(`Server running on port ${PORT}`);
   });
 
-  const wss = new WebSocketServer({ server, path: '/api/gemini/live' });
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request, socket, head) => {
+    try {
+      const url = new URL(request.url || '', `http://${request.headers.host || 'localhost'}`);
+      if (url.pathname === '/api/gemini/live') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit('connection', ws, request);
+        });
+      }
+    } catch (err) {
+      console.error("Error routing upgrade request:", err);
+    }
+  });
 
   wss.on('connection', async (clientWs, req) => {
     let session: any = null;
@@ -479,7 +493,7 @@ Instructions & Guidelines:
 
             if (msg.text && session) {
                session.sendRealtimeInput({
-                 clientContent: { turns: [{ role: "user", parts: [{ text: msg.text }] }] }
+                 text: msg.text
                });
             }
          } catch(e) {

@@ -60,6 +60,27 @@ service cloud.firestore {
       allow write: if isAdmin() && isValidId(materialId);
     }
 
+    // Community Flashcards & Quizzes
+    match /flashcards/{flashcardId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+    
+    match /quizzes/{quizId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Certificates section
+    match /certificates/{certificateId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Videos section
     match /videos/{videoId} {
       allow read: if true;
@@ -70,6 +91,12 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if true;
       allow write: if isAdmin() && isValidId(notificationId);
+    }
+
+    // AI Feedback
+    match /ai_feedback/{feedbackId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
     }
 
     // Settings

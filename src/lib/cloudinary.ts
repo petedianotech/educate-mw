@@ -26,6 +26,12 @@ export async function uploadToCloudinary(
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
   formData.append('folder', CLOUDINARY_FOLDER);
+  
+  if (file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/i.test(file.name)) {
+    formData.append('resource_type', 'video');
+  } else {
+    formData.append('resource_type', 'auto');
+  }
 
   // XML Http Request to easily track upload progress
   return new Promise((resolve, reject) => {
@@ -105,38 +111,35 @@ export function getCloudinaryDownloadUrl(url: string, filename?: string): string
  */
 export async function triggerExplicitDownload(url: string, filename: string): Promise<boolean> {
   try {
-    // Generate the ideal attachment URL
     const finalUrl = getCloudinaryDownloadUrl(url, filename);
     
-    // Attempt standard link click download first
-    const link = document.createElement('a');
-    link.href = finalUrl;
-    link.setAttribute('download', filename);
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
     // For direct binary downloading guarantee (avoids browser opening PDFs inside the page in many cases)
-    fetch(url)
-      .then(res => res.blob())
-      .then(blob => {
-        const blobUrl = window.URL.createObjectURL(blob);
-        const forceLink = document.createElement('a');
-        forceLink.href = blobUrl;
-        forceLink.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
-        document.body.appendChild(forceLink);
-        forceLink.click();
-        document.body.removeChild(forceLink);
-        window.URL.revokeObjectURL(blobUrl);
-      })
-      .catch(() => {
-        // Fallback already triggered above
-      });
+    const res = await fetch(finalUrl);
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const forceLink = document.createElement('a');
+    forceLink.href = blobUrl;
+    forceLink.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+    document.body.appendChild(forceLink);
+    forceLink.click();
+    document.body.removeChild(forceLink);
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
 
     return true;
   } catch (err) {
-    console.error('Trigger download failed:', err);
-    return false;
+    console.error('Trigger download failed, using fallback:', err);
+    try {
+      const fallbackUrl = getCloudinaryDownloadUrl(url, filename);
+      const link = document.createElement('a');
+      link.href = fallbackUrl;
+      link.setAttribute('download', filename);
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
