@@ -14,7 +14,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  User as FirebaseUser
+  User as FirebaseUser,
+  GoogleAuthProvider
 } from 'firebase/auth';
 import { 
   collection, 
@@ -31,13 +32,21 @@ import {
   orderBy,
   limit,
   deleteDoc,
-  getCountFromServer
+  getCountFromServer,
+  increment
 } from 'firebase/firestore';
-import { auth, db, googleProvider } from './lib/firebase';
+import { auth, db, googleProvider, setCachedAccessToken, cachedAccessToken } from './lib/firebase';
 import { Avatar, getAvatarGradient, FEMININE_GRADIENTS, MASCULINE_GRADIENTS } from './components/Avatar';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { EmiVisualizer } from './components/EmiVisualizer';
 import { GroupChat } from './components/GroupChat';
 import { FlashcardsView } from './components/FlashcardsView';
 import { CommunityView } from './components/CommunityView';
+import { CloudinaryUploader } from './components/CloudinaryUploader';
+import { triggerExplicitDownload } from './lib/cloudinary';
 import {
   Menu,
   GraduationCap,
@@ -132,7 +141,9 @@ import {
   Shield,
   Newspaper,
   Upload,
-  FileText as FileIcon
+  FileText as FileIcon,
+  Activity,
+  Save
 } from 'lucide-react';
 
 export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view';
@@ -244,6 +255,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [appSettings, setAppSettings] = useState({ freeDailyLimit: 10, totalApiCalls: 0 });
   const [selectedBlogSlug, setSelectedBlogSlug] = useState('');
   const [selectedLibrarySlug, setSelectedLibrarySlug] = useState('');
   const [librarySearch, setLibrarySearch] = useState('');
@@ -325,6 +337,12 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+        if (docSnap.exists()) {
+            setAppSettings({ freeDailyLimit: docSnap.data().freeDailyLimit || 10, totalApiCalls: docSnap.data().totalApiCalls || 0 });
+        }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setIsLoggedIn(!!firebaseUser);
@@ -427,9 +445,10 @@ export default function App() {
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      unsubscribe();
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+        unsubscribe();
+        unsubSettings();
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -544,7 +563,7 @@ export default function App() {
           ) : (
             <>
               {currentView === 'home' && <HomeView onNavigate={navigateTo} onMenuClick={() => setIsSidebarOpen(true)} profile={userProfile} onShowNotifications={() => setShowNotifications(true)} theme={theme} onThemeToggle={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')} />}
-              {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} onUpdateProfile={setUserProfile} onGoPro={() => navigateTo('subscription')} />}
+              {currentView === 'emi' && <EmiChatView onBack={() => navigateTo('home')} theme={theme} profile={userProfile} appSettings={appSettings} onUpdateProfile={setUserProfile} onGoPro={() => navigateTo('subscription')} />}
               {currentView === 'subscription' && <SubscriptionView profile={userProfile} theme={theme} onBack={() => navigateTo('home')} />}
               {currentView === 'library' && <LibraryView onBack={() => navigateTo('home')} theme={theme} onSelectItem={(slug) => navigateTo('library-item', slug)} onSelectLocalFile={(url, name) => { setLocalFileName(name); navigateTo('local-view', url); }} initialSearch={librarySearch} />}
               {currentView === 'library-item' && <MaterialDetailView slug={selectedLibrarySlug} onBack={() => navigateTo('library')} theme={theme} onOpenPdf={(url, title) => { setLocalFileName(title); setLocalFileUrl(url); navigateTo('local-view'); }} />}
@@ -954,7 +973,7 @@ const initialMessages: Message[] = [
   }
 ];
 
-function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onBack: () => void, theme: 'light' | 'dark', profile: any, onUpdateProfile: (p: any) => void, onGoPro: () => void }) {
+function EmiChatView({ onBack, theme, profile, appSettings, onUpdateProfile, onGoPro }: { onBack: () => void, theme: 'light' | 'dark', profile: any, appSettings: { freeDailyLimit: number }, onUpdateProfile: (p: any) => void, onGoPro: () => void }) {
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem(`mw_emi_chat_${profile?.uid || 'guest'}`);
@@ -1137,9 +1156,9 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
     const today = new Date().toLocaleDateString('en-CA');
     const isPro = profile?.isPro;
     const aiPointsLastReset = profile?.aiPointsLastReset || '';
-    let currentPoints = aiPointsLastReset === today ? (profile?.aiPoints ?? 4) : 4; // Max 4 points for Free
+    let currentPoints = aiPointsLastReset === today ? (profile?.aiPoints ?? appSettings.freeDailyLimit) : appSettings.freeDailyLimit;
     
-    if (!isPro && currentPoints < 2) {
+    if (!isPro && currentPoints < 1) {
       // Show go pro message
       const errorMsg: Message = {
          id: Date.now().toString() + '-err',
@@ -1171,10 +1190,22 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
 
     try {
       if (!isPro && auth.currentUser) {
-         currentPoints -= 2; // costs 2 point per question
+         currentPoints -= 1; // 1 point per question
          const userRef = doc(db, 'users', auth.currentUser.uid);
          await setDoc(userRef, { aiPoints: currentPoints, aiPointsLastReset: today }, { merge: true });
          onUpdateProfile({ ...profile, aiPoints: currentPoints, aiPointsLastReset: today });
+      }
+
+      if (auth.currentUser) {
+         const userRef = doc(db, 'users', auth.currentUser.uid);
+         const newApiUsage = { count: (profile?.apiUsage?.count || 0) + 1, lastUsed: Date.now() };
+         await setDoc(userRef, { apiUsage: newApiUsage, lastActiveAt: Date.now() }, { merge: true });
+         onUpdateProfile({ ...profile, apiUsage: newApiUsage, lastActiveAt: Date.now() });
+
+         // Add to global count
+         try {
+             await setDoc(doc(db, 'settings', 'global'), { totalApiCalls: increment(1) }, { merge: true });
+         } catch(e) {}
       }
 
       const response = await fetch('/api/gemini/chat', {
@@ -1267,7 +1298,7 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
           ) : (
             <div onClick={onGoPro} className="flex flex-col items-end mr-1 cursor-pointer group active:scale-95 transition-transform">
               <span className={`text-[10px] font-black uppercase tracking-tighter ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Points</span>
-              <span className={`text-xs font-black leading-none ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>{profile?.aiPointsLastReset === new Date().toLocaleDateString('en-CA') ? (profile?.aiPoints ?? 4) : 4}</span>
+              <span className={`text-xs font-black leading-none ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>{profile?.aiPointsLastReset === new Date().toLocaleDateString('en-CA') ? (profile?.aiPoints ?? appSettings.freeDailyLimit) : appSettings.freeDailyLimit}</span>
             </div>
           )}
           <button onClick={() => setIsCalling(true)} className={`w-10 h-10 ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
@@ -1342,68 +1373,124 @@ function EmiChatView({ onBack, theme, profile, onUpdateProfile, onGoPro }: { onB
         )}
 
         {/* Chat Bubbles */}
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-300">
           {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start gap-2.5'}`}>
-              {msg.sender === 'ai' && (
-                <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border shrink-0 flex items-center justify-center overflow-hidden mt-1 shadow-sm`}>
-                   <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
-                </div>
-              )}
-              <div className={`max-w-[85%] relative group`}>
-                <div className={`p-4 shadow-sm relative ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm' : (theme === 'dark' ? 'bg-gray-900 border border-gray-800 text-gray-200' : 'bg-white border border-slate-200 text-slate-800')} rounded-2xl rounded-tl-sm font-medium`}>
-                  {msg.sender === 'ai' && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); speakText(msg.text, msg.id); }} 
-                      className={`mb-2 w-8 h-8 rounded-full flex justify-center items-center ${activeSpeechId === msg.id ? 'bg-red-500 text-white animate-pulse' : (theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100')} transition-colors`}
-                      title={activeSpeechId === msg.id ? "Stop voice" : "Read aloud"}
-                    >
-                      {activeSpeechId === msg.id ? <Pause size={16} /> : <Volume2 size={16} />}
-                    </button>
-                  )}
-                  <p className={`text-[14.5px] leading-relaxed whitespace-pre-wrap ${msg.sender === 'user' ? 'text-white' : (theme === 'dark' ? 'text-gray-200' : 'text-slate-800')}`}>{msg.text}</p>
-                  <div className={`flex items-center gap-1.5 mt-2 text-[10px] font-bold ${msg.sender === 'user' ? 'justify-end text-white/70' : 'text-gray-400'}`}>
-                    <span>{msg.timestamp}</span>
-                    {msg.sender === 'user' && <CheckCheck size={10} strokeWidth={3} />}
+            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'w-full'}`}>
+              <div className={`${msg.sender === 'user' ? 'max-w-[85%]' : 'w-full'} relative group`}>
+
+                {msg.sender === 'user' ? (
+                  <div className={`p-4 shadow-sm relative bg-indigo-600 text-white rounded-2xl rounded-tr-sm font-medium`}>
+                     <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">{msg.text}</p>
+                     <div className="flex items-center gap-1.5 mt-2 justify-end text-white/70 text-[10px] font-bold">
+                       <span>{msg.timestamp}</span>
+                       <CheckCheck size={10} strokeWidth={3} />
+                     </div>
                   </div>
-                </div>
-                
-                {msg.sender === 'ai' && (
-                  <div className="flex gap-4 mt-2 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); handleCopy(msg.text, msg.id); }} className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest ${copiedId === msg.id ? 'text-emerald-500' : 'text-gray-400 hover:text-indigo-400'}`}>
-                      {copiedId === msg.id ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
-                    </button>
-                    <button onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-indigo-400"><ThumbsUp size={14} /></button>
-                    <button onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-indigo-400"><ThumbsDown size={14} /></button>
+                ) : (
+                  <div className={`p-5 md:p-6 shadow-sm relative ${theme === 'dark' ? 'bg-gray-950 border-y border-gray-900 text-gray-200' : 'bg-white border-y border-slate-200 text-slate-800'} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium`}>
+                     {/* Elegant Header Inside Full-Width Card */}
+                     <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100 dark:border-gray-900/50">
+                       <div className="flex items-center gap-2.5">
+                         <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}>
+                            <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-0.5" />
+                            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
+                         </div>
+                         <div>
+                           <div className="flex items-center gap-1">
+                             <span className={`text-[12px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Emi AI</span>
+                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                           </div>
+                           <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">Secondary School Guide</p>
+                         </div>
+                       </div>
+                       
+                       <div className="flex items-center gap-2">
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); speakText(msg.text, msg.id); }} 
+                           className={`w-8 h-8 rounded-full flex justify-center items-center ${activeSpeechId === msg.id ? 'bg-red-500 text-white animate-pulse' : (theme === 'dark' ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900/80' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100')} transition-colors`}
+                           title={activeSpeechId === msg.id ? "Stop voice" : "Read aloud"}
+                         >
+                           {activeSpeechId === msg.id ? <Pause size={14} /> : <Volume2 size={14} />}
+                         </button>
+                         <span className="text-[10px] text-gray-500 font-bold">{msg.timestamp}</span>
+                       </div>
+                     </div>
+
+                     <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert prose-p:text-gray-200' : 'prose-p:text-slate-800'} prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-900/80`}>
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm, remarkMath]} 
+                          rehypePlugins={[rehypeKatex]}
+                          components={{
+                            code({ className, children, ...props }) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              const childStr = String(children).replace(/\n$/, '');
+                              
+                              if (match) {
+                                const lang = match[1].toLowerCase();
+                                const isVisual = ['plot', 'graph', 'geom', 'shape', 'cube', 'sphere', 'tess', 'poly'].some(x => lang.includes(x));
+                                if (isVisual) {
+                                  return (
+                                    <EmiVisualizer 
+                                      code={childStr} 
+                                      language={lang} 
+                                      theme={theme} 
+                                    />
+                                  );
+                                }
+                              }
+                              
+                              const isInline = !className;
+                              if (isInline) {
+                                return <code className="bg-slate-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[13px] font-mono font-bold text-indigo-500 dark:text-indigo-400" {...props}>{children}</code>;
+                              }
+                              return (
+                                <pre className="p-4 bg-gray-950 text-indigo-300 rounded-2xl overflow-x-auto text-xs font-mono my-3 shadow-md border border-gray-100 dark:border-gray-900/50">
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                </pre>
+                              );
+                            }
+                          }}
+                        >
+                           {msg.text}
+                        </ReactMarkdown>
+                     </div>
+
+                     <div className="flex gap-4 mt-4 border-t pt-3 border-slate-100 dark:border-gray-900/40 opacity-100 transition-opacity">
+                       <button onClick={(e) => { e.stopPropagation(); handleCopy(msg.text, msg.id); }} className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${copiedId === msg.id ? 'text-emerald-500' : 'text-gray-400 hover:text-indigo-400'}`}>
+                         {copiedId === msg.id ? <><CheckCircle size={14} /> Copied</> : <><Copy size={12} /> Copy</>}
+                       </button>
+                       <button onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-indigo-400 flex items-center gap-1 text-[10px] font-bold uppercase"><ThumbsUp size={12} /> Helpful</button>
+                     </div>
                   </div>
                 )}
+
               </div>
             </div>
           ))}
           {isLoading && (
-            <div className="flex justify-start gap-2.5 animate-in fade-in duration-300">
-              <div className="relative shrink-0 mt-1">
-                <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border overflow-hidden shadow-sm flex items-center justify-center relative z-10`}>
-                   <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-1" />
+            <div className={`p-5 md:p-6 shadow-sm relative ${theme === 'dark' ? 'bg-gray-950 border-y border-gray-900 text-gray-200 animate-pulse' : 'bg-white border-y border-slate-200 text-slate-800 animate-pulse'} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium flex flex-col gap-2`}>
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}>
+                   <img src="https://i.ibb.co/4w6s1XJg/emi-ai-mw-1-1.png" alt="Emi" className="w-full h-full object-contain p-0.5" />
+                   <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
                 </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-gray-900 rounded-full animate-ping pointer-events-none" />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-gray-900 rounded-full pointer-events-none" />
+                <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`text-[12px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>Emi AI</span>
+                    <div className="flex gap-1 ml-1">
+                      <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                      <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                      <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">Thinking...</p>
+                </div>
               </div>
-              <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-lg shadow-slate-200/50'} border rounded-2xl rounded-tl-sm px-4 py-3 pb-3.5 flex flex-col gap-1.5 max-w-[85%] font-medium`}>
-                 <div className="flex items-center gap-2">
-                   <div className="flex gap-1">
-                     <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                     <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                     <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
-                   </div>
-                   <span className={`text-[10px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                     EMI ACTIVE
-                   </span>
-                 </div>
-                 <span className={`text-[13.5px] leading-relaxed animate-pulse ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'}`}>
-                   {loadingStatus}
-                 </span>
-              </div>
+              <span className={`text-[13.5px] leading-relaxed pl-10 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'} font-bold`}>
+                {loadingStatus}
+              </span>
             </div>
           )}
           <div ref={messagesEndRef} className="h-4" />
@@ -2033,13 +2120,21 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
     return () => unsubscribe();
   }, []);
 
-  const handleDownload = (id: string) => {
+  const handleDownload = async (item: any) => {
     setDownloadedIds(prev => {
       const current = prev || [];
-      const next = current.includes(id) ? current.filter(i => i !== id) : [...current, id];
+      const next = current.includes(item.id) ? current.filter(i => i !== item.id) : [...current, item.id];
       localStorage.setItem('mw_downloaded_notes', JSON.stringify(next));
       return next;
     });
+
+    if (item.type === 'pdf' && item.content) {
+      try {
+        await triggerExplicitDownload(item.content, item.title);
+      } catch (err) {
+        console.error('Trigger explicit download failed:', err);
+      }
+    }
   };
 
   const visibleItems = (materials || [])
@@ -2102,7 +2197,7 @@ function LibraryView({ onBack, theme, onSelectItem, onSelectLocalFile, initialSe
                         date={item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : 'New'}
                         color={item.type === 'pdf' ? "bg-red-500/20 text-red-500" : item.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-emerald-500/20 text-emerald-500"}
                         isDownloaded={downloadedIds.includes(item.id)} 
-                        onDownload={() => handleDownload(item.id)}
+                        onDownload={() => handleDownload(item)}
                         onClick={() => onSelectItem(item.slug || item.id)}
                         theme={theme}
                         />
@@ -3086,7 +3181,11 @@ function AuthView({ onNavigateRegister, theme }: { onNavigateRegister: () => voi
     setLoading(true);
     setError('');
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCachedAccessToken(credential.accessToken);
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed');
       console.error(err);
@@ -3765,7 +3864,8 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
   const [students, setStudents] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'settings'>('students');
+  const [appSettings, setAppSettings] = useState({ freeDailyLimit: 10, totalApiCalls: 0 });
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [realTotal, setRealTotal] = useState(0);
@@ -3862,12 +3962,29 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
       setNotificationsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setAppSettings({ freeDailyLimit: data.freeDailyLimit || 10, totalApiCalls: data.totalApiCalls || 0 });
+      }
+    });
+
     return () => {
         unsubscribeStudents();
         unsubscribeMaterials();
         unsubscribeNotifications();
+        unsubscribeSettings();
     };
   }, []);
+
+  const saveSettings = async () => {
+      try {
+          await setDoc(doc(db, 'settings', 'global'), appSettings, { merge: true });
+          alert("Settings updated!");
+      } catch (err) {
+          console.error(err);
+      }
+  };
 
   const deleteMaterial = async (id: string) => {
       if (!window.confirm("Are you sure you want to delete this material?")) return;
@@ -3951,16 +4068,23 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
         >
             Alerts
         </button>
+        <button 
+            onClick={() => setActiveTab('settings')}
+            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+        >
+            Settings
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar">
         {activeTab === 'students' && (
           <div className="space-y-8">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
                {[
                  { label: 'Users', val: stats.total, color: 'text-indigo-400' },
                  { label: 'PRO', val: stats.pro, color: 'text-amber-400' },
-                 { label: 'Form 4', val: stats.form4, color: 'text-emerald-400' }
+                 { label: 'Form 4', val: stats.form4, color: 'text-emerald-400' },
+                 { label: 'Active Today', val: students.filter(s => s.lastActiveAt && (Date.now() - s.lastActiveAt) < 86400000).length, color: 'text-cyan-400' }
                ].map((s, i) => (
                  <div key={i} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-4 rounded-3xl border flex flex-col items-center`}>
                     <div className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{s.val}</div>
@@ -4010,13 +4134,19 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                             <div>
                                 <h4 className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.name}</h4>
                                 <p className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">{student.email}</p>
-                                <div className="flex gap-2 mt-1">
+                                <div className="flex gap-2 mt-1 flex-wrap">
                                     <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${student.isPro ? 'bg-amber-500/20 text-amber-500' : 'bg-gray-800 text-gray-600'}`}>
                                         {student.isPro ? 'PRO' : 'FREE'}
                                     </span>
                                     <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase bg-indigo-500/20 text-indigo-400">
                                         {student.level}
                                     </span>
+                                    {student.lastActiveAt && (Date.now() - student.lastActiveAt) < 300000 && (
+                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase bg-emerald-500/20 text-emerald-500">Live</span>
+                                    )}
+                                    {student.apiUsage && (
+                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase bg-cyan-500/20 text-cyan-500">API: {student.apiUsage.count || 0}</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -4050,16 +4180,32 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                             className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
                         />
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Content or Link</label>
-                        <textarea 
-                            value={newMaterial.content}
-                            onChange={e => setNewMaterial({...newMaterial, content: e.target.value})}
-                            rows={4}
-                            placeholder={newMaterial.type === 'blog' ? "Markdown article content..." : "Provide details or link here..."} 
-                            className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 resize-none border`}
-                        />
-                    </div>
+                    {newMaterial.type === 'pdf' ? (
+                        <div className="space-y-2">
+                            <CloudinaryUploader 
+                                theme={theme}
+                                onUploadSuccess={(url) => setNewMaterial(prev => ({ ...prev, content: url }))}
+                                onClear={() => setNewMaterial(prev => ({ ...prev, content: '' }))}
+                            />
+                            {newMaterial.content && (
+                                <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
+                                    <span>Uploaded Target URL:</span>
+                                    <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">{newMaterial.content}</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Content or Link</label>
+                            <textarea 
+                                value={newMaterial.content}
+                                onChange={e => setNewMaterial({...newMaterial, content: e.target.value})}
+                                rows={4}
+                                placeholder={newMaterial.type === 'blog' ? "Markdown article content..." : "Provide details or link here..."} 
+                                className={`w-full ${theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 resize-none border`}
+                            />
+                        </div>
+                    )}
 
                     {newMaterial.type === 'blog' && (
                         <>
@@ -4190,6 +4336,44 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                 ))}
             </div>
           </div>
+        )}
+
+        {activeTab === 'settings' && (
+           <div className="space-y-8">
+              <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-3xl border`}>
+                 <h3 className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-4`}>App Settings & API Limits</h3>
+                 
+                 <div className="space-y-6">
+                    <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl border flex flex-col items-center justify-center text-center`}>
+                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Total App API Usage</span>
+                       <div className="text-3xl font-black text-indigo-500">{appSettings.totalApiCalls || 0} <span className="text-[10px] text-gray-400 uppercase leading-none">Requests</span></div>
+                    </div>
+
+                    <div>
+                       <label className={`block text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'} uppercase tracking-widest mb-3`}>
+                          Free User Daily API Limit
+                       </label>
+                       <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} border flex items-center rounded-2xl px-4 py-3 shadow-sm`}>
+                         <Activity size={18} className="text-gray-400 mr-3" />
+                         <input 
+                            type="number"
+                            value={appSettings.freeDailyLimit}
+                            onChange={(e) => setAppSettings(prev => ({ ...prev, freeDailyLimit: parseInt(e.target.value) || 0 }))}
+                            className={`w-full bg-transparent font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} outline-none`}
+                         />
+                       </div>
+                       <p className="text-[10px] text-gray-500 font-bold mt-3 leading-relaxed">Free tier users will be prompted to upgrade once they hit this daily limit on inquiries.</p>
+                    </div>
+
+                    <button 
+                       onClick={saveSettings}
+                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex justify-center items-center gap-2"
+                    >
+                       Save Settings <Save size={16} />
+                    </button>
+                 </div>
+              </div>
+           </div>
         )}
       </div>
     </div>
@@ -4470,25 +4654,45 @@ function MaterialDetailView({ slug, onBack, theme, onOpenPdf }: { slug: string, 
                   if (material.type === 'pdf' && isUrl) {
                     return (
                       <div key={i} className="my-8 p-6 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center text-center">
-                         <FileIcon size={40} className="text-indigo-500 mb-4" />
-                         <h4 className="text-sm font-black uppercase tracking-widest mb-2">Reference Material</h4>
-                         <p className="text-xs opacity-60 mb-6">This document is hosted externally (e.g. Google Drive).</p>
-                         <button 
-                          onClick={() => {
-                            if (onOpenPdf) {
-                               let targetUrl = para.trim();
-                               if (targetUrl.includes('drive.google.com') && targetUrl.includes('/view')) {
-                                  targetUrl = targetUrl.replace('/view', '/preview');
-                               }
-                               onOpenPdf(targetUrl, material.title);
-                            } else {
-                               window.open(para.trim(), '_blank');
-                            }
-                          }} 
-                          className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-lg shadow-indigo-600/30"
-                         >
-                           Open Document
-                         </button>
+                         <ScrollText size={40} className="text-indigo-500 mb-4" />
+                         <h4 className="text-sm font-black uppercase tracking-widest mb-1">
+                           {para.trim().includes('cloudinary.com') ? 'Cloudinary Syllabus Document' : 'Reference Syllabus Document'}
+                         </h4>
+                         <p className="text-xs opacity-60 mb-6 leading-relaxed max-w-sm">
+                           {para.trim().includes('cloudinary.com') 
+                             ? 'Highly optimized PDF notes stored directly in school vault for fast offline download.' 
+                             : 'This document is hosted externally (e.g. Google Drive).'}
+                         </p>
+                         
+                         <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+                           <button 
+                            onClick={() => {
+                              if (onOpenPdf) {
+                                 let targetUrl = para.trim();
+                                 if (targetUrl.includes('drive.google.com') && targetUrl.includes('/view')) {
+                                    targetUrl = targetUrl.replace('/view', '/preview');
+                                 }
+                                 onOpenPdf(targetUrl, material.title);
+                              } else {
+                                 window.open(para.trim(), '_blank');
+                              }
+                            }} 
+                            className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                           >
+                             Read Online
+                           </button>
+
+                           {para.trim().includes('cloudinary.com') && (
+                             <button 
+                              onClick={async () => {
+                                await triggerExplicitDownload(para.trim(), material.title);
+                              }} 
+                              className="px-8 py-4 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                             >
+                               Download PDF
+                             </button>
+                           )}
+                         </div>
                       </div>
                     );
                   }
