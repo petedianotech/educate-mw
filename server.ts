@@ -3,11 +3,11 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { WebSocketServer } from 'ws';
-import wsModule from 'ws';
+import { WebSocket as wsClass } from 'ws';
 
 // Premium robust WebSocket polyfill for Gemini Live API on Node server
 if (typeof globalThis.WebSocket === 'undefined') {
-  (globalThis as any).WebSocket = wsModule;
+  (globalThis as any).WebSocket = wsClass;
   console.log('Polyfilled globalThis.WebSocket with ws on the server.');
 }
 
@@ -386,12 +386,11 @@ Instructions & Guidelines:
   });
 
   wss.on('connection', async (clientWs, req) => {
-    let session: any = null;
+    let sessionPromise: Promise<any> | null = null;
     let voiceChunkCount = 0;
     console.log("New student Live audio call incoming via WebSocket upgrade.");
     
     try {
-      // Parse the voice query parameter
       const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
       const voiceQuery = url.searchParams.get('voice');
       
@@ -405,116 +404,87 @@ Instructions & Guidelines:
       
       const targetVoice = voiceMapping[voiceQuery || ''] || 'Zephyr';
 
-      session = await ai.live.connect({
-        model: "gemini-3.1-flash-live-preview",
-        callbacks: {
-          onmessage: (message: any) => {
-            const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-            if (audio) {
-              clientWs.send(JSON.stringify({ audio }));
+      const setupSession = async () => {
+        try {
+          if (!process.env.GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is missing in environment variables. Please add it in the Secrets panel.");
+          }
+          const session = await ai.live.connect({
+            model: "gemini-3.1-flash-live-preview",
+            callbacks: {
+              onmessage: (message: any) => {
+                // Audio
+                const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+                if (audio) {
+                  clientWs.send(JSON.stringify({ audio }));
+                }
+                
+                // Interuption
+                if (message.serverContent?.interrupted) {
+                  clientWs.send(JSON.stringify({ interrupted: true }));
+                }
+
+                // Error
+                if (message.error) {
+                  console.error("Gemini Live API Message Error:", message.error);
+                  clientWs.send(JSON.stringify({ error: "Emi is having trouble speaking. Please try again." }));
+                }
+              },
+            },
+            config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: targetVoice
+                  }
+                }
+              },
+              systemInstruction: `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher. Help the student with their JCE/MSCE studies.`
             }
-            if (message.serverContent?.interrupted) {
-              clientWs.send(JSON.stringify({ interrupted: true }));
-            }
-          },
-        },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: targetVoice
-              }
-            }
-          },
-          systemInstruction: `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher.
-Your primary goal is to help Malawian students understand their school subjects,
-build confidence, and prepare effectively to pass their exams, including the
-Junior Certificate of Education (JCE) and the Malawi School Certificate of
-Education (MSCE).
-
-Instructions & Guidelines:
-
-1.  Curriculum Alignment:
-
-      - You have a comprehensive understanding of the Malawi National
-        Examinations Board (MANEB) syllabus and the official Malawi secondary
-        school curriculum.
-      - You cover all secondary school subjects, including but not limited to:
-        Mathematics, Biology, Chemistry, Physics, Agriculture, English (Language
-        and Literature), Chichewa, History, Geography, Bible Knowledge, and
-        Social and Life Skills.
-      - Whenever possible, use local, relatable Malawian examples to explain
-        concepts (e.g., local farming practices in Agriculture, local geography,
-        or familiar daily scenarios).
-
-2.  Language and Vocabulary:
-
-      - Communicate in simple, clear, and direct English.
-      - Avoid overly complex jargon, long-winded sentences, or advanced academic
-        vocabulary that might confuse a student.
-      - If a syllabus topic requires a complex technical term, define it simply
-        and use it in an easy-to-understand sentence.
-
-3.  Tone and Personality:
-
-      - Be friendly, encouraging, and respectful. Treat the student like a
-        teacher who truly cares about their progress.
-      - Use positive reinforcement (e.g., "Great question!", "Let's look at this
-        together," "You're doing well, let's try the next step").
-      - Never sound condescending, dismissive, or overly formal.
-
-4.  Pedagogical Approach (How to Teach):
-
-      - Do not just give the final answer immediately if a student asks a
-        homework question. Instead, guide them step-by-step.
-      - Break down complex topics into smaller, digestible parts.
-      - Ask gentle follow-up questions to check their understanding before
-        moving on to the next concept.
-      - Offer brief, practical study tips or exam-taking advice tailored to
-        MANEB exam formats when relevant.
-
-5.  Formatting & Presentation (CRITICAL):
-      - Use standard professional formatting (Markdown, bolding, lists).
-      - When writing chemical equations, write them in a professional way that is easy to understand.
-      - When solving maths, present the solution clearly step-by-step, formatting the math equations elegantly using standard KaTeX/LaTeX formatting so it looks like it was solved on paper.`,
-          tools: [{ googleSearch: {} }],
+          });
+          return session;
+        } catch (e) {
+          console.error("ai.live.connect failed:", e);
+          throw e;
         }
-      });
+      };
 
-      clientWs.on("message", (data) => {
+      sessionPromise = setupSession();
+
+      clientWs.on("message", async (data) => {
          try {
             const msg = JSON.parse(data.toString());
-            let base64Audio = "";
+            const session = await sessionPromise;
             
-            if (msg.audio) {
-               base64Audio = msg.audio;
-            }
+            if (!session) return;
 
-            if (base64Audio && session) {
+            if (msg.audio) {
                voiceChunkCount++;
                session.sendRealtimeInput({
-                 audio: { data: base64Audio, mimeType: "audio/pcm;rate=16000" }
+                 audio: { data: msg.audio, mimeType: "audio/pcm;rate=16000" }
                });
             }
 
-            if (msg.text && session) {
+            if (msg.text) {
                session.sendRealtimeInput({
                  text: msg.text
                });
             }
          } catch(e) {
-            console.error("Error processing user voice chunk:", e);
+            console.error("Error processing user message:", e);
          }
       });
 
-      clientWs.on("close", () => {
-         if (session) {
+      clientWs.on("close", async () => {
+         if (sessionPromise) {
            try {
-             session.close();
+             const session = await sessionPromise;
+             session?.close();
            } catch(e) {}
          }
       });
+
     } catch (err) {
       console.error("Gemini Live API connection setup failed!", err);
       clientWs.send(JSON.stringify({ error: "Gemini voice connection failed to start. Please check back later." }));

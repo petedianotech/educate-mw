@@ -22,13 +22,13 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: '/app_icon_emi.png',
+              src: 'https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/app_icon_emi.png',
+              src: 'https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'

@@ -20,6 +20,7 @@ import {
 import { db, auth } from '../lib/firebase';
 import { collection, query, getDocs, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Avatar } from './Avatar';
+import { ACHIEVEMENTS } from '../data/achievements';
 
 interface BoardUser {
   id: string;
@@ -31,6 +32,7 @@ interface BoardUser {
   avatarId?: string;
   gender?: string;
   avatarGradient?: string;
+  achievements?: string[];
 }
 
 export function LeaderboardView({ 
@@ -70,7 +72,8 @@ export function LeaderboardView({
             isPro: !!data.isPro,
             avatarId: data.avatarId || '',
             gender: data.gender || 'male',
-            avatarGradient: data.avatarGradient || ''
+            avatarGradient: data.avatarGradient || '',
+            achievements: data.achievements || []
           });
         });
         
@@ -594,6 +597,24 @@ export function LeaderboardView({
                                 <Flame size={10} fill="currentColor" /> {u.streak}d streak
                               </span>
                             ) : null}
+                            {u.achievements && u.achievements.length > 0 && (
+                              <div className="flex gap-1 items-center ml-1">
+                                {u.achievements.slice(0, 3).map(id => {
+                                  const achievement = ACHIEVEMENTS.find(a => a.id === id);
+                                  if (!achievement) return null;
+                                  return (
+                                    <div key={id} className={`w-3.5 h-3.5 rounded-full bg-gradient-to-br ${achievement.color} flex items-center justify-center p-[1px]`}>
+                                      <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} w-full h-full rounded-full flex items-center justify-center`}>
+                                        <achievement.icon size={8} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {u.achievements.length > 3 && (
+                                  <span className="text-[7px] font-bold text-gray-500">+{u.achievements.length - 3}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
