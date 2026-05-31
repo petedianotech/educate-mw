@@ -23,8 +23,15 @@ import {
   CreditCard, 
   Printer, 
   ArrowLeft,
-  FileCheck
+  FileCheck,
+  GraduationCap,
+  Upload,
+  User,
+  Shield,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 interface Certificate {
   id?: string;
@@ -35,7 +42,11 @@ interface Certificate {
   userId: string;
   userEmail: string;
   isPaid: boolean;
+  paymentStatus?: 'pending' | 'approved' | 'free_developer';
   securityHash: string;
+  photoUrl?: string;
+  phoneNumber?: string;
+  paymentProvider?: string;
   createdAt?: any;
 }
 
@@ -58,9 +69,13 @@ export function CertificatesCleanView({
     return today.toISOString().split('T')[0];
   });
   
-  // My purchased certificates
+  // Base64 student photo state
+  const [userPhoto, setUserPhoto] = useState<string>('');
+  
+  // My purchased/pending certificates
   const [myCertificates, setMyCertificates] = useState<Certificate[]>([]);
   const [loadingCerts, setLoadingCerts] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   
   // Verification states
   const [verifyCodeInput, setVerifyCodeInput] = useState('');
@@ -78,6 +93,7 @@ export function CertificatesCleanView({
   const [paymentError, setPaymentError] = useState('');
   
   const printRef = useRef<HTMLDivElement>(null);
+  const isDeveloper = auth.currentUser?.email === 'petedianotech@gmail.com';
 
   // Load certificates for current user
   const loadMyCertificates = async () => {
@@ -128,6 +144,35 @@ export function CertificatesCleanView({
     return `${certPrefix}-${cleanDate}-${randPart}`;
   };
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1.5 * 1024 * 1024) {
+        alert("Please upload an image smaller than 1.5MB for better processing speed.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setUserPhoto(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Check if current certificate is fully unlocked/verified
+  const getActiveCertificateStatus = () => {
+    if (isDeveloper) return { isUnlocked: true, status: 'free_developer' as const };
+    const cert = myCertificates.find(
+      c => c.name === recipientName && c.type === certType && c.date === certificateDate
+    );
+    if (!cert) return { isUnlocked: false, status: 'unpaid' as const };
+    return { isUnlocked: cert.isPaid, status: cert.paymentStatus || (cert.isPaid ? 'approved' : 'pending') };
+  };
+
+  const activeStatus = getActiveCertificateStatus();
+
   const handleStartPayment = () => {
     if (!recipientName.trim()) {
       alert("Please enter a valid certificate recipient name.");
@@ -136,6 +181,55 @@ export function CertificatesCleanView({
     setPaymentStep('input');
     setPaymentError('');
     setShowPaymentModal(true);
+  };
+
+  // Developer Free Instant Activation
+  const handleDeveloperFreeActivation = async () => {
+    if (!recipientName.trim()) {
+      alert("Please enter a valid certificate recipient name.");
+      return;
+    }
+    try {
+      if (!auth.currentUser) return;
+      const finalCertId = generateSecurityCode(recipientName, certificateDate, certType);
+      
+      const checksumData = `${finalCertId}|${recipientName}|${auth.currentUser.uid}`;
+      let securityHash = 0;
+      for (let i = 0; i < checksumData.length; i++) {
+        securityHash = (securityHash << 5) - securityHash + checksumData.charCodeAt(i);
+        securityHash |= 0;
+      }
+      const tamperCheckCode = Math.abs(securityHash).toString(16).toUpperCase();
+
+      const newCertificate: Omit<Certificate, 'id'> = {
+        certificateId: finalCertId,
+        name: recipientName,
+        type: certType,
+        date: certificateDate,
+        userId: auth.currentUser.uid,
+        userEmail: auth.currentUser.email || '',
+        isPaid: true,
+        paymentStatus: 'free_developer',
+        securityHash: tamperCheckCode,
+        photoUrl: userPhoto || ''
+      };
+
+      await addDoc(collection(db, 'certificates'), {
+        ...newCertificate,
+        createdAt: serverTimestamp()
+      });
+
+      // Award Educate Malawi activity points
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const newPoints = (profile?.points || 0) + 1500;
+      await updateDoc(userRef, { points: newPoints });
+      onUpdateProfile({ ...profile, points: newPoints });
+
+      alert("🎉 Developer Bypass: Your free Certificate has been registered directly on the Educate Malawi Firestore National Database!");
+      loadMyCertificates();
+    } catch (err: any) {
+      alert("Failed to activate developer certificate: " + err.message);
+    }
   };
 
   const processMobileMoneyPayment = async () => {
@@ -155,15 +249,13 @@ export function CertificatesCleanView({
     setTimeout(async () => {
       try {
         if (!auth.currentUser) {
-          setPaymentError("You must be logged in to verify your certificate.");
+          setPaymentError("You must be logged in to buy your certificate.");
           setPaymentStep('input');
           return;
         }
 
-        // Generate tamper-proof unique certificate ID
         const finalCertId = generateSecurityCode(recipientName, certificateDate, certType);
         
-        // SHA-like short checksum based on user state to verify database integrity
         const checksumData = `${finalCertId}|${recipientName}|${auth.currentUser.uid}`;
         let securityHash = 0;
         for (let i = 0; i < checksumData.length; i++) {
@@ -179,21 +271,31 @@ export function CertificatesCleanView({
           date: certificateDate,
           userId: auth.currentUser.uid,
           userEmail: auth.currentUser.email || '',
-          isPaid: true,
-          securityHash: tamperCheckCode
+          isPaid: false, // Normal users must await admin confirmation!
+          paymentStatus: 'pending',
+          phoneNumber: phoneNumber,
+          paymentProvider: paymentProvider,
+          securityHash: tamperCheckCode,
+          photoUrl: userPhoto || ''
         };
 
-        // Add certificate directly to Firestore under certificates
+        // Add certificate directly to Firestore certificates under "pending" status
         await addDoc(collection(db, 'certificates'), {
           ...newCertificate,
           createdAt: serverTimestamp()
         });
 
-        // Award Educate Malawi activity points
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        const newPoints = (profile?.points || 0) + 1500; // Extra points for certification
-        await updateDoc(userRef, { points: newPoints });
-        onUpdateProfile({ ...profile, points: newPoints });
+        // Add notification on admin dashboard
+        await addDoc(collection(db, 'admin_notifications'), {
+          title: "New Cert Payment Request",
+          body: `${recipientName} requested certification. Paid K5,000 via ${paymentProvider.toUpperCase()} (${phoneNumber}).`,
+          certId: finalCertId,
+          userEmail: auth.currentUser.email || '',
+          amount: "K5,000",
+          provider: paymentProvider,
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
 
         setPaymentStep('success');
         loadMyCertificates();
@@ -201,13 +303,13 @@ export function CertificatesCleanView({
         setPaymentError(err.message || "Failed to finalize payment. Try again.");
         setPaymentStep('input');
       }
-    }, 4000); // realistic payment completion latency
+    }, 3500);
   };
 
   const handleVerifyCertificate = async (forcedCode?: string) => {
     const code = (forcedCode || verifyCodeInput).trim().toUpperCase();
     if (!code) {
-      setVerificationResult({ status: 'failed', errorMsg: "Please enter a valid Certificate Serial Code (e.g. EM-CERT-2026-XDFG)." });
+      setVerificationResult({ status: 'failed', errorMsg: "Please enter a valid Certificate Serial Code (e.g. EM-CERT-2591-XXXX)." });
       return;
     }
 
@@ -246,29 +348,57 @@ export function CertificatesCleanView({
     }
   };
 
+  // html2canvas high-res PNG Downloader
+  const handleDownloadPNG = async () => {
+    if (!printRef.current) return;
+    setDownloading(true);
+    try {
+      // Small timeout to guarantee layout completes rendering
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const element = printRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2.2, // Generates ultra-high resolution image
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 1024,
+        windowHeight: 768
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const mockLink = document.createElement('a');
+      mockLink.download = `Educate_MW_Certificate_${recipientName.trim().replace(/\s+/g, '_')}.png`;
+      mockLink.href = dataUrl;
+      document.body.appendChild(mockLink);
+      mockLink.click();
+      document.body.removeChild(mockLink);
+    } catch (err) {
+      console.error(err);
+      alert("PNG rendering failed. Please use standard PDF / Print instead.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   // Render SVG QR code for verification
   const renderVerificationQRCode = (certId: string) => {
-    const verifyUrl = `${window.location.origin}/?verify=${certId}`;
     return (
-      <svg className="w-20 h-20 bg-white p-1 rounded-md" viewBox="0 0 100 100">
-        {/* Simplified high quality geometric SVG representation of a qr code */}
-        <rect x="5" y="5" width="25" height="25" fill="#1e1b4b" strokeWidth="2" stroke="#1e1b4b" />
+      <svg className="w-16 h-16 bg-white p-1 rounded-md border border-indigo-950/15" viewBox="0 0 100 100 shadow-sm">
+        <rect x="5" y="5" width="25" height="25" fill="#1e1b4b" />
         <rect x="10" y="10" width="15" height="15" fill="#ffffff" />
         <rect x="13" y="13" width="9" height="9" fill="#1e1b4b" />
 
-        <rect x="70" y="5" width="25" height="25" fill="#1e1b4b" strokeWidth="2" stroke="#1e1b4b" />
+        <rect x="70" y="5" width="25" height="25" fill="#1e1b4b" />
         <rect x="75" y="10" width="15" height="15" fill="#ffffff" />
         <rect x="78" y="13" width="9" height="9" fill="#1e1b4b" />
 
-        <rect x="5" y="70" width="25" height="25" fill="#1e1b4b" strokeWidth="2" stroke="#1e1b4b" />
+        <rect x="5" y="70" width="25" height="25" fill="#1e1b4b" />
         <rect x="10" y="75" width="15" height="15" fill="#ffffff" />
         <rect x="13" y="78" width="9" height="9" fill="#1e1b4b" />
 
-        {/* Dynamic decorative pixels inside the QR */}
         <rect x="40" y="10" width="6" height="6" fill="#1e1b4b" />
         <rect x="55" y="5" width="8" height="8" fill="#1e1b4b" />
         <rect x="45" y="25" width="12" height="6" fill="#1e1b4b" />
@@ -312,7 +442,7 @@ export function CertificatesCleanView({
       `}</style>
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <button 
           onClick={onBack}
           className={`flex items-center gap-2 font-black uppercase text-xs tracking-widest py-3 px-5 rounded-2xl border transition-all ${
@@ -369,7 +499,7 @@ export function CertificatesCleanView({
             }`}>
               <h3 className="text-sm font-black uppercase tracking-wider mb-5">Configure Certificate</h3>
               
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Certificate Type</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -377,7 +507,7 @@ export function CertificatesCleanView({
                       onClick={() => setCertType('attendance')}
                       className={`py-3 px-4 rounded-xl text-[11px] font-bold border transition-all ${
                         certType === 'attendance'
-                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                           : (theme === 'dark' ? 'bg-gray-950 border-gray-800 text-gray-400 hover:bg-gray-800' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white')
                       }`}
                     >
@@ -387,7 +517,7 @@ export function CertificatesCleanView({
                       onClick={() => setCertType('appreciation')}
                       className={`py-3 px-4 rounded-xl text-[11px] font-bold border transition-all ${
                         certType === 'appreciation'
-                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                           : (theme === 'dark' ? 'bg-gray-950 border-gray-800 text-gray-400 hover:bg-gray-800' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white')
                       }`}
                     >
@@ -424,10 +554,47 @@ export function CertificatesCleanView({
                     }`}
                   />
                 </div>
+
+                {/* Upload portrait image slot */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Attach Candidate Portrait Photo</label>
+                  <div className="flex items-center gap-3">
+                    <label className={`cursor-pointer flex-1 py-3 px-4 rounded-2xl border border-dashed text-center transition-all ${
+                      theme === 'dark' 
+                        ? 'border-gray-800 hover:border-indigo-500 bg-gray-950 hover:bg-indigo-500/5 text-gray-400 hover:text-white' 
+                        : 'border-slate-200 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600'
+                    }`}>
+                      <div className="flex items-center justify-center gap-2 text-xs font-bold">
+                        <Upload size={14} />
+                        <span>Select Photo</span>
+                      </div>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handlePhotoChange} 
+                        className="hidden" 
+                      />
+                    </label>
+
+                    {userPhoto && (
+                      <div className="relative w-12 h-14 rounded-xl overflow-hidden border-2 border-indigo-500 shrink-0 shadow-md">
+                        <img src={userPhoto} className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => setUserPhoto('')}
+                          className="absolute top-0 right-0 p-1 bg-red-650 hover:bg-red-700 text-white rounded-bl-lg text-[8px] leading-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">Attaching a valid passport photo or student portrait registers this document to your unique biometric record.</p>
+                </div>
+
               </div>
             </div>
 
-            {/* Price Info Banner */}
+            {/* Price Info Banner & Free Developer Bypass */}
             <div className={`p-6 rounded-[32px] border relative overflow-hidden ${
               theme === 'dark' 
                 ? 'bg-gradient-to-br from-indigo-950/40 to-indigo-900/10 border-indigo-500/20' 
@@ -438,16 +605,36 @@ export function CertificatesCleanView({
                   <Sparkles size={18} />
                   <span className="text-[10px] font-black uppercase tracking-widest">Official Certification</span>
                 </div>
-                <h4 className={`text-base font-black leading-tight mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Official Verification</h4>
-                <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">
-                  Pay an administrative fee of <strong className="text-indigo-400">K5,000</strong> to unlock signatures, remove the watermark, receive your unique verification code, and link it to your professional resume/CV.
-                </p>
-                <button
-                  onClick={handleStartPayment}
-                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <CreditCard size={15} /> Authenticate for K5,000
-                </button>
+                
+                {isDeveloper ? (
+                  <div>
+                    <h4 className="text-sm font-black leading-tight mb-2 text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      👑 Developer Bypass Access
+                    </h4>
+                    <p className="text-xs text-gray-400 font-semibold leading-relaxed mb-4">
+                      Special free admin developer clearance activated for <strong className="text-white">petedianotech@gmail.com</strong>. Create authentic certificates instantly without cost.
+                    </p>
+                    <button
+                      onClick={handleDeveloperFreeActivation}
+                      className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-650/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 size={15} /> Create Free Certificate
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className={`text-base font-black leading-tight mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Official Verification</h4>
+                    <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">
+                      Pay an administrative fee of <strong className="text-indigo-400">K5,000</strong> to unlock signatures, remove the watermark, receive your unique verification code, and link it to your professional resume/CV.
+                    </p>
+                    <button
+                      onClick={handleStartPayment}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      <CreditCard size={15} /> Authenticate for K5,000
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -461,32 +648,40 @@ export function CertificatesCleanView({
                 <div className="py-8 text-center text-xs text-gray-500">Retrieving secure credentials...</div>
               ) : myCertificates.length > 0 ? (
                 <div className="space-y-3">
-                  {myCertificates.map((cert) => (
-                    <div 
-                      key={cert.id}
-                      onClick={() => {
-                        setCertType(cert.type);
-                        setRecipientName(cert.name);
-                        setCertificateDate(cert.date);
-                      }}
-                      className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between group ${
-                        theme === 'dark'
-                          ? 'bg-gray-950 border-gray-800 hover:border-indigo-500/50'
-                          : 'bg-slate-50 border-slate-200 hover:border-indigo-500 shadow-sm'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-indigo-500 shrink-0">
-                          <Award size={18} />
+                  {myCertificates.map((cert) => {
+                    const isPending = !cert.isPaid;
+                    return (
+                      <div 
+                        key={cert.id}
+                        onClick={() => {
+                          setCertType(cert.type);
+                          setRecipientName(cert.name);
+                          setCertificateDate(cert.date);
+                          if (cert.photoUrl) setUserPhoto(cert.photoUrl);
+                        }}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between group ${
+                          theme === 'dark'
+                            ? 'bg-gray-950 border-gray-800 hover:border-indigo-500/50'
+                            : 'bg-slate-50 border-slate-200 hover:border-indigo-500 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-indigo-500 shrink-0">
+                            <Award size={18} />
+                          </div>
+                          <div className="text-left">
+                            <h4 className="text-xs font-black capitalize leading-tight group-hover:text-indigo-500 transition-colors">{cert.type === 'attendance' ? 'Attendance' : 'Appreciation'}</h4>
+                            <p className="text-[10px] text-gray-500 font-bold mt-0.5">{getFriendlyDate(cert.date)}</p>
+                          </div>
                         </div>
-                        <div className="text-left">
-                          <h4 className="text-xs font-black capitalize leading-tight group-hover:text-indigo-500 transition-colors">{cert.type === 'attendance' ? 'Attendance' : 'Appreciation'}</h4>
-                          <p className="text-[10px] text-gray-500 font-bold mt-0.5">{getFriendlyDate(cert.date)}</p>
-                        </div>
+                        {isPending ? (
+                          <span className="text-[10px] font-black py-1 px-2.5 bg-amber-500/10 text-amber-500 rounded-lg animate-pulse border border-amber-500/25">Pending</span>
+                        ) : (
+                          <span className="text-[10px] font-black py-1 px-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/25">Approved</span>
+                        )}
                       </div>
-                      <span className="text-[10px] font-bold py-1 px-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg">Verified</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-8 text-center text-xs text-gray-500 flex flex-col items-center justify-center gap-3">
@@ -500,183 +695,223 @@ export function CertificatesCleanView({
           {/* Certificate Live Dynamic Preview Display Frame */}
           <div className="lg:col-span-8 flex flex-col gap-4">
             
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between px-1 flex-wrap gap-2">
               <span className="text-xs font-bold text-gray-500">
-                {myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) ? (
-                  <span className="text-emerald-500 flex items-center gap-1.5 font-black uppercase tracking-widest text-[10px]">
-                    <ShieldCheck size={14} /> Active Authenticated Certificate
+                {activeStatus.isUnlocked ? (
+                  <span className="text-emerald-500 flex items-center gap-1.5 font-black uppercase tracking-widest text-[10.5px]">
+                    <ShieldCheck size={14} /> {activeStatus.status === 'free_developer' ? 'Developer Bypass Active' : 'Active Authenticated Certificate'}
+                  </span>
+                ) : activeStatus.status === 'pending' ? (
+                  <span className="text-amber-505 flex items-center gap-1.5 font-black uppercase tracking-widest text-[10.5px] animate-pulse">
+                    <AlertCircle size={14} /> Pending Confirmation by Admin
                   </span>
                 ) : (
-                  <span className="text-amber-500 flex items-center gap-1.5 font-black uppercase tracking-widest text-[10px]">
+                  <span className="text-amber-500 flex items-center gap-1.5 font-black uppercase tracking-widest text-[10.5px]">
                     <Lock size={14} /> Unverified Preview Mode
                   </span>
                 )}
               </span>
 
-              {myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadPNG}
+                  disabled={downloading}
+                  className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center gap-2 active:scale-95"
+                >
+                  <Download size={13} /> {downloading ? 'Downloading...' : 'Download PNG'}
+                </button>
                 <button
                   onClick={handlePrint}
                   className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center gap-2 active:scale-95"
                 >
-                  <Printer size={13} /> Save PDF / Print
+                  <Printer size={13} /> PDF / Print
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Certificate Template Body Layout */}
             <div 
               id="print-area-wrapper"
               ref={printRef}
-              className={`aspect-[1.414/1] w-full border-[12px] p-6 md:p-12 relative overflow-hidden flex flex-col justify-between text-center select-none shadow-2xl transition-all ${
-                theme === 'dark' 
-                  ? 'bg-white border-indigo-950 text-indigo-950' 
-                  : 'bg-white border-indigo-900 text-indigo-950 shadow-slate-200/50'
-              }`}
-              style={{ minHeight: '480px' }}
+              className="aspect-[1.414/1] w-full border-[14px] border-indigo-950 p-6 md:p-10 relative overflow-hidden flex flex-col justify-between text-center select-none shadow-2xl bg-white text-indigo-950"
+              style={{ minHeight: '520px' }}
             >
               
               {/* Complex Guilloché-like Ornamental Border Lines */}
-              <div className="absolute inset-2 border-2 border-indigo-950/20 pointer-events-none" />
-              <div className="absolute inset-4 border border-indigo-950/10 pointer-events-none" />
+              <div className="absolute inset-1.5 border-4 border-double border-amber-600/30 pointer-events-none" />
+              <div className="absolute inset-4 border border-indigo-950/15 pointer-events-none" />
               
               {/* Background Watermark Logos */}
               <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                <span className="font-sans text-[120px] font-black tracking-widest uppercase rotate-[32deg]">EDUCATE</span>
+                <span className="font-sans text-[110px] font-black tracking-widest uppercase rotate-[32deg]">EDUCATE MW</span>
               </div>
 
               {/* Unpaid Watermark Cover */}
-              {!myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) && (
+              {!activeStatus.isUnlocked && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none select-none">
-                  <div className="border-[6px] border-amber-600/30 text-amber-600/30 px-8 py-4 font-black uppercase tracking-[0.25em] text-xl md:text-2xl rotate-[-25deg] rounded-3xl bg-white/80 backdrop-blur-[1px] shadow-sm">
-                    UNOFFICIAL PREVIEW ONLY
+                  <div className="border-[6px] border-amber-600/40 text-amber-600/40 px-8 py-4 font-black uppercase tracking-[0.25em] text-lg md:text-xl rotate-[-23deg] rounded-3xl bg-white/90 backdrop-blur-[1px] shadow-sm">
+                    {activeStatus.status === 'pending' ? 'CERTIFICATE PENDING ADMIN APPROVAL' : 'UNOFFICIAL PREVIEW ONLY'}
                   </div>
                 </div>
               )}
 
-              {/* Certificate Top Header Section */}
-              <div className="flex flex-col items-center mt-2 relative">
-                {/* Educate Malawi Circular Emblem Badge */}
-                <div className="w-14 h-14 rounded-full border-2 border-indigo-950 bg-indigo-50 flex items-center justify-center shadow-lg relative mb-3">
-                  <div className="w-10 h-10 rounded-full border border-dashed border-indigo-950 flex items-center justify-center">
-                    <Award size={20} className="text-indigo-950" />
+              {/* Certificate Top Header Section - Side-by-side Layout to Prevent Overlaps */}
+              <div className="flex items-center justify-between w-full border-b border-indigo-950/10 pb-3 mb-2 relative z-10">
+                {/* Left Side: National Academy Logo Badge & Est */}
+                <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                  <div className="w-11 h-11 rounded-full border-2 border-indigo-950 bg-indigo-50 flex items-center justify-center shadow-md">
+                    <div className="w-8 h-8 rounded-full border border-dashed border-indigo-950 flex items-center justify-center">
+                      <GraduationCap size={16} className="text-indigo-950" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="text-left leading-tight hidden sm:block">
+                    <span className="text-[7px] font-black uppercase tracking-widest text-indigo-900/60 block">ESTABLISHED</span>
+                    <span className="text-[8px] font-semibold text-indigo-950 font-mono">2024</span>
                   </div>
                 </div>
 
-                <div className="text-[11px] font-black tracking-[0.3em] uppercase text-indigo-900">
-                  Republic of Malawi
+                {/* Center: Official School Institution Title */}
+                <div className="flex-1 px-4 flex flex-col items-center text-center">
+                  <div className="text-[8px] md:text-[9px] font-black tracking-[0.35em] uppercase text-indigo-900 leading-none">
+                    EDUCATE MALAWI NATIONAL ACADEMY
+                  </div>
+                  <h2 className="text-sm md:text-lg lg:text-xl font-black tracking-tight text-indigo-950 font-serif mt-1 uppercase leading-none">
+                    ACADEMIC EXCELLENCE DIRECTORY
+                  </h2>
+                  <div className="h-[1.5px] w-14 bg-amber-600/40 mt-1.5 mx-auto" />
                 </div>
-                <h2 className="text-2xl md:text-3xl font-black tracking-tight text-indigo-950 font-serif mt-1">
-                  EDUCATE MALAWI
-                </h2>
-                <div className="h-0.5 w-24 bg-indigo-950/20 mt-2.5 mx-auto" />
+
+                {/* Right Side: Registrant Portrait Slot Self-contained (Prevents overlap!) */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-right leading-none hidden md:block">
+                    <span className="text-[6.5px] font-black uppercase tracking-widest text-indigo-950/50 block mb-0.5">REGISTRANT</span>
+                    <span className="text-[7.5px] font-black text-indigo-950 block">PORTRAIT</span>
+                  </div>
+                  <div className="w-12 h-15 bg-gray-50 border border-indigo-950/20 rounded p-0.5 shadow-md relative overflow-hidden flex items-center justify-center">
+                    {userPhoto ? (
+                      <img src={userPhoto} className="w-full h-full object-cover rounded" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-[5px] text-indigo-950/40 text-center leading-tight font-bold">
+                        <User size={10} className="mb-0.5 text-indigo-950/30" />
+                        <span>NO PHOTO</span>
+                      </div>
+                    )}
+                    {/* Fake holographic secure overlay effect */}
+                    <div className="absolute inset-0 pointer-events-none border border-white/20 rounded" />
+                    <div className="absolute inset-x-0 top-1/2 h-0.5 bg-indigo-950/5 transform rotate-12 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Unique Registrant ID & Validation Numbers placed gracefully at the top-mid body instead of bottom */}
+              <div className="relative z-10 -mt-1 mb-2 px-6 flex justify-between items-center text-[7.5px] md:text-[8px] font-bold text-indigo-950/60 uppercase tracking-widest border-t border-b border-indigo-950/5 py-1.5 w-full">
+                <span>REGISTRANT ID: <strong className="text-indigo-950 font-mono">{auth.currentUser?.uid ? auth.currentUser.uid.substring(0, 12).toUpperCase() : 'MW-ST-GUEST99'}</strong></span>
+                <span>REGISTRATION NO: <strong className="text-indigo-950 font-mono">{auth.currentUser?.uid ? auth.currentUser.uid.substring(0, 8).toUpperCase() : 'EM-82949'}</strong></span>
+                <span>STATUS: <strong className="text-emerald-600">VERIFIED BOARD CREDENTIAL</strong></span>
               </div>
 
               {/* Main Certificate Title / Core Statement */}
-              <div className="my-auto py-4">
-                <div className="text-[10px] font-black tracking-[0.35em] uppercase text-indigo-900/60 mb-2">
-                  Award of Certificate
+              <div className="my-auto py-3 relative z-10">
+                <div className="text-[8px] md:text-[9.5px] font-black tracking-[0.4em] uppercase text-amber-600 mb-1 leading-none">
+                  OFFICIAL DECREE CREDENTIAL
                 </div>
                 
-                <h1 className="text-xl md:text-3xl font-black font-serif tracking-normal text-indigo-900 mb-5 uppercase">
+                <h1 className="text-xl md:text-2.5xl lg:text-3.5xl font-black font-serif tracking-normal text-indigo-900 mb-3 uppercase">
                   {certType === 'attendance' ? 'Certificate of Attendance' : 'Certificate of Appreciation'}
                 </h1>
                 
-                <p className="text-[11px] font-sans font-semibold tracking-wide text-indigo-950/70 italic max-w-lg mx-auto">
-                  This state credential certifies active participation, commitment, and accomplishments:
+                <p className="text-[9.5px] md:text-[10px] font-sans font-semibold tracking-wide text-indigo-950/70 italic max-w-lg mx-auto">
+                  This state-compatible academic credential certifies diligence and study completion:
                 </p>
                 
-                <div className="my-4">
-                  <h3 className="text-2xl md:text-4xl font-serif font-black underline decoration-indigo-900/20 decoration-2 underline-offset-8 text-indigo-900 filter drop-shadow-sm leading-tight">
+                <div className="my-3">
+                  <h3 className="text-2xl md:text-3xl lg:text-3.5xl font-serif font-black underline decoration-amber-500/30 decoration-2 underline-offset-6 text-indigo-900 leading-none">
                     {recipientName || 'Student'}
                   </h3>
                 </div>
 
-                <p className="text-[11px] font-sans font-bold leading-relaxed text-indigo-900/80 max-w-xl mx-auto px-4 mt-4">
+                <p className="text-[9px] md:text-[10.5px] font-sans font-bold leading-relaxed text-indigo-950/70 max-w-lg mx-auto px-4 mt-2.5">
                   {certType === 'attendance' ? (
-                    <span>For exceptional diligence completing online curriculum studies, active learning, and preparing successfully for the JCE or MSCE secondary examinations guided by Emi AI Academic Support.</span>
+                    <span>For outstanding diligence mastering online curriculum studies, and preparing layout questions matching standard school MANEB examinations and local tests guided by Emi AI.</span>
                   ) : (
-                    <span>In profound recognition of active academic improvement, passion for learning, peer assistance, and contribution towards secondary school syllabus mastery on Educate Malawi.</span>
+                    <span>In official recognition of academic performance improvement, consistent study sessions, peer assistance, and curriculum mastery with Educate Malawi.</span>
                   )}
                 </p>
               </div>
 
-              {/* Footer Credentials & Anti-Tamper Codes Section */}
-              <div className="flex flex-col md:flex-row items-end justify-between border-t border-indigo-950/10 pt-4 mt-2">
-                
-                {/* Signatures & Security Seals */}
-                <div className="flex items-center gap-8 text-left">
-                  {/* Stamp/Hologram */}
-                  <div className="relative flex items-center justify-center shrink-0">
-                    <div className="w-14 h-14 rounded-full border border-indigo-950/20 flex items-center justify-center bg-indigo-50/50">
-                      {myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) ? (
-                        <>
-                          {/* Rich green holographic verification secure stamp */}
-                          <div className="absolute inset-0 bg-emerald-500/10 border-2 border-emerald-600 rounded-full animate-pulse flex items-center justify-center">
-                            <div className="w-10 h-10 border border-dashed border-emerald-600 rounded-full flex items-center justify-center text-[8px] font-black text-emerald-600 text-center uppercase tracking-tighter leading-none">
-                              VERIFIED<br/>STAMP
-                            </div>
+              {/* Improved UI on list of 3 roles in a single horizontal list with no QR code and no credential ID at the bottom */}
+              <div className="border-t border-indigo-950/15 pt-5 mt-2 relative z-10 w-full mb-1">
+                <div className="flex items-center justify-between gap-2 md:gap-4 text-center">
+                  
+                  {/* Signature 1: S. Liffa */}
+                  <div className="flex-1 flex flex-col items-center border-t border-indigo-950/25 pt-2 max-w-[170px] mx-auto">
+                    <div className="text-[11px] font-bold font-serif italic text-indigo-900 leading-none mb-1.5 h-4 flex items-end">
+                      {activeStatus.isUnlocked ? 'S. Liffa' : '••••••••••••'}
+                    </div>
+                    <div className="text-[7px] font-black uppercase tracking-widest text-indigo-950/60 leading-none">
+                      S. Liffa
+                    </div>
+                    <div className="text-[5.5px] font-bold uppercase tracking-widest text-indigo-950/40 mt-1">
+                      Teacher & Mentor
+                    </div>
+                  </div>
+
+                  {/* Certified Seal centrally located in the horizontal flow */}
+                  <div className="relative flex items-center justify-center shrink-0 mx-2">
+                    <div className="w-13 h-13 rounded-full border-2 border-amber-600/40 flex items-center justify-center bg-indigo-50/40 relative shadow-sm">
+                      {activeStatus.isUnlocked ? (
+                        <div className="absolute inset-0.5 bg-emerald-500/10 border border-dashed border-emerald-600 rounded-full flex items-center justify-center">
+                          <div className="text-[6px] font-black text-emerald-600 text-center uppercase tracking-tighter leading-none font-sans">
+                            BOARD<br/>APPROVED
                           </div>
-                        </>
+                        </div>
                       ) : (
-                        <div className="absolute inset-0 border-2 border-dashed border-amber-600/30 rounded-full flex items-center justify-center text-[7px] font-bold text-amber-600/30 text-center uppercase tracking-tight leading-none">
-                          SEAL<br/>LOCKED
+                        <div className="absolute inset-0 px-1 border border-dashed border-amber-600/30 rounded-full flex items-center justify-center text-[5.5px] font-bold text-amber-600/40 text-center uppercase tracking-tight leading-none">
+                          OFFICER SEAL
                         </div>
                       )}
                     </div>
                   </div>
-                  
-                  {/* Signature line 1 */}
-                  <div className="border-t border-indigo-950/40 pt-1.5 min-w-[120px]">
-                    <div className="text-[11.5px] font-bold font-serif italic text-indigo-900/80 mb-0.5 leading-none">
-                      {myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) ? 'Emi AI' : '••••••••••••'}
+
+                  {/* Signature 2: P. Damiano */}
+                  <div className="flex-1 flex flex-col items-center border-t border-indigo-950/25 pt-2 max-w-[190px] mx-auto">
+                    <div className="text-[11px] font-bold font-serif italic text-indigo-900 leading-none mb-1.5 h-4 flex items-end">
+                      {activeStatus.isUnlocked ? 'P. Damiano' : '••••••••••••'}
                     </div>
-                    <div className="text-[8px] uppercase font-black tracking-widest text-indigo-950/50">
-                      Emi AI Director
+                    <div className="text-[7px] font-black uppercase tracking-widest text-indigo-950/60 leading-none">
+                      P. Damiano
+                    </div>
+                    <div className="text-[5.5px] font-bold uppercase tracking-widest text-indigo-950/40 mt-1">
+                      Director & Chief Architect
                     </div>
                   </div>
 
-                  {/* Signature line 2 */}
-                  <div className="border-t border-indigo-950/40 pt-1.5 min-w-[120px]">
-                    <div className="text-[11.5px] font-bold font-serif italic text-indigo-900/80 mb-0.5 leading-none">
-                      {myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) ? 'Chisomo Phiri' : '••••••••••••'}
-                    </div>
-                    <div className="text-[8px] uppercase font-black tracking-widest text-indigo-950/50">
-                      Committee Chair
+                  {/* Certified Stamp 2 for verified credential authentication look */}
+                  <div className="relative flex items-center justify-center shrink-0 mx-2 hidden sm:flex">
+                    <div className="w-13 h-13 rounded-full border border-double border-indigo-950/30 flex items-center justify-center bg-indigo-50/30">
+                      <div className="text-[5.5px] font-black text-indigo-950/50 text-center uppercase tracking-[0.1em] leading-normal font-sans">
+                        MEMB.<br/>EST. 2024
+                      </div>
                     </div>
                   </div>
+
+                  {/* Signature 3: E. Muthipo */}
+                  <div className="flex-1 flex flex-col items-center border-t border-indigo-950/25 pt-2 max-w-[170px] mx-auto">
+                    <div className="text-[11px] font-bold font-serif italic text-indigo-900 leading-none mb-1.5 h-4 flex items-end">
+                      {activeStatus.isUnlocked ? 'E. Muthipo' : '••••••••••••'}
+                    </div>
+                    <div className="text-[7px] font-black uppercase tracking-widest text-indigo-950/60 leading-none">
+                      E. Muthipo
+                    </div>
+                    <div className="text-[5.5px] font-bold uppercase tracking-widest text-indigo-950/40 mt-1">
+                      Teacher & Registrar
+                    </div>
+                  </div>
+
                 </div>
-
-                {/* Secure QR / Verification Details */}
-                <div className="flex items-center gap-4 mt-4 md:mt-0 text-right">
-                  <div className="flex flex-col justify-end text-[8px] font-bold text-indigo-950/70 tracking-tight">
-                    <div>DATE AWARDED: <span className="font-black text-indigo-950">{getFriendlyDate(certificateDate)}</span></div>
-                    <div className="mt-1">
-                      REGISTRY ID:{' '}
-                      <span className="font-mono bg-indigo-50 border border-indigo-100 rounded-md py-0.5 px-1 font-black text-indigo-900">
-                        {(() => {
-                          const currentCertObj = myCertificates.find(c => c.name === recipientName && c.type === certType && c.date === certificateDate);
-                          return currentCertObj ? currentCertObj.certificateId : 'EM-CERT-LOCKED-PAY';
-                        })()}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-gray-400 font-normal">Educate Malawi Secure Framework v1.2</div>
-                  </div>
-
-                  {/* QR code container */}
-                  {myCertificates.some(c => c.name === recipientName && c.type === certType && c.date === certificateDate) ? (
-                    renderVerificationQRCode(
-                      myCertificates.find(c => c.name === recipientName && c.type === certType && c.date === certificateDate)?.certificateId || ''
-                    )
-                  ) : (
-                    <div className="w-16 h-16 bg-slate-100 border border-dashed border-slate-300 rounded flex items-center justify-center text-[7px] text-slate-400 font-bold uppercase tracking-tighter text-center leading-none">
-                      QR Code<br/>Locked
-                    </div>
-                  )}
-                </div>
-
               </div>
-            </div>
 
+            </div>
           </div>
         </div>
       )}
@@ -687,16 +922,27 @@ export function CertificatesCleanView({
             theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-100'
           }`}>
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4 text-emerald-500">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4 text-emerald-500 shadow-inner">
                 <ShieldCheck size={32} />
               </div>
-              <h2 className="text-xl font-black mb-1.5 uppercase tracking-tight">Educate Malawi Registry</h2>
+              
+              {/* App Logo in verification section */}
+              <div className="flex items-center gap-2 mb-2.5 justify-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black shrink-0">
+                  <GraduationCap size={16} strokeWidth={2.5} />
+                </div>
+                <span className={`font-sans font-black text-lg tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Educate<span className="text-indigo-550 font-bold">MW</span> Certified
+                </span>
+              </div>
+
+              <h2 className="text-sm font-black mb-1.5 uppercase tracking-wide">Registry Verification Portal</h2>
               <p className="text-xs text-gray-500 font-medium px-4 leading-relaxed">
                 We protect academic records from forgery. Enter the unique serial number of any certificate below to confirm its authenticity.
               </p>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-2.5 mb-8">
+            <div className="flex flex-col sm:flex-row gap-2.5 mb-8">
               <div className="relative flex-1">
                 <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
                   <Search size={16} />
@@ -732,16 +978,31 @@ export function CertificatesCleanView({
             {verificationResult.status === 'verified' && verificationResult.cert && (
               <div className="border-t border-dashed dark:border-gray-800 pt-6 animate-in fade-in duration-300">
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 text-center">
-                  <div className="w-12 h-12 bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <ShieldCheck size={28} />
-                  </div>
-                  <h3 className="text-emerald-500 text-sm font-black uppercase tracking-wider mb-2">Government-Grade Authentic Cryptographic Record Found</h3>
-                  <div className="h-px bg-emerald-500/10 w-20 mx-auto mb-4" />
                   
+                  {/* Verified banner stamp with App Logo */}
+                  <div className="flex items-center gap-2 mb-4 justify-center bg-emerald-500/20 w-fit mx-auto px-4 py-2 rounded-2xl border border-emerald-500/30">
+                    <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center text-white shrink-0">
+                      <GraduationCap size={13} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                      Genuine EducateMW Certificate
+                    </span>
+                  </div>
+
+                  <h3 className="text-emerald-400 text-sm font-black uppercase tracking-wider mb-2">Cryptographic Record Verified</h3>
+                  <div className="h-px bg-emerald-555/10 w-20 mx-auto mb-4" />
+                  
+                  {/* Show student picture if verified */}
+                  {verificationResult.cert.photoUrl && (
+                    <div className="relative w-20 h-24 rounded-2xl overflow-hidden mx-auto mb-5 border-2 border-emerald-500 bg-gray-950 p-0.5 shadow-md">
+                      <img src={verificationResult.cert.photoUrl} className="w-full h-full object-cover rounded-xl" />
+                    </div>
+                  )}
+
                   <div className="space-y-3.5 max-w-sm mx-auto text-left py-2 px-1">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-gray-500 font-bold uppercase tracking-wider">Credential ID</span>
-                      <span className="font-mono font-black text-gray-200 bg-gray-950 p-1.5 rounded-lg border border-gray-900">{verificationResult.cert.certificateId}</span>
+                      <span className="font-mono font-black text-gray-200 bg-gray-950 p-1.5 rounded-lg border border-gray-905">{verificationResult.cert.certificateId}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-gray-500 font-bold uppercase tracking-wider">Student Name</span>
@@ -761,7 +1022,10 @@ export function CertificatesCleanView({
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-gray-500 font-bold uppercase tracking-wider">Validation State</span>
-                      <span className="font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span> Active & Verified</span>
+                      <span className="font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span> 
+                        Active & Verified
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -771,7 +1035,7 @@ export function CertificatesCleanView({
             {verificationResult.status === 'failed' && (
               <div className="border-t border-dashed dark:border-gray-800 pt-6 animate-in fade-in duration-300">
                 <div className="bg-rose-500/10 border border-rose-500/20 rounded-[32px] p-6 text-center">
-                  <div className="w-12 h-12 bg-rose-500/15 text-rose-400 border border-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-12 h-12 bg-rose-500/15 text-rose-400 border border-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-shake">
                     <Award size={28} className="text-rose-500" />
                   </div>
                   <h3 className="text-rose-500 text-sm font-black uppercase tracking-wider mb-2">Verification Failed</h3>
@@ -785,16 +1049,14 @@ export function CertificatesCleanView({
 
       {/* Airtel/Mpamba Payment Simulation Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-          <div className={`p-6 md:p-8 rounded-[40px] border shadow-2xl w-full max-w-md ${
-            theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-white border-slate-100'
-          }`}>
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[300] flex items-center justify-center p-4">
+          <div className="p-6 md:p-8 bg-gray-950 border border-gray-800 rounded-[40px] shadow-2xl w-full max-w-md text-white">
             
             {paymentStep === 'input' && (
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <Smartphone className="text-indigo-500 animate-bounce" size={24} />
+                    <Smartphone className="text-indigo-400 animate-bounce" size={24} />
                     <h3 className="text-lg font-black tracking-tight uppercase">Educate MW Pay Gateway</h3>
                   </div>
                   <button 
@@ -805,8 +1067,8 @@ export function CertificatesCleanView({
                   </button>
                 </div>
 
-                <p className="text-xs text-gray-500 leading-relaxed mb-6 font-semibold">
-                  You are unlocking an official authenticated Certificate for <strong className="text-indigo-500">{recipientName}</strong>. Select your payment processor to pay K5,000 securely.
+                <p className="text-xs text-gray-400 leading-relaxed mb-6 font-semibold">
+                  You are unlocking an official authenticated Certificate for <strong className="text-indigo-400">{recipientName}</strong>. Select your payment operator to complete the K5,000 transaction.
                 </p>
 
                 {paymentError && (
@@ -815,13 +1077,13 @@ export function CertificatesCleanView({
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Select Operator</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-555 block mb-2">Select Operator</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setPaymentProvider('airtel')}
-                        className={`py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${
+                        className={`py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${
                           paymentProvider === 'airtel'
-                            ? 'bg-rose-600 border-rose-600 text-white ring-2 ring-rose-600/35 shadow-lg shadow-rose-600/10'
+                            ? 'bg-rose-600 border-rose-600 text-white ring-2 ring-rose-600/35 shadow-lg'
                             : 'bg-transparent border-gray-800 text-gray-400 hover:bg-gray-900'
                         }`}
                       >
@@ -829,9 +1091,9 @@ export function CertificatesCleanView({
                       </button>
                       <button
                         onClick={() => setPaymentProvider('tnm')}
-                        className={`py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${
+                        className={`py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${
                           paymentProvider === 'tnm'
-                            ? 'bg-emerald-600 border-emerald-600 text-white ring-2 ring-emerald-600/35 shadow-lg shadow-emerald-600/10'
+                            ? 'bg-emerald-600 border-emerald-600 text-white ring-2 ring-emerald-600/35 shadow-lg'
                             : 'bg-transparent border-gray-800 text-gray-400 hover:bg-gray-900'
                         }`}
                       >
@@ -863,9 +1125,9 @@ export function CertificatesCleanView({
 
                   <button
                     onClick={processMobileMoneyPayment}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/25 active:scale-95 transition-all mt-4"
+                    className="w-full py-4 bg-indigo-650 hover:bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/25 active:scale-95 transition-all mt-4"
                   >
-                    Authenticate and Purchase
+                    Authenticate and Submit Request
                   </button>
                 </div>
               </div>
@@ -873,31 +1135,32 @@ export function CertificatesCleanView({
 
             {paymentStep === 'processing' && (
               <div className="py-12 text-center flex flex-col items-center justify-center gap-4">
-                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                <h3 className="font-black text-sm uppercase tracking-widest mt-2">Connecting paying engine...</h3>
+                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <h3 className="font-black text-sm uppercase tracking-widest mt-2">Connecting telecom node...</h3>
                 <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
-                  We are securely communicating with {paymentProvider === 'airtel' ? 'Airtel Money API' : 'TNM Mpamba API'} nodes to process your administrative certification of K5,000. Undergoing verification checks.
+                  We are securely communicating with {paymentProvider === 'airtel' ? 'Airtel Money API' : 'TNM Mpamba API'} portals to process your administrative certification of K5,000. Verification in progress...
                 </p>
               </div>
             )}
 
             {paymentStep === 'success' && (
               <div className="py-6 text-center flex flex-col items-center justify-center gap-4 animate-in zoom-in duration-300">
-                <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500 shadow-xl">
+                <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400 shadow-xl">
                   <ShieldCheck size={36} />
                 </div>
-                <h3 className="text-lg font-black text-emerald-500 uppercase tracking-tight mt-2">Payment Authenticated!</h3>
-                <p className="text-xs text-gray-500 max-w-sm leading-relaxed px-4">
-                  Congratulations! We have activated your official tamper-proof Certificate of Attendance/Appreciation on the Educate Malawi National Firestore Registry databases.
+                <h3 className="text-lg font-black text-emerald-400 uppercase tracking-tight mt-2">Payment Submitted!</h3>
+                <p className="text-xs text-gray-400 max-w-sm leading-relaxed px-4">
+                  Congratulations! We have submitted your authentication request to the Educate Malawi National Board. The Admin Panel has been notified. 
                 </p>
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 py-2.5 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest mt-1">
-                  +1500 XP Awarded
+                <div className="bg-indigo-950/40 border border-indigo-500/20 text-indigo-400 py-3 px-5 rounded-2xl text-[10.5px] font-black uppercase tracking-wider mt-1 flex flex-col gap-1 text-center">
+                  <span>PHONE: {phoneNumber}</span>
+                  <span>PROVIDER: {paymentProvider.toUpperCase()}</span>
                 </div>
                 <button
                   onClick={() => setShowPaymentModal(false)}
-                  className="w-full max-w-xs py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg"
+                  className="w-full max-w-xs py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg mt-2"
                 >
-                  View My Credentials
+                  OK, Back to Dashboard
                 </button>
               </div>
             )}

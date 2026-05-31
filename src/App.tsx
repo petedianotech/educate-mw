@@ -46,6 +46,8 @@ import { GroupChat } from './components/GroupChat';
 import { FlashcardsView } from './components/FlashcardsView';
 import { CommunityView } from './components/CommunityView';
 import { CertificatesCleanView } from './components/CertificatesCleanView';
+import { LeaderboardView } from './components/LeaderboardView';
+import { StudyProgressTracker } from './components/StudyProgressTracker';
 import { CloudinaryUploader } from './components/CloudinaryUploader';
 import { triggerExplicitDownload } from './lib/cloudinary';
 import {
@@ -122,6 +124,7 @@ import {
   ShieldCheck,
   Smartphone,
   Trophy,
+  Star,
   FileText,
   Key,
   Languages,
@@ -149,7 +152,7 @@ import {
   Award
 } from 'lucide-react';
 
-export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view' | 'certificates';
+export type ViewState = 'home' | 'emi' | 'library' | 'library-item' | 'dictionary' | 'quizzes' | 'flashcards' | 'community' | 'profile' | 'auth' | 'register' | 'admin' | 'quiz-taking' | 'videos' | 'terms' | 'privacy' | 'subscription' | 'blog' | 'blog-post' | 'local-view' | 'certificates' | 'leaderboard' | 'progress';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -182,9 +185,13 @@ export default function App() {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const verifyCode = urlParams.get('verify');
+      const refCode = urlParams.get('ref');
       if (verifyCode) {
         setCurrentView('certificates');
         localStorage.setItem('mw_auto_verify_code', verifyCode);
+      }
+      if (refCode) {
+        localStorage.setItem('mw_referrer_code', refCode.trim().toUpperCase());
       }
     } catch (e) {
       console.error(e);
@@ -543,6 +550,11 @@ export default function App() {
     );
   }
 
+  const completedScribSyllabus = userProfile?.completedSyllabus || [];
+  const completedCount = completedScribSyllabus.length;
+  const overallPercent = Math.round((completedCount / 47) * 100);
+  const pendingCount = Math.max(0, 47 - completedCount);
+
   return (
     <div className={`${theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-930'} min-h-screen font-sans selection:bg-indigo-900/30 selection:text-indigo-100`}>
       <SEO {...seoData} />
@@ -613,6 +625,21 @@ export default function App() {
                   onUpdateProfile={setUserProfile}
                 />
               )}
+              {currentView === 'leaderboard' && (
+                <LeaderboardView 
+                  onBack={() => navigateTo('home')} 
+                  theme={theme} 
+                  profile={userProfile} 
+                />
+              )}
+              {currentView === 'progress' && (
+                <StudyProgressTracker
+                  onBack={() => navigateTo('home')}
+                  theme={theme}
+                  profile={userProfile}
+                  onUpdateProfile={setUserProfile}
+                />
+              )}
               {currentView === 'community' && <CommunityView onBack={() => navigateTo('home')} theme={theme} />}
               {currentView === 'blog' && (
                 <BlogView 
@@ -660,7 +687,7 @@ export default function App() {
         </div>
 
         {/* Bottom Navigation */}
-        {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos', 'certificates'].includes(currentView) && (
+        {isLoggedIn && !['emi', 'dictionary', 'flashcards', 'community', 'admin', 'terms', 'privacy', 'videos', 'certificates', 'leaderboard'].includes(currentView) && (
           <div className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === 'dark' ? 'bg-gray-950 border-gray-900' : 'bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]'} border-t pb-safe pt-2 px-1`}>
             <div className="flex justify-around items-center w-full max-w-2xl mx-auto">
               <NavItem icon={<Home size={26} fill={currentView === 'home' ? 'currentColor' : 'none'} />} label="Home" active={currentView === 'home'} onClick={() => navigateTo('home')} theme={theme} />
@@ -708,9 +735,33 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
+                {/* Visual Syllabus Progress Card inside sidebar itself */}
+                <div 
+                  onClick={() => { navigateTo('progress'); setIsSidebarOpen(false); }} 
+                  className={`p-4 mb-5 rounded-3xl border transition-all cursor-pointer active:scale-95 flex flex-col gap-2 ${
+                    theme === 'dark' 
+                      ? 'bg-gray-950/60 hover:bg-gray-950 border-gray-800' 
+                      : 'bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-gray-400' : 'text-slate-800'}`}>Syllabus Progress</span>
+                    <span className="text-[10px] font-black font-mono text-emerald-500">{overallPercent}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${overallPercent}%` }} />
+                  </div>
+                  <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 font-sans">
+                    <span>{completedCount} Mastered</span>
+                    <span>{pendingCount} Left</span>
+                  </div>
+                </div>
+
+                <SidebarItem theme={theme} icon={<CheckCircle2 size={20} className="text-emerald-500" strokeWidth={2.5} />} label="Syllabus Tracker" onClick={() => { navigateTo('progress'); setIsSidebarOpen(false); }} active={currentView === 'progress'} />
                 <SidebarItem theme={theme} icon={<CreditCard size={20} className="text-indigo-400" strokeWidth={2.5} />} label="MSCE Pro Access" onClick={() => { navigateTo('subscription'); setIsSidebarOpen(false); }} active={currentView === 'subscription'} />
                 <SidebarItem theme={theme} icon={<BookOpen size={20} className="text-emerald-400" strokeWidth={2.5} />} label="Blog" onClick={() => { navigateTo('blog'); setIsSidebarOpen(false); }} active={currentView === 'blog'} />
                 <SidebarItem theme={theme} icon={<Award size={20} className="text-amber-500" strokeWidth={2.5} />} label="Certificates" onClick={() => { navigateTo('certificates'); setIsSidebarOpen(false); }} active={currentView === 'certificates'} />
+                <SidebarItem theme={theme} icon={<Trophy size={20} className="text-amber-500" strokeWidth={2.5} />} label="Leaderboard" onClick={() => { navigateTo('leaderboard'); setIsSidebarOpen(false); }} active={currentView === 'leaderboard'} />
                 
                 {isAdmin && (
                   <SidebarItem theme={theme} icon={<LayoutDashboard size={20} className="text-amber-500" strokeWidth={2.5} />} label="Admin" onClick={() => { navigateTo('admin'); setIsSidebarOpen(false); }} active={currentView === 'admin'} />
@@ -2950,39 +3001,161 @@ function QuizTakingView({ questions, topic, onEnd, theme, profile, onUpdateProfi
   if (showResult) {
     const percentage = (score / questions.length) * 100;
     return (
-      <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} px-6 text-center animate-in fade-in duration-500`}>
-         <div className={`w-32 h-32 ${percentage >= 50 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'} rounded-full flex items-center justify-center mb-6 shadow-2xl`}>
-            {percentage >= 50 ? <Trophy size={64} /> : <Target size={64} />}
-         </div>
-         <h2 className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tighter`}>Quiz Complete!</h2>
-         <p className="text-gray-500 font-bold text-lg mb-4 uppercase tracking-widest">
-           Topic: <span className="text-indigo-400">{topic}</span>
-         </p>
-         
-         {xpAwarded > 0 && (
-           <div className="mb-8 bg-amber-500/20 text-amber-500 px-6 py-2 rounded-full font-black text-sm animate-bounce flex items-center gap-2">
-             <Flame size={18} /> +{xpAwarded} XP Earned!
-           </div>
-         )}
-         
-         <div className="flex gap-4 mb-10 w-full max-w-sm">
-            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-6 rounded-3xl border shadow-sm`}>
-               <div className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{score}/{questions.length}</div>
-               <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest mt-1">Score</div>
-            </div>
-            <div className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-6 rounded-3xl border shadow-sm`}>
-               <div className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{Math.round(percentage)}%</div>
-               <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest mt-1">Accuracy</div>
-            </div>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className={`fixed inset-0 z-[200] flex flex-col items-center justify-center ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'} px-6 text-center overflow-y-auto`}
+      >
+         {/* Trophy/Badge with pop animation and sparkle particles */}
+         <div className="relative mb-6">
+            {percentage >= 80 && (
+              <>
+                {/* Outer pulsing halo animation */}
+                <motion.div 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: [1, 1.45, 1], opacity: [0.2, 0.45, 0.2] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  className="absolute inset-0 bg-amber-500/20 rounded-full blur-xl"
+                />
+                
+                {/* Left Star burst */}
+                <motion.div 
+                  initial={{ scale: 0, x: 0, y: 0, rotate: 0 }}
+                  animate={{ scale: [0, 1.25, 1], x: -65, y: -20, rotate: 360 }}
+                  transition={{ type: "spring", delay: 0.2, stiffness: 120 }}
+                  className="absolute text-amber-500"
+                >
+                  <Star size={24} fill="currentColor" />
+                </motion.div>
+
+                {/* Right Star burst */}
+                <motion.div 
+                  initial={{ scale: 0, x: 0, y: 0, rotate: 0 }}
+                  animate={{ scale: [0, 1.25, 1], x: 65, y: -20, rotate: -360 }}
+                  transition={{ type: "spring", delay: 0.3, stiffness: 120 }}
+                  className="absolute text-amber-500"
+                >
+                  <Star size={20} fill="currentColor" />
+                </motion.div>
+
+                {/* Top Sparkle */}
+                <motion.div 
+                  initial={{ scale: 0, x: 0, y: 0, rotate: 0 }}
+                  animate={{ scale: [0, 1.5, 1], x: 0, y: -72, rotate: 180 }}
+                  transition={{ type: "spring", delay: 0.4, stiffness: 150 }}
+                  className="absolute text-amber-300"
+                >
+                  <Sparkles size={28} fill="currentColor" />
+                </motion.div>
+                
+                {/* Expanding dash border */}
+                <motion.div 
+                  initial={{ scale: 0.5, opacity: 1 }}
+                  animate={{ scale: 2.2, opacity: 0 }}
+                  transition={{ delay: 0.1, duration: 0.8, ease: "easeOut" }}
+                  className="absolute inset-0 border-2 border-dashed border-amber-400 rounded-full"
+                />
+              </>
+            )}
+
+            {/* Core Badge Circle */}
+            <motion.div 
+              initial={{ scale: 0, rotate: -25 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 160, 
+                damping: 12,
+                delay: 0.1 
+              }}
+              className={`w-36 h-36 ${percentage >= 80 ? 'bg-gradient-to-tr from-amber-500/20 to-yellow-500/5 text-amber-500 border-2 border-amber-400/30' : (percentage >= 50 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500')} rounded-full flex items-center justify-center shadow-2xl relative z-10`}
+            >
+               {percentage >= 50 ? (
+                 <Trophy size={72} fill={percentage >= 80 ? "currentColor" : "none"} className={percentage >= 80 ? "animate-pulse" : ""} />
+               ) : (
+                 <Target size={72} />
+               )}
+            </motion.div>
          </div>
 
-         <button 
+         <motion.h2 
+           initial={{ opacity: 0, y: 15 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.2 }}
+           className={`text-4xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} mb-2 tracking-tighter`}
+         >
+           {percentage >= 80 ? 'Exceptional score!' : (percentage >= 50 ? 'Quiz Complete!' : 'Keep Practicing!')}
+         </motion.h2>
+
+         <motion.p 
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           transition={{ delay: 0.3 }}
+           className="text-gray-500 font-bold text-lg mb-6 uppercase tracking-widest"
+         >
+           Topic: <span className="text-indigo-400">{topic}</span>
+         </motion.p>
+         
+         {xpAwarded > 0 && (
+           <motion.div 
+             initial={{ scale: 0 }}
+             animate={{ scale: 1 }}
+             transition={{ type: "spring", delay: 0.4 }}
+             className="mb-8 bg-amber-500/20 text-amber-500 px-6 py-2 rounded-full font-black text-sm flex items-center gap-2"
+           >
+             <Flame size={18} fill="currentColor" /> +{xpAwarded} XP Earned!
+           </motion.div>
+         )}
+         
+         {/* Animated Accuracy Progress Bar */}
+         <div className="w-full max-w-sm mb-8 px-2 text-left">
+           <div className="flex justify-between items-center mb-2">
+             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Performance Quotient</span>
+             <span className="text-xs font-black text-indigo-500">{Math.round(percentage)}%</span>
+           </div>
+           <div className={`h-3 w-full rounded-full overflow-hidden border ${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-inner' : 'bg-slate-100 border-slate-200'}`}>
+             <motion.div 
+               className={`h-full rounded-full ${percentage >= 80 ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' : 'bg-indigo-500'}`}
+               initial={{ width: 0 }}
+               animate={{ width: `${percentage}%` }}
+               transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
+             />
+           </div>
+         </div>
+
+         {/* Score Details */}
+         <div className="flex gap-4 mb-10 w-full max-w-sm">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
+              className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-6 rounded-3xl border shadow-sm`}
+            >
+               <div className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{score}/{questions.length}</div>
+               <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest mt-1">Score</div>
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, type: "spring", stiffness: 100 }}
+              className={`flex-1 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} p-6 rounded-3xl border shadow-sm`}
+            >
+               <div className={`text-3xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{Math.round(percentage)}%</div>
+               <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest mt-1">Accuracy</div>
+            </motion.div>
+         </div>
+
+         <motion.button 
+           initial={{ opacity: 0, y: 15 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.6 }}
            onClick={onEnd} 
            className="w-full max-w-sm bg-indigo-600 text-white font-black py-5 rounded-[2.5rem] active:scale-95 transition-all text-lg shadow-2xl shadow-indigo-600/40 hover:bg-indigo-700"
          >
            Finish Session
-         </button>
-      </div>
+         </motion.button>
+      </motion.div>
     );
   }
 
@@ -2996,7 +3169,12 @@ function QuizTakingView({ questions, topic, onEnd, theme, profile, onUpdateProfi
          
          <div className="flex-1 max-w-[140px] mx-4">
             <div className={`h-2.5 w-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'} rounded-full overflow-hidden shadow-inner`}>
-               <div className="h-full bg-indigo-500 transition-all duration-700 ease-out" style={{ width: `${((qIndex + 1) / questions.length) * 100}%` }}></div>
+               <motion.div 
+                 className="h-full bg-indigo-500 rounded-full" 
+                 initial={{ width: 0 }}
+                 animate={{ width: `${((qIndex + 1) / questions.length) * 100}%` }}
+                 transition={{ type: "spring", stiffness: 85, damping: 13 }}
+               />
             </div>
          </div>
 
@@ -3829,8 +4007,18 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
     level: 'Form 4',
     gender: 'male'
   });
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mw_referrer_code');
+      if (stored) {
+        setReferralCode(stored.toUpperCase());
+      }
+    } catch (e) {}
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3839,11 +4027,35 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
         return;
     }
     setLoading(true);
+    setError('');
     try {
       let emailToUse = formData.email;
       if (!emailToUse && formData.phone) {
         const digits = formData.phone.replace(/\D/g, '');
         emailToUse = `${digits}@educatemw.app`;
+      }
+
+      let isReferralApplied = false;
+      let referrerUid = '';
+      let referrerName = '';
+      const cleanRef = referralCode.trim().toUpperCase();
+
+      if (cleanRef) {
+        if (cleanRef === 'EDUCATE500') {
+          isReferralApplied = true;
+        } else {
+          // Look up referrer user who owns this code
+          const q = query(collection(db, 'users'), where('referralCode', '==', cleanRef));
+          const querySnap = await getDocs(q);
+          if (!querySnap.empty) {
+            const referrerDoc = querySnap.docs[0];
+            referrerUid = referrerDoc.id;
+            referrerName = referrerDoc.data().name || 'Your Friend';
+            isReferralApplied = true;
+          } else {
+            console.warn("Referral code was not found in the database. Proceeding without bonus.");
+          }
+        }
       }
       
       const cred = await createUserWithEmailAndPassword(auth, emailToUse, formData.password);
@@ -3851,18 +4063,54 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
       
       const userRef = doc(db, 'users', cred.user.uid);
       const gradient = getAvatarGradient(formData.gender, cred.user.uid);
+      const today = new Date().toLocaleDateString('en-CA');
+
+      const startingPoints = isReferralApplied ? 1000 : 500; // 500 base + 500 XP bonus
+      const startingAiPoints = isReferralApplied ? 20 : 10; // 10 base + 10 Emi AI points bonus
+
       await setDoc(userRef, {
         name: formData.username,
         email: emailToUse,
         gender: formData.gender,
         avatarGradient: gradient,
         level: formData.level,
-        points: 500,
+        points: startingPoints,
+        aiPoints: startingAiPoints,
+        aiPointsLastReset: today,
+        referredByCode: cleanRef,
+        referredByUid: referrerUid || (cleanRef === 'EDUCATE500' ? 'SYSTEM' : ''),
         isPro: false,
         role: 'student',
         referralCode: 'MW-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
         createdAt: serverTimestamp()
       });
+
+      // Reward the referee creator if exists
+      if (referrerUid) {
+        try {
+          const referrerDocRef = doc(db, 'users', referrerUid);
+          const referrerSnap = await getDoc(referrerDocRef);
+          if (referrerSnap.exists()) {
+            const rData = referrerSnap.data();
+            const currentReferrerAiPoints = rData.aiPoints ?? 10;
+            // Reward referrer: 1 friend = 10 Emi study points
+            await updateDoc(referrerDocRef, {
+              aiPoints: currentReferrerAiPoints + 10,
+              aiPointsLastReset: today,
+              points: increment(150), // Give them also 150 study XP points as nice motivation
+              successfulReferralsCount: increment(1)
+            });
+          }
+        } catch (refErr) {
+          console.error("Error updating referrer:", refErr);
+        }
+      }
+
+      // Clear referral local cache
+      try {
+        localStorage.removeItem('mw_referrer_code');
+      } catch (e) {}
+
       onBack();
     } catch (err: any) {
       setError(err.message);
@@ -3972,6 +4220,41 @@ function RegisterView({ onBack, theme }: { onBack: () => void, theme: 'light' | 
               </div>
           </div>
 
+          <div className="space-y-1.5 border-t pt-4 border-slate-200 dark:border-gray-800/60 mt-2">
+            <div className="flex justify-between items-center ml-1">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                <Gift size={12} className="text-indigo-500 animate-pulse" /> Referral Code <span className="text-[9px] text-indigo-400 lowercase font-medium">(optional)</span>
+              </label>
+              <button 
+                type="button" 
+                onClick={() => setReferralCode('EDUCATE500')} 
+                className="text-[10px] font-extrabold text-indigo-500 hover:text-indigo-600 transition-colors uppercase tracking-wider"
+              >
+                Use Default
+              </button>
+            </div>
+            <div className={`${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-xl p-3 flex items-center border focus-within:border-indigo-500/50 transition-all justify-between`}>
+              <div className="flex items-center flex-1">
+                <Gift size={16} className="text-gray-400 mr-2.5 shrink-0" />
+                <input 
+                  type="text" 
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  placeholder="Enter custom or friend's code" 
+                  className={`bg-transparent outline-none flex-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm font-bold placeholder-gray-500`}
+                />
+              </div>
+              {referralCode === 'EDUCATE500' && (
+                <span className="text-[9px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md font-extrabold uppercase tracking-widest ml-2 border border-emerald-500/20">
+                  Default applied
+                </span>
+              )}
+            </div>
+            <p className="text-[9.5px] text-gray-500/80 font-bold ml-1 leading-snug">
+              🎁 Code awards you <span className="text-indigo-500 font-extrabold">+10 Emi AI questions</span> and <span className="text-emerald-500 font-extrabold">+500 XP bonus</span>!
+            </p>
+          </div>
+
           {error && <p className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-500 text-xs font-bold text-center mt-2">{error}</p>}
 
           <button 
@@ -4058,7 +4341,8 @@ function NotificationsModal({ isOpen, onClose, theme }: { isOpen: boolean, onClo
 function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' | 'dark' }) {
   const [students, setStudents] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'settings' | 'feedback'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'content' | 'notifications' | 'settings' | 'feedback' | 'payments'>('students');
+  const [pendingCerts, setPendingCerts] = useState<any[]>([]);
   const [appSettings, setAppSettings] = useState({ freeDailyLimit: 10, totalApiCalls: 0 });
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
@@ -4171,12 +4455,28 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
       }
     });
 
+    const qCerts = query(collection(db, 'certificates'), limit(150));
+    const unsubscribeCerts = onSnapshot(qCerts, (snapshot) => {
+      const allCerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const pendingAndUnconfirmed = allCerts.filter((c: any) => !c.isPaid);
+      // Sort by createdAt Milliseconds descending
+      pendingAndUnconfirmed.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.toMillis?.() || 0;
+        const dateB = b.createdAt?.toMillis?.() || 0;
+        return dateB - dateA;
+      });
+      setPendingCerts(pendingAndUnconfirmed);
+    }, (err) => {
+      console.error("Error loading pending certificates for admin:", err);
+    });
+
     return () => {
         unsubscribeStudents();
         unsubscribeMaterials();
         unsubscribeNotifications();
         unsubscribeFeedback();
         unsubscribeSettings();
+        unsubscribeCerts();
     };
   }, []);
 
@@ -4252,34 +4552,45 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
         </div>
       </div>
 
-      <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-slate-100 border-slate-200 shadow-sm'} p-2 flex gap-1 mx-5 mt-6 rounded-2xl border shrink-0`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-slate-100 border-slate-200 shadow-sm'} p-2 flex gap-1 mx-5 mt-6 rounded-2xl border shrink-0 overflow-x-auto hide-scrollbar`}>
         <button 
             onClick={() => setActiveTab('students')}
-            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`flex-1 min-w-[70px] py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-550 hover:text-gray-300'}`}
         >
             Users
         </button>
         <button 
             onClick={() => setActiveTab('content')}
-            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'content' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`flex-1 min-w-[70px] py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'content' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-550 hover:text-gray-300'}`}
         >
             Materials
         </button>
         <button 
             onClick={() => setActiveTab('notifications')}
-            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`flex-1 min-w-[70px] py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-550 hover:text-gray-300'}`}
         >
             Alerts
         </button>
         <button 
+            onClick={() => setActiveTab('payments')}
+            className={`flex-1 min-w-[70px] py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'payments' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-550 hover:text-gray-305'} relative`}
+        >
+            Payments
+            {pendingCerts.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white font-black text-[8px] w-5 h-5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+                {pendingCerts.length}
+              </span>
+            )}
+        </button>
+        <button 
             onClick={() => setActiveTab('settings')}
-            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`flex-1 min-w-[70px] py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-550 hover:text-gray-300'}`}
         >
             Settings
         </button>
         <button 
             onClick={() => setActiveTab('feedback')}
-            className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'feedback' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`flex-1 min-w-[70px] py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'feedback' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-550 hover:text-gray-300'}`}
         >
             Feedback
         </button>
@@ -4678,6 +4989,120 @@ function AdminDashboard({ onBack, theme }: { onBack: () => void, theme: 'light' 
                  </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeTab === 'payments' && (
+          <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center px-1 flex-wrap gap-2">
+              <div>
+                <h2 className={`font-black text-xl ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Certificate Approvals</h2>
+                <p className="text-xs text-gray-500 font-medium mt-1 font-sans">Confirm payment of K5,000 for students waiting to download their official credentials.</p>
+              </div>
+              {pendingCerts.length > 0 && (
+                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/25 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1 font-sans">
+                  <Award size={12} /> {pendingCerts.length} Pending Approval
+                </span>
+              )}
+            </div>
+
+            {pendingCerts.length === 0 ? (
+              <div className={`text-center py-24 ${theme === 'dark' ? 'bg-gray-900/40 border-gray-805' : 'bg-white border-slate-200 shadow-inner'} border border-dashed rounded-3xl p-8`}>
+                <Award size={48} className="mx-auto mb-4 text-gray-655" strokeWidth={1} />
+                <p className="text-sm font-bold text-gray-500 font-sans">No pending certificate payments to confirm. All clear!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {pendingCerts.map((cert) => (
+                  <div key={cert.id} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} border rounded-3xl p-5 flex flex-col justify-between hover:border-indigo-500/30 transition-all`}>
+                    <div>
+                      <div className="flex items-start gap-4">
+                        {cert.photoUrl ? (
+                          <div className="relative w-16 h-20 rounded-xl overflow-hidden border border-indigo-500/30 shrink-0 shadow-md">
+                            <img src={cert.photoUrl} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-16 h-20 bg-gray-950 border border-gray-800 rounded-xl flex flex-col items-center justify-center text-[8px] text-gray-505 font-black uppercase shrink-0 text-center leading-tight p-1 gap-1">
+                            <User size={16} className="text-gray-700" />
+                            <span className="font-sans">No Photo</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 min-w-0 text-left">
+                          <h4 className={`font-black text-sm capitalize truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{cert.name}</h4>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight mt-0.5 truncate font-sans">{cert.userEmail}</p>
+                          
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            <span className="text-[8.5px] font-black px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/15 uppercase font-sans">
+                              {cert.type === 'attendance' ? 'Attendance' : 'Appreciation'}
+                            </span>
+                            <span className="text-[8.5px] font-mono font-black px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/15 uppercase font-sans">
+                              {cert.paymentProvider ? cert.paymentProvider.toUpperCase() : 'TELECOM'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={`mt-5 p-3.5 rounded-2xl ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-100'} border text-xs text-left space-y-1.5`}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 font-bold uppercase text-[9px] font-sans">Requested Date</span>
+                          <span className={`font-black ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>{cert.date}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-505 font-bold uppercase text-[9px] font-sans">Sender Mobile</span>
+                          <span className="font-mono font-black text-indigo-400">{cert.phoneNumber || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 font-bold uppercase text-[9px] font-sans">Serial Code</span>
+                          <span className="font-mono font-bold text-gray-500 select-all">{cert.certificateId}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 pt-4 border-t border-gray-800/10 dark:border-gray-800/40 flex gap-2 w-full">
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Confirm mobile money payment of K5,000 for ${cert.name}?`)) return;
+                          try {
+                            await updateDoc(doc(db, 'certificates', cert.id), {
+                              isPaid: true,
+                              paymentStatus: 'approved'
+                            });
+                            // Store a general system-wide alert so they can receive it in notification feeds
+                            await addDoc(collection(db, 'notifications'), {
+                              title: "Certificate Approved! 🎉",
+                              body: `Congratulations ${cert.name}! Your official Certificate of ${cert.type === 'attendance' ? 'Attendance' : 'Appreciation'} has been authenticated by the Educate Mw committee and is now fully downloadable.`,
+                              readBy: [],
+                              createdAt: serverTimestamp()
+                            });
+                            alert(`Confirmed payment for ${cert.name}. Ready to download!`);
+                          } catch (err: any) {
+                            alert("Error confirming payment: " + err.message);
+                          }
+                        }}
+                        className="flex-1 py-2.5 bg-emerald-605 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md cursor-pointer font-sans"
+                      >
+                        Confirm Payment
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Decline and delete the request for ${cert.name}?`)) return;
+                          try {
+                            await deleteDoc(doc(db, 'certificates', cert.id));
+                            alert("Request deleted.");
+                          } catch (err: any) {
+                            alert("Error deleting request: " + err.message);
+                          }
+                        }}
+                        className={`py-2.5 px-4 ${theme === 'dark' ? 'bg-gray-950 hover:bg-gray-800' : 'bg-slate-100 hover:bg-slate-200'} text-rose-500 font-black text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-transparent hover:border-rose-500/20 cursor-pointer font-sans`}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

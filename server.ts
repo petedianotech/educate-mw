@@ -314,13 +314,20 @@ Instructions & Guidelines:
     try {
       const { topic } = req.body;
 
-      const prompt = `Generate 5 high-quality flashcards to study the topic: ${topic}. Each flashcard must consist of a 'question' and its corresponding 'answer'.
-      IMPORTANT: Do NOT use asterisks (*) or dollar signs ($), use simple plain text.
-      Return ONLY a JSON array of objects with this structure:
+      const prompt = `Generate exactly 5 highly-relevant, curriculum-aligned flashcards to study the topic: "${topic}". 
+      Each flashcard must consist of a 'question' and its corresponding 'answer'.
+      
+      GUIDELINES FOR GENERATION:
+      1. Write in simple, elegant, easy-to-understand English so that students with varying language proficiency can easily master the material.
+      2. Frame the questions in the exact style of Malawian national school examinations, such as the MANEB exams (MSCE / JCE) or local teacher tests. Keep them authentic and directly examinable.
+      3. For the answers, give accurate, clear, and high-yielding explanations or definitions that secondary school students can easily memorize.
+      4. Do NOT use any asterisks (*), hashtags (#), or dollar signs ($). Use clean, plain text.
+
+      Return ONLY a JSON array of objects with this structure (no additional conversational text surrounding the array):
       [
         {
-          "question": "Question text here?",
-          "answer": "Answer text here."
+          "question": "Plain text question here?",
+          "answer": "Plain text answer here."
         }
       ]`;
 
