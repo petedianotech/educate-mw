@@ -455,8 +455,12 @@ export function CertificatesCleanView({
         </button>
 
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-            <Award size={22} className="animate-pulse" />
+          <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md flex items-center justify-center border-2 border-indigo-500/20 bg-white">
+            <img 
+              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
+              alt="Logo" 
+              className="w-full h-full object-cover" 
+            />
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight leading-tight">Certificates & Awards</h1>
@@ -759,10 +763,12 @@ export function CertificatesCleanView({
               <div className="flex items-center justify-between w-full border-b border-indigo-950/10 pb-3 mb-2 relative z-10">
                 {/* Left Side: National Academy Logo Badge & Est */}
                 <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                  <div className="w-11 h-11 rounded-full border-2 border-indigo-950 bg-indigo-50 flex items-center justify-center shadow-md">
-                    <div className="w-8 h-8 rounded-full border border-dashed border-indigo-950 flex items-center justify-center">
-                      <GraduationCap size={16} className="text-indigo-950" strokeWidth={2.5} />
-                    </div>
+                  <div className="w-12 h-12 rounded-full border-2 border-indigo-950 bg-indigo-50 flex items-center justify-center shadow-md overflow-hidden">
+                    <img 
+                      src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
+                      alt="Logo" 
+                      className="w-full h-full object-cover" 
+                    />
                   </div>
                   <div className="text-left leading-tight hidden sm:block">
                     <span className="text-[7px] font-black uppercase tracking-widest text-indigo-900/60 block">ESTABLISHED</span>
@@ -928,8 +934,12 @@ export function CertificatesCleanView({
               
               {/* App Logo in verification section */}
               <div className="flex items-center gap-2 mb-2.5 justify-center">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black shrink-0">
-                  <GraduationCap size={16} strokeWidth={2.5} />
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-indigo-500/20 shadow-md bg-white shrink-0">
+                  <img 
+                    src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
+                    alt="Logo" 
+                    className="w-full h-full object-cover" 
+                  />
                 </div>
                 <span className={`font-sans font-black text-lg tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                   Educate<span className="text-indigo-550 font-bold">MW</span> Certified

@@ -5431,15 +5431,12 @@ function AuthView({
       className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} p-6 pt-20 animate-in fade-in duration-500 overflow-y-auto`}
     >
       <div className="flex flex-col items-center mb-12">
-        <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[14px] flex items-center justify-center shadow-lg shadow-blue-500/40 mb-6 p-3">
-          <div className="w-full h-full rounded-[10px] flex items-center justify-center border border-white/20 bg-white/5 backdrop-blur-sm">
-            <GraduationCap
-              size={44}
-              className="text-white"
-              fill="white"
-              fillOpacity={0.2}
-            />
-          </div>
+        <div className="w-24 h-24 bg-white rounded-[22px] flex items-center justify-center shadow-xl shadow-indigo-500/20 mb-6 overflow-hidden p-1 border-4 border-indigo-600/10">
+          <img
+            src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
+            alt="educate mw logo"
+            className="w-full h-full object-cover rounded-[16px]"
+          />
         </div>
         <h1
           className={`text-3xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight`}
@@ -6257,15 +6254,12 @@ function RegisterView({
         className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-2xl p-8 border w-full max-w-md mx-auto`}
       >
         <div className="mb-8 text-center flex flex-col items-center">
-          <div className="w-20 h-20 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[14px] flex items-center justify-center text-white mb-6 shadow-xl shadow-blue-500/30 p-1.5 rotate-3">
-            <div className="w-full h-full rounded-[10px] flex items-center justify-center border border-white/20 bg-white/5 backdrop-blur-sm">
-              <GraduationCap
-                size={36}
-                className="text-white"
-                fill="white"
-                fillOpacity={0.2}
-              />
-            </div>
+          <div className="w-20 h-20 bg-white rounded-[20px] flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20 overflow-hidden p-1 border-2 border-indigo-600/10 rotate-3">
+            <img
+              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
+              alt="educate mw logo"
+              className="w-full h-full object-cover rounded-[14px]"
+            />
           </div>
           <h3 className="text-2xl font-black mb-2 tracking-tight">
             Create Account
@@ -7811,7 +7805,18 @@ function AppSettingsModal({
       <div
         className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} w-full max-w-sm rounded-[2.5rem] p-8 pb-12 border shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-y-auto hide-scrollbar`}
       >
-        <div className="flex justify-between items-center mb-8 sticky top-0 bg-inherit z-30 pt-2">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="w-20 h-20 bg-white rounded-2xl overflow-hidden shadow-lg mb-3 border-4 border-indigo-500/10">
+            <img 
+              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
+              alt="Logo" 
+              className="w-full h-full object-cover" 
+            />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">v3.5.2 Build</p>
+        </div>
+
+        <div className="flex justify-between items-center mb-8 sticky top-0 bg-inherit z-30 pt-2 border-b border-gray-500/10 pb-4">
           <h3
             className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}
           >
