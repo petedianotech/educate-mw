@@ -400,7 +400,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
               </div>
 
               {/* Tactile controls panel */}
-              <div className="mt-8 flex items-center gap-4 w-full max-w-sm">
+              <div className="mt-4 flex items-center gap-3 w-full max-w-sm">
                 <button
                   type="button"
                   onClick={(e) => { 
@@ -431,7 +431,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
                       setTimeout(() => setIndex(prev => Math.min(currentCards.length - 1, prev + 1)), 150);
                     }
                   }}
-                  className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl flex items-center justify-center border-2 border-indigo-500 shadow-xl shadow-indigo-600/10 gap-2 active:scale-95 transition-all text-sm font-black uppercase tracking-widest"
+                  className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl flex items-center justify-center border-2 border-indigo-500 shadow-xl shadow-indigo-600/20 gap-2 active:scale-95 transition-all text-sm font-black uppercase tracking-widest"
                 >
                   <span>{index === currentCards.length - 1 ? 'Start Again' : 'Next Lesson'}</span>
                   <ChevronRight size={18} strokeWidth={3.5} />

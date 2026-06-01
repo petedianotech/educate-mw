@@ -357,10 +357,11 @@ export function CertificatesCleanView({
       await new Promise(resolve => setTimeout(resolve, 300));
       const element = printRef.current;
       const canvas = await html2canvas(element, {
-        scale: 2.2, // Generates ultra-high resolution image
+        scale: 2, // Better memory management on mobile
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
-        logging: false,
+        logging: true,
         windowWidth: 1024,
         windowHeight: 768
       });
@@ -460,6 +461,8 @@ export function CertificatesCleanView({
               src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
               alt="Logo" 
               className="w-full h-full object-cover" 
+              crossOrigin="anonymous"
+              referrerPolicy="no-referrer"
             />
           </div>
           <div>
@@ -582,7 +585,7 @@ export function CertificatesCleanView({
 
                     {userPhoto && (
                       <div className="relative w-12 h-14 rounded-xl overflow-hidden border-2 border-indigo-500 shrink-0 shadow-md">
-                        <img src={userPhoto} className="w-full h-full object-cover" />
+                        <img src={userPhoto} className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
                         <button 
                           onClick={() => setUserPhoto('')}
                           className="absolute top-0 right-0 p-1 bg-red-650 hover:bg-red-700 text-white rounded-bl-lg text-[8px] leading-none"
@@ -768,6 +771,8 @@ export function CertificatesCleanView({
                       src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
                       alt="Logo" 
                       className="w-full h-full object-cover" 
+                      crossOrigin="anonymous"
+                      referrerPolicy="no-referrer"
                     />
                   </div>
                   <div className="text-left leading-tight hidden sm:block">
@@ -795,7 +800,7 @@ export function CertificatesCleanView({
                   </div>
                   <div className="w-12 h-15 bg-gray-50 border border-indigo-950/20 rounded p-0.5 shadow-md relative overflow-hidden flex items-center justify-center">
                     {userPhoto ? (
-                      <img src={userPhoto} className="w-full h-full object-cover rounded" referrerPolicy="no-referrer" />
+                      <img src={userPhoto} className="w-full h-full object-cover rounded" crossOrigin="anonymous" referrerPolicy="no-referrer" />
                     ) : (
                       <div className="flex flex-col items-center justify-center text-[5px] text-indigo-950/40 text-center leading-tight font-bold">
                         <User size={10} className="mb-0.5 text-indigo-950/30" />
@@ -1005,7 +1010,7 @@ export function CertificatesCleanView({
                   {/* Show student picture if verified */}
                   {verificationResult.cert.photoUrl && (
                     <div className="relative w-20 h-24 rounded-2xl overflow-hidden mx-auto mb-5 border-2 border-emerald-500 bg-gray-950 p-0.5 shadow-md">
-                      <img src={verificationResult.cert.photoUrl} className="w-full h-full object-cover rounded-xl" />
+                      <img src={verificationResult.cert.photoUrl} className="w-full h-full object-cover rounded-xl" crossOrigin="anonymous" referrerPolicy="no-referrer" />
                     </div>
                   )}
 
