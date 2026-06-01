@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { jsPDF } from "jspdf";
 import html2canvas from 'html2canvas';
 
 interface Certificate {
@@ -359,11 +360,9 @@ export function CertificatesCleanView({
       const canvas = await html2canvas(element, {
         scale: 2, // Better memory management on mobile
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
-        logging: true,
-        windowWidth: 1024,
-        windowHeight: 768
+        logging: false,
       });
       const dataUrl = canvas.toDataURL('image/png');
       const mockLink = document.createElement('a');
@@ -374,14 +373,39 @@ export function CertificatesCleanView({
       document.body.removeChild(mockLink);
     } catch (err) {
       console.error(err);
-      alert("PNG rendering failed. Please use standard PDF / Print instead.");
+      alert("PNG rendering failed. Please try again or download as PDF.");
     } finally {
       setDownloading(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    if (!printRef.current) return;
+    setDownloading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const element = printRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2, 
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`Educate_MW_Certificate_${recipientName.trim().replace(/\s+/g, '_')}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert("PDF rendering failed. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // Render SVG QR code for verification
@@ -728,10 +752,11 @@ export function CertificatesCleanView({
                   <Download size={13} /> {downloading ? 'Downloading...' : 'Download PNG'}
                 </button>
                 <button
-                  onClick={handlePrint}
-                  className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center gap-2 active:scale-95"
+                  onClick={handleDownloadPDF}
+                  disabled={downloading}
+                  className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center gap-2 active:scale-95 disabled:opacity-50"
                 >
-                  <Printer size={13} /> PDF / Print
+                  <Download size={13} /> {downloading ? 'Please wait...' : 'Download PDF'}
                 </button>
               </div>
             </div>
