@@ -60,6 +60,7 @@ import { CertificatesCleanView } from "./components/CertificatesCleanView";
 import { LeaderboardView } from "./components/LeaderboardView";
 import { StudyProgressTracker } from "./components/StudyProgressTracker";
 import { AchievementsView } from "./components/AchievementsView";
+import { MscePointsCalculatorView } from "./components/MscePointsCalculatorView";
 import { ACHIEVEMENTS } from "./data/achievements";
 import { CloudinaryUploader } from "./components/CloudinaryUploader";
 import { triggerExplicitDownload } from "./lib/cloudinary";
@@ -189,7 +190,8 @@ export type ViewState =
   | "certificates"
   | "leaderboard"
   | "achievements"
-  | "progress";
+  | "progress"
+  | "msce-calculator";
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -668,6 +670,13 @@ export default function App() {
           description: "Read the latest article on our education blog.",
           canonical: `https://educatemw.app/blog/${selectedBlogSlug}`,
         };
+      case "msce-calculator":
+        return {
+          title: "MSCE Points Calculator & University Course Recommendations Malawi",
+          description:
+            "Calculate your MANEB MSCE points, explore university courses at UNIMA, MUBAS, MUST, KUHeS, LUANAR, MZUNI, and simulate target grades.",
+          canonical: "https://educatemw.app/msce-calculator",
+        };
       default:
         return {
           title: "Educate MW - Free MSCE Notes & AI Tutor Malawi",
@@ -851,6 +860,14 @@ export default function App() {
                   onUpdateProfile={setUserProfile}
                 />
               )}
+              {currentView === "msce-calculator" && (
+                <MscePointsCalculatorView
+                  onBack={() => navigateTo("home")}
+                  theme={theme}
+                  profile={userProfile}
+                  onUpdateProfile={setUserProfile}
+                />
+              )}
               {currentView === "community" && (
                 <CommunityView
                   onBack={() => navigateTo("home")}
@@ -928,6 +945,7 @@ export default function App() {
             "videos",
             "certificates",
             "leaderboard",
+            "msce-calculator",
           ].includes(currentView) && (
             <div
               className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === "dark" ? "bg-gray-950 border-gray-900" : "bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"} border-t pb-safe pt-2 px-1`}
@@ -1084,6 +1102,22 @@ export default function App() {
                   </div>
                 </div>
 
+                <SidebarItem
+                  theme={theme}
+                  icon={
+                    <Calculator
+                      size={20}
+                      className="text-indigo-400"
+                      strokeWidth={2.5}
+                    />
+                  }
+                  label="MSCE Points Calculator"
+                  onClick={() => {
+                    navigateTo("msce-calculator");
+                    setIsSidebarOpen(false);
+                  }}
+                  active={currentView === "msce-calculator"}
+                />
                 <SidebarItem
                   theme={theme}
                   icon={
