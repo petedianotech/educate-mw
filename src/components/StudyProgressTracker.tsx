@@ -95,7 +95,7 @@ export function StudyProgressTracker({
             </div>
             <div>
               <h4 className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-gray-200' : 'text-slate-800'}`}>Subject Analytics</h4>
-              <p className="text-[10.5px] text-gray-500 mt-1 leading-relaxed">Visually identify and target weak topics in Biology, Math, Agriculture, and Physical Science.</p>
+              <p className="text-[10.5px] text-gray-500 mt-1 leading-relaxed">Visually identify and target weak topics in Biology, Math, Agriculture, Physics, and Chemistry.</p>
             </div>
           </div>
 

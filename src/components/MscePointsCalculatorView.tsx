@@ -52,22 +52,37 @@ export interface UniversityProgram {
 }
 
 export const MANEB_SUBJECTS: { id: string; name: string; shortName: string; category: SubjectGrade['category'] }[] = [
+  // Core & Compulsory
   { id: 'eng', name: 'English (Language & Literature)', shortName: 'English', category: 'core' },
-  { id: 'math', name: 'Mathematics', shortName: 'Maths', category: 'core' },
+  { id: 'math', name: 'Mathematics (General)', shortName: 'Maths', category: 'core' },
+  { id: 'chich', name: 'Chichewa', shortName: 'Chichewa', category: 'language' },
+  { id: 'lifeskills', name: 'Life Skills', shortName: 'Life Skills', category: 'core' },
+
+  // Pure & Applied Sciences
   { id: 'bio', name: 'Biology', shortName: 'Biology', category: 'science' },
-  { id: 'ps', name: 'Physical Science / Physics / Chem', shortName: 'Physical Sci', category: 'science' },
+  { id: 'chem', name: 'Chemistry', shortName: 'Chemistry', category: 'science' },
+  { id: 'phys', name: 'Physics', shortName: 'Physics', category: 'science' },
   { id: 'agric', name: 'Agriculture', shortName: 'Agric', category: 'science' },
+  { id: 'addmath', name: 'Additional Mathematics', shortName: 'Add Maths', category: 'science' },
+  { id: 'cs', name: 'Computer Studies / ICT', shortName: 'Computer', category: 'tech' },
+  { id: 'he', name: 'Home Economics (Food & Nutrition)', shortName: 'Home Econ', category: 'science' },
+
+  // Humanities & Social Sciences
   { id: 'geo', name: 'Geography', shortName: 'Geography', category: 'humanities' },
   { id: 'hist', name: 'History', shortName: 'History', category: 'humanities' },
   { id: 'sds', name: 'Social & Development Studies', shortName: 'Social Studies', category: 'humanities' },
-  { id: 'chich', name: 'Chichewa', shortName: 'Chichewa', category: 'language' },
-  { id: 'cs', name: 'Computer Studies / ICT', shortName: 'Computer', category: 'tech' },
   { id: 'bk', name: 'Bible Knowledge / Rel. Studies', shortName: 'Bible Know.', category: 'humanities' },
-  { id: 'comm', name: 'Commerce / Business Studies', shortName: 'Commerce', category: 'commercial' },
+
+  // Commercial & Business
   { id: 'acc', name: 'Financial Accounting', shortName: 'Accounting', category: 'commercial' },
-  { id: 'addmath', name: 'Additional Mathematics', shortName: 'Add Maths', category: 'science' },
-  { id: 'he', name: 'Home Economics / Nutrition', shortName: 'Home Econ', category: 'science' },
+  { id: 'comm', name: 'Business Studies / Commerce', shortName: 'Commerce', category: 'commercial' },
+
+  // Languages & Technical Electives
   { id: 'french', name: 'French', shortName: 'French', category: 'language' },
+  { id: 'td', name: 'Technical Drawing', shortName: 'Tech Drawing', category: 'tech' },
+  { id: 'woodwork', name: 'Woodwork', shortName: 'Woodwork', category: 'tech' },
+  { id: 'metalwork', name: 'Metalwork', shortName: 'Metalwork', category: 'tech' },
+  { id: 'art', name: 'Expressive & Performing Arts', shortName: 'Arts', category: 'humanities' },
 ];
 
 export const MALAWI_PROGRAMMES: UniversityProgram[] = [
@@ -88,11 +103,12 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
       { subjectId: 'bio', maxGrade: 2, label: 'Biology (Distinction 1-2)' },
-      { subjectId: 'ps', maxGrade: 2, label: 'Physical Science (Distinction 1-2)' },
+      { subjectId: 'chem', maxGrade: 2, label: 'Chemistry (Distinction 1-2)' },
+      { subjectId: 'phys', maxGrade: 4, label: 'Physics (Credit 1-4)' },
     ],
     description: 'Premier medical training programme in Malawi producing registered medical doctors, clinical surgeons, and medical researchers.',
     careerPaths: ['Medical Doctor', 'Surgeon', 'Clinical Researcher', 'Hospital Superintendent'],
-    intakeNote: 'High distinctions in Biology & Physical Science are strongly prioritized for NCHE selection.'
+    intakeNote: 'High distinctions in Biology & Chemistry are strongly prioritized for NCHE selection.'
   },
   {
     id: 'kuhes-pharm',
@@ -109,8 +125,9 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
-      { subjectId: 'ps', maxGrade: 3, label: 'Physical Science (Credit 1-3)' },
+      { subjectId: 'chem', maxGrade: 3, label: 'Chemistry (Credit 1-3)' },
       { subjectId: 'bio', maxGrade: 3, label: 'Biology (Credit 1-3)' },
+      { subjectId: 'phys', maxGrade: 4, label: 'Physics (Credit 1-4)' },
     ],
     description: 'Clinical pharmacology, pharmaceutical formulation, and medicine regulation in hospitals and industrial healthcare.',
     careerPaths: ['Hospital Pharmacist', 'Pharmaceutical Chemist', 'Drug Regulatory Officer (PMRA)'],
@@ -130,7 +147,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'bio', maxGrade: 4, label: 'Biology (Credit 1-4)' },
-      { subjectId: 'ps', maxGrade: 6, label: 'Physical Science (Credit 1-6)' },
+      { subjectId: 'chem', maxGrade: 6, label: 'Chemistry (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 6, label: 'Mathematics (Credit 1-6)' },
     ],
     description: 'Professional nursing care, maternal health, clinical diagnosis, and hospital ward management across Malawi healthcare centers.',
@@ -152,7 +169,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 5, label: 'Mathematics (Credit 1-5)' },
       { subjectId: 'bio', maxGrade: 3, label: 'Biology (Credit 1-3)' },
-      { subjectId: 'ps', maxGrade: 3, label: 'Physical Science (Credit 1-3)' },
+      { subjectId: 'chem', maxGrade: 3, label: 'Chemistry (Credit 1-3)' },
+      { subjectId: 'phys', maxGrade: 4, label: 'Physics (Credit 1-4)' },
     ],
     description: 'Clinical diagnostic pathology, microbiology, haematology, and medical research in central and district hospitals.',
     careerPaths: ['Medical Laboratory Scientist', 'Pathologist', 'Clinical Diagnostic Specialist'],
@@ -174,7 +192,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 2, label: 'Mathematics (Distinction 1-2)' },
-      { subjectId: 'ps', maxGrade: 3, label: 'Physical Science (Credit 1-3)' },
+      { subjectId: 'phys', maxGrade: 3, label: 'Physics (Credit 1-3)' },
+      { subjectId: 'chem', maxGrade: 4, label: 'Chemistry (Credit 1-4)' },
     ],
     description: 'Design and construction of infrastructure including roads, bridges, water supply systems, and modern structural buildings.',
     careerPaths: ['Civil Engineer', 'Structural Engineer', 'Roads Authority Consultant', 'Project Manager'],
@@ -194,7 +213,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 2, label: 'Mathematics (Distinction 1-2)' },
-      { subjectId: 'ps', maxGrade: 3, label: 'Physical Science (Credit 1-3)' },
+      { subjectId: 'phys', maxGrade: 3, label: 'Physics (Credit 1-3)' },
+      { subjectId: 'chem', maxGrade: 4, label: 'Chemistry (Credit 1-4)' },
     ],
     description: 'Power systems generation (ESCOM/EGENCO), telecommunications, renewable energy grids, and electronic automation.',
     careerPaths: ['Electrical Engineer', 'Power Systems Engineer', 'Telecom Engineer', 'Energy Specialist'],
@@ -214,7 +234,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 3, label: 'Mathematics (Credit 1-3)' },
-      { subjectId: 'ps', maxGrade: 4, label: 'Physical Science (Credit 1-4)' },
+      { subjectId: 'phys', maxGrade: 4, label: 'Physics (Credit 1-4)' },
     ],
     description: 'Software development, database architectures, algorithmic design, cybersecurity, and artificial intelligence systems.',
     careerPaths: ['Software Engineer', 'Full-Stack Developer', 'Systems Architect', 'Database Administrator'],
@@ -274,7 +294,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 2, label: 'Mathematics (Distinction 1-2)' },
-      { subjectId: 'ps', maxGrade: 2, label: 'Physical Science (Distinction 1-2)' },
+      { subjectId: 'phys', maxGrade: 2, label: 'Physics (Distinction 1-2)' },
+      { subjectId: 'chem', maxGrade: 3, label: 'Chemistry (Credit 1-3)' },
       { subjectId: 'bio', maxGrade: 3, label: 'Biology (Credit 1-3)' },
     ],
     description: 'Medical instrumentation, hospital device maintenance, bio-sensors, MRI calibration, and healthcare technology.',
@@ -295,7 +316,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 3, label: 'Mathematics (Credit 1-3)' },
-      { subjectId: 'ps', maxGrade: 4, label: 'Physical Science (Credit 1-4)' },
+      { subjectId: 'phys', maxGrade: 4, label: 'Physics (Credit 1-4)' },
     ],
     description: 'Network defense, ethical hacking, digital forensics, cryptography, and banking systems security.',
     careerPaths: ['Cybersecurity Analyst', 'Information Security Officer', 'Network Security Architect'],
@@ -315,7 +336,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 2, label: 'Mathematics (Distinction 1-2)' },
-      { subjectId: 'ps', maxGrade: 2, label: 'Physical Science (Distinction 1-2)' },
+      { subjectId: 'chem', maxGrade: 2, label: 'Chemistry (Distinction 1-2)' },
+      { subjectId: 'phys', maxGrade: 3, label: 'Physics (Credit 1-3)' },
     ],
     description: 'Industrial manufacturing, food processing, mineral refining, chemical plastics, and water treatment plants.',
     careerPaths: ['Chemical Engineer', 'Process Plant Engineer', 'Industrial Quality Assurance Specialist'],
@@ -376,7 +398,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
-      { subjectId: 'ps', maxGrade: 4, label: 'Physical Science (Credit 1-4)' },
+      { subjectId: 'chem', maxGrade: 4, label: 'Chemistry (Credit 1-4)' },
+      { subjectId: 'phys', maxGrade: 4, label: 'Physics (Credit 1-4)' },
       { subjectId: 'bio', maxGrade: 4, label: 'Biology (Credit 1-4)' },
     ],
     description: 'Foundational scientific degrees majoring in Chemistry, Physics, Mathematics, Biology, Geology, or Statistics.',
@@ -397,7 +420,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 5, label: 'Mathematics (Credit 1-5)' },
-      { subjectId: 'ps', maxGrade: 5, label: 'Physical Science / Biology (Credit 1-5)' },
+      { subjectId: 'bio', maxGrade: 5, label: 'Biology (Credit 1-5)' },
+      { subjectId: 'chem', maxGrade: 5, label: 'Chemistry (Credit 1-5)' },
     ],
     description: 'Secondary school science pedagogy, curriculum development, and educational administration.',
     careerPaths: ['Secondary School Science Teacher', 'Education Inspector', 'Curriculum Developer (MIE)'],
@@ -419,7 +443,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'bio', maxGrade: 2, label: 'Biology (Distinction 1-2)' },
-      { subjectId: 'ps', maxGrade: 3, label: 'Physical Science (Credit 1-3)' },
+      { subjectId: 'chem', maxGrade: 3, label: 'Chemistry (Credit 1-3)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
     ],
     description: 'Animal surgery, livestock pathology, zoonotic disease control, wildlife health, and veterinary clinical practice.',
@@ -440,7 +464,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
-      { subjectId: 'agric', maxGrade: 4, label: 'Agriculture / Biology (Credit 1-4)' },
+      { subjectId: 'agric', maxGrade: 4, label: 'Agriculture (Credit 1-4)' },
     ],
     description: 'Agricultural economics, value chain financing, commodity trading, and farm enterprise management.',
     careerPaths: ['Agribusiness Manager', 'Agricultural Loan Officer', 'Commodity Broker', 'Farm Director'],
@@ -459,7 +483,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     privateCutoffPoints: 24,
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
-      { subjectId: 'ps', maxGrade: 4, label: 'Physical Science (Credit 1-4)' },
+      { subjectId: 'chem', maxGrade: 4, label: 'Chemistry (Credit 1-4)' },
       { subjectId: 'bio', maxGrade: 4, label: 'Biology (Credit 1-4)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
     ],
@@ -482,7 +506,8 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     privateCutoffPoints: 20,
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
-      { subjectId: 'ps', maxGrade: 3, label: 'Physical Science / Physics (Credit 1-3)' },
+      { subjectId: 'phys', maxGrade: 3, label: 'Physics (Credit 1-3)' },
+      { subjectId: 'chem', maxGrade: 3, label: 'Chemistry (Credit 1-3)' },
       { subjectId: 'bio', maxGrade: 3, label: 'Biology (Credit 1-3)' },
       { subjectId: 'math', maxGrade: 4, label: 'Mathematics (Credit 1-4)' },
     ],
@@ -504,7 +529,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 3, label: 'Mathematics (Credit 1-3)' },
-      { subjectId: 'ps', maxGrade: 5, label: 'Physical Science (Credit 1-5)' },
+      { subjectId: 'phys', maxGrade: 5, label: 'Physics (Credit 1-5)' },
     ],
     description: 'Network engineering, enterprise database administration, web applications, and ICT infrastructure.',
     careerPaths: ['ICT Officer', 'Network Administrator', 'Systems Analyst', 'Web Engineer'],
@@ -566,7 +591,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'bio', maxGrade: 5, label: 'Biology (Credit 1-5)' },
-      { subjectId: 'ps', maxGrade: 6, label: 'Physical Science (Credit 1-6)' },
+      { subjectId: 'chem', maxGrade: 6, label: 'Chemistry (Credit 1-6)' },
       { subjectId: 'math', maxGrade: 6, label: 'Mathematics (Credit 1-6)' },
     ],
     description: 'Accredited clinical nursing degree recognized by the Nurses and Midwives Council of Malawi (NMCM).',
@@ -589,7 +614,7 @@ export const MALAWI_PROGRAMMES: UniversityProgram[] = [
     requiredSubjects: [
       { subjectId: 'eng', maxGrade: 6, label: 'English (Credit 1-6)' },
       { subjectId: 'bio', maxGrade: 4, label: 'Biology (Credit 1-4)' },
-      { subjectId: 'ps', maxGrade: 5, label: 'Physical Science (Credit 1-5)' },
+      { subjectId: 'chem', maxGrade: 5, label: 'Chemistry (Credit 1-5)' },
       { subjectId: 'math', maxGrade: 6, label: 'Mathematics (Credit 1-6)' },
     ],
     description: 'Medical laboratory pathology at historic Malamulo Hospital training campus.',
@@ -610,7 +635,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
   // Default user subjects defaulting to ZERO (0 = unset)
   const [subjects, setSubjects] = useState<SubjectGrade[]>(() => {
     try {
-      const saved = localStorage.getItem('mw_user_msce_grades_v2');
+      const saved = localStorage.getItem('mw_user_msce_grades_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -621,10 +646,11 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
       console.error(e);
     }
     return [
-      { id: 'eng', name: 'English (Language & Lit)', shortName: 'English', grade: 0, category: 'core' },
-      { id: 'math', name: 'Mathematics', shortName: 'Maths', grade: 0, category: 'core' },
+      { id: 'eng', name: 'English (Language & Literature)', shortName: 'English', grade: 0, category: 'core' },
+      { id: 'math', name: 'Mathematics (General)', shortName: 'Maths', grade: 0, category: 'core' },
       { id: 'bio', name: 'Biology', shortName: 'Biology', grade: 0, category: 'science' },
-      { id: 'ps', name: 'Physical Science (Phys / Chem)', shortName: 'Physical Sci', grade: 0, category: 'science' },
+      { id: 'chem', name: 'Chemistry', shortName: 'Chemistry', grade: 0, category: 'science' },
+      { id: 'phys', name: 'Physics', shortName: 'Physics', grade: 0, category: 'science' },
       { id: 'agric', name: 'Agriculture', shortName: 'Agric', grade: 0, category: 'science' },
       { id: 'geo', name: 'Geography', shortName: 'Geography', grade: 0, category: 'humanities' },
       { id: 'hist', name: 'History', shortName: 'History', grade: 0, category: 'humanities' },
@@ -652,7 +678,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
     setSubjects(prev => {
       const updated = prev.map(s => s.id === id ? { ...s, grade: newGrade } : s);
       try {
-        localStorage.setItem('mw_user_msce_grades_v2', JSON.stringify(updated));
+        localStorage.setItem('mw_user_msce_grades_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -663,7 +689,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
     const zeroed = subjects.map(s => ({ ...s, grade: 0 }));
     setSubjects(zeroed);
     try {
-      localStorage.setItem('mw_user_msce_grades_v2', JSON.stringify(zeroed));
+      localStorage.setItem('mw_user_msce_grades_v3', JSON.stringify(zeroed));
     } catch (e) {}
     showToast("All points reset to 0. Select your grades below to calculate.");
   };
@@ -677,7 +703,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
     setSubjects(prev => {
       const updated = [...prev, { ...template, grade: 0 }];
       try {
-        localStorage.setItem('mw_user_msce_grades_v2', JSON.stringify(updated));
+        localStorage.setItem('mw_user_msce_grades_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -696,7 +722,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
     setSubjects(prev => {
       const updated = prev.filter(s => s.id !== id);
       try {
-        localStorage.setItem('mw_user_msce_grades_v2', JSON.stringify(updated));
+        localStorage.setItem('mw_user_msce_grades_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -707,54 +733,54 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
     let preset: SubjectGrade[] = [];
     if (presetType === 'medicine') {
       preset = [
-        { id: 'eng', name: 'English (Language & Lit)', shortName: 'English', grade: 2, category: 'core' },
-        { id: 'math', name: 'Mathematics', shortName: 'Maths', grade: 2, category: 'core' },
+        { id: 'eng', name: 'English (Language & Literature)', shortName: 'English', grade: 2, category: 'core' },
+        { id: 'math', name: 'Mathematics (General)', shortName: 'Maths', grade: 2, category: 'core' },
         { id: 'bio', name: 'Biology', shortName: 'Biology', grade: 1, category: 'science' },
-        { id: 'ps', name: 'Physical Science (Phys / Chem)', shortName: 'Physical Sci', grade: 1, category: 'science' },
+        { id: 'chem', name: 'Chemistry', shortName: 'Chemistry', grade: 1, category: 'science' },
+        { id: 'phys', name: 'Physics', shortName: 'Physics', grade: 2, category: 'science' },
         { id: 'agric', name: 'Agriculture', shortName: 'Agric', grade: 2, category: 'science' },
         { id: 'geo', name: 'Geography', shortName: 'Geography', grade: 2, category: 'humanities' },
         { id: 'chich', name: 'Chichewa', shortName: 'Chichewa', grade: 3, category: 'language' },
-        { id: 'hist', name: 'History', shortName: 'History', grade: 3, category: 'humanities' },
       ];
     } else if (presetType === 'engineering') {
       preset = [
-        { id: 'eng', name: 'English (Language & Lit)', shortName: 'English', grade: 3, category: 'core' },
-        { id: 'math', name: 'Mathematics', shortName: 'Maths', grade: 1, category: 'core' },
-        { id: 'ps', name: 'Physical Science (Phys / Chem)', shortName: 'Physical Sci', grade: 2, category: 'science' },
+        { id: 'eng', name: 'English (Language & Literature)', shortName: 'English', grade: 3, category: 'core' },
+        { id: 'math', name: 'Mathematics (General)', shortName: 'Maths', grade: 1, category: 'core' },
+        { id: 'phys', name: 'Physics', shortName: 'Physics', grade: 1, category: 'science' },
+        { id: 'chem', name: 'Chemistry', shortName: 'Chemistry', grade: 2, category: 'science' },
         { id: 'bio', name: 'Biology', shortName: 'Biology', grade: 3, category: 'science' },
-        { id: 'agric', name: 'Agriculture', shortName: 'Agric', grade: 3, category: 'science' },
+        { id: 'cs', name: 'Computer Studies / ICT', shortName: 'Computer', grade: 2, category: 'tech' },
         { id: 'geo', name: 'Geography', shortName: 'Geography', grade: 3, category: 'humanities' },
-        { id: 'hist', name: 'History', shortName: 'History', grade: 4, category: 'humanities' },
         { id: 'chich', name: 'Chichewa', shortName: 'Chichewa', grade: 4, category: 'language' },
       ];
     } else if (presetType === 'law') {
       preset = [
-        { id: 'eng', name: 'English (Language & Lit)', shortName: 'English', grade: 1, category: 'core' },
+        { id: 'eng', name: 'English (Language & Literature)', shortName: 'English', grade: 1, category: 'core' },
         { id: 'hist', name: 'History', shortName: 'History', grade: 2, category: 'humanities' },
         { id: 'geo', name: 'Geography', shortName: 'Geography', grade: 2, category: 'humanities' },
-        { id: 'math', name: 'Mathematics', shortName: 'Maths', grade: 3, category: 'core' },
+        { id: 'math', name: 'Mathematics (General)', shortName: 'Maths', grade: 3, category: 'core' },
         { id: 'chich', name: 'Chichewa', shortName: 'Chichewa', grade: 2, category: 'language' },
+        { id: 'sds', name: 'Social & Development Studies', shortName: 'Social Studies', grade: 2, category: 'humanities' },
+        { id: 'bk', name: 'Bible Knowledge / Rel. Studies', shortName: 'Bible Know.', grade: 2, category: 'humanities' },
         { id: 'bio', name: 'Biology', shortName: 'Biology', grade: 4, category: 'science' },
-        { id: 'agric', name: 'Agriculture', shortName: 'Agric', grade: 3, category: 'science' },
-        { id: 'ps', name: 'Physical Science (Phys / Chem)', shortName: 'Physical Sci', grade: 4, category: 'science' },
       ];
     } else {
       preset = [
-        { id: 'eng', name: 'English (Language & Lit)', shortName: 'English', grade: 4, category: 'core' },
-        { id: 'math', name: 'Mathematics', shortName: 'Maths', grade: 4, category: 'core' },
+        { id: 'eng', name: 'English (Language & Literature)', shortName: 'English', grade: 4, category: 'core' },
+        { id: 'math', name: 'Mathematics (General)', shortName: 'Maths', grade: 4, category: 'core' },
         { id: 'bio', name: 'Biology', shortName: 'Biology', grade: 3, category: 'science' },
-        { id: 'ps', name: 'Physical Science (Phys / Chem)', shortName: 'Physical Sci', grade: 4, category: 'science' },
+        { id: 'chem', name: 'Chemistry', shortName: 'Chemistry', grade: 4, category: 'science' },
+        { id: 'phys', name: 'Physics', shortName: 'Physics', grade: 4, category: 'science' },
         { id: 'agric', name: 'Agriculture', shortName: 'Agric', grade: 3, category: 'science' },
         { id: 'geo', name: 'Geography', shortName: 'Geography', grade: 4, category: 'humanities' },
         { id: 'chich', name: 'Chichewa', shortName: 'Chichewa', grade: 4, category: 'language' },
-        { id: 'hist', name: 'History', shortName: 'History', grade: 4, category: 'humanities' },
       ];
     }
     setSubjects(preset);
     try {
-      localStorage.setItem('mw_user_msce_grades_v2', JSON.stringify(preset));
+      localStorage.setItem('mw_user_msce_grades_v3', JSON.stringify(preset));
     } catch (e) {}
-    showToast(`Loaded example with ${presetType} grades!`);
+    showToast(`Loaded ${presetType.toUpperCase()} preset example.`);
   };
 
   // Calculation Engine: handles 0 (unentered) grades gracefully

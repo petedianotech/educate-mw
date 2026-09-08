@@ -59,7 +59,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
               },
               {
                 id: 'exam-phy',
-                name: 'MSCE Physical Science - Newton\'s Laws',
+                name: "MSCE Physics - Newton's Laws",
                 cards: [
                   { question: "Define Newton's First Law of Motion.", answer: "An object stays at rest or in uniform motion unless acted upon by a net external force." },
                   { question: "State the relationship described by Newton's Second Law of Motion.", answer: "Force equals mass multiplied by acceleration (F = ma)." },

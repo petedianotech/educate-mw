@@ -2014,7 +2014,7 @@ function EmiChatView({
       queryLower.includes("acid") ||
       queryLower.includes("science")
     ) {
-      subjectText = "Physical Sciences";
+      subjectText = "Physics & Chemistry";
       topicText = "science and physical theory math";
     } else if (
       queryLower.includes("history") ||

@@ -66,21 +66,21 @@ Good luck with your MSCE preparations!
   {
     id: '2',
     slug: 'importance-of-science-in-malawi-curriculum',
-    title: 'The Vital Role of Physical Science in the Malawi Curriculum',
-    excerpt: 'Physical Science is often feared by students, but it is the backbone of Malawi\'s development goals. Discover why it matters.',
+    title: 'The Vital Role of Physics and Chemistry in the Malawi Curriculum',
+    excerpt: 'Physics and Chemistry are often feared by students, but they form the scientific backbone of Malawi\'s vision 2063. Discover why they matter.',
     content: `
-# The Vital Role of Physical Science in the Malawi Curriculum
+# The Vital Role of Physics & Chemistry in the Malawi Curriculum
 
-Physical Science, comprising Physics and Chemistry, is a core subject in the Malawi School Certificate of Education. While many students find it difficult, it is essential for the future of our nation.
+Physics and Chemistry are cornerstone science subjects in the Malawi School Certificate of Education (MSCE). While many students find them challenging, they are essential for the future of our nation.
 
 ## Why Science Matters in Malawi
-Malawi's development goals rely heavily on technology, engineering, and healthcare. All these fields require a solid foundation in Physical Science.
+Malawi's development goals rely heavily on technology, engineering, agricultural industrialization, and healthcare. All these fields require a solid foundation in Physics, Chemistry, and Biology.
 
 ### 1. Career Opportunities
-From becoming a doctor at Queens or Kamuzu Central Hospital to being an engineer at ESCOM, science is the gatekeeper.
+From becoming a doctor at KUHeS or practicing at central hospitals to being an engineer at ESCOM or industrial chemist, science is the gatekeeper.
 
 ### 2. Analytical Thinking
-Science teaches you how to solve problems logically. This skill is useful in any profession, including law or business.
+Science teaches you how to solve problems logically and methodically. This skill is useful in any profession, including law, commerce, or government.
 
 ### 3. Understanding the World
 Chemistry explains the world at a molecular level—essential for Agriculture and Food Science, which are pillars of our economy.
