@@ -17,8 +17,7 @@ export const db = initializeFirestore(app, {
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/docs');
-googleProvider.addScope('https://www.googleapis.com/auth/drive');
+// Use standard profile and email scopes for student authentication
 
 // Flag to indicate if we are in the middle of a sign-in flow.
 export let isSigningIn = false;

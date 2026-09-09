@@ -736,6 +736,8 @@ export default function App() {
             ) : (
               <AuthView
                 onNavigateRegister={() => navigateTo("register")}
+                onNavigateTerms={() => navigateTo("terms")}
+                onNavigatePrivacy={() => navigateTo("privacy")}
                 theme={theme}
               />
             )
@@ -5322,9 +5324,13 @@ function ProfileView({
 
 function AuthView({
   onNavigateRegister,
+  onNavigateTerms,
+  onNavigatePrivacy,
   theme,
 }: {
   onNavigateRegister: () => void;
+  onNavigateTerms?: () => void;
+  onNavigatePrivacy?: () => void;
   theme: "light" | "dark";
 }) {
   const [identifier, setIdentifier] = useState("");
@@ -5374,166 +5380,242 @@ function AuthView({
 
   return (
     <div
-      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} p-6 pt-20 animate-in fade-in duration-500 overflow-y-auto`}
+      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} p-4 sm:p-8 pt-12 sm:pt-16 animate-in fade-in duration-500 overflow-y-auto`}
     >
-      <div className="flex flex-col items-center mb-12">
-        <div className="w-24 h-24 rounded-[24px] flex items-center justify-center shadow-xl shadow-blue-600/20 mb-6 overflow-hidden p-1 bg-blue-600 border border-blue-500/30">
+      {/* Brand Header */}
+      <div className="flex flex-col items-center mb-8 text-center max-w-2xl mx-auto">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[24px] flex items-center justify-center shadow-xl shadow-indigo-600/20 mb-4 overflow-hidden p-1 bg-gradient-to-br from-indigo-600 to-blue-700 border border-indigo-400/30">
           <img
-            src="/app-icon.jpg"
-            alt="educate mw logo"
-            className="w-full h-full object-cover rounded-[19px]"
+            src="/app-icon.png"
+            alt="Educate MW Logo"
+            className="w-full h-full object-cover rounded-[20px]"
             referrerPolicy="no-referrer"
           />
         </div>
         <h1
-          className={`text-3xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight`}
+          className={`text-3xl sm:text-4xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight uppercase`}
         >
-          educate mw
+          Educate MW
         </h1>
-        <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 mb-4">
-          Empowering Students
+        <p className="text-indigo-500 dark:text-indigo-400 text-xs font-black uppercase tracking-[0.25em] mt-1.5 mb-3">
+          Malawi National Secondary Curriculum & AI Study Companion
         </p>
 
         <p
-          className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-slate-600"} text-center max-w-xs font-medium leading-relaxed mb-4`}
+          className={`text-sm sm:text-base ${theme === "dark" ? "text-gray-300" : "text-slate-600"} max-w-xl font-medium leading-relaxed`}
         >
-          The ultimate learning platform for Malawian students. Access MSCE
-          notes, interactive quizzes, video tutorials, a dictionary, and an
-          intelligent AI assistant.
+          The complete digital learning platform built for Malawian students preparing for Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) exams under MANEB.
         </p>
       </div>
 
-      <div
-        className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-2xl p-8 border w-full max-w-md mx-auto`}
-      >
-        <h2
-          className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mb-8 tracking-tight`}
-        >
-          Access Account
-        </h2>
-
-        <div className="space-y-4 relative z-10">
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className={`w-full ${theme === "dark" ? "bg-white text-gray-900" : "bg-white text-gray-700 border border-gray-300 shadow-sm"} font-bold py-3.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50`}
+      {/* Main Grid: Login Box + App Functionality & Transparency */}
+      <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-12">
+        {/* Left Col: Features & Transparency Overview */}
+        <div className="lg:col-span-7 space-y-6 order-2 lg:order-1">
+          <div
+            className={`${theme === "dark" ? "bg-gray-900/80 border-gray-800" : "bg-white border-slate-200"} rounded-3xl p-6 sm:p-8 border shadow-sm space-y-6`}
           >
-            {loading ? (
-              <div
-                className={`w-5 h-5 border-2 ${theme === "dark" ? "border-gray-900/30 border-t-gray-900" : "border-gray-500/30 border-t-gray-700"} rounded-full animate-spin`}
-              />
-            ) : (
-              <>
-                <img
-                  src="https://www.google.com/favicon.ico"
-                  className="w-5 h-5"
-                  alt="Google"
-                />
-                Continue with Google
-              </>
-            )}
-          </button>
-
-          <div className="flex items-center gap-2 w-full py-2">
-            <div
-              className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
-            ></div>
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-              or
-            </span>
-            <div
-              className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
-            ></div>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-                Email or Phone
-              </label>
-              <div
-                className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
-              >
-                <User size={18} className="text-gray-400 mr-3" />
-                <input
-                  type="text"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="student@example.com or 099..."
-                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-                Password
-              </label>
-              <div
-                className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
-              >
-                <Lock size={18} className="text-gray-400 mr-3" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
-                />
-              </div>
-            </div>
-
-            {error && (
-              <p className="text-red-500 text-[11px] font-bold text-center mt-2">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 disabled:opacity-50"
+            <h2
+              className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-wide flex items-center gap-2`}
             >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                "Log In"
-              )}
-            </button>
-          </form>
+              <span>Platform Capabilities</span>
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
+                <div className="font-bold text-indigo-500 text-sm mb-1">🤖 Emi AI Tutor</div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  24/7 MANEB syllabus-grounded tutoring, homework steps, and exam memory tips.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
+                <div className="font-bold text-emerald-500 text-sm mb-1">📊 National Syllabus Tracker</div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Track topic mastery across Form 1 to Form 4 for all core Malawian subjects.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
+                <div className="font-bold text-amber-500 text-sm mb-1">📝 Past Exam Archives</div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Access official MSCE & JCE examination papers, marking guides, and practice tests.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
+                <div className="font-bold text-pink-500 text-sm mb-1">🧠 Quizzes & Flashcards</div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Instant self-assessment drills to reinforce formulas, definitions, and concepts.
+                </p>
+              </div>
+            </div>
+
+            {/* Transparent Data Privacy Disclosure */}
+            <div className={`p-5 rounded-2xl ${theme === "dark" ? "bg-indigo-950/30 border-indigo-900/50" : "bg-indigo-50/70 border-indigo-100"} border space-y-2`}>
+              <div className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                🔒 Data Privacy & Transparency Notice
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                When you sign in with Google, we only access your basic profile information (Name, Email, and Profile Picture) to create your student profile and securely save your syllabus progress, quiz history, and certificates. <strong>We never sell, rent, or share your data with third parties.</strong>
+              </p>
+              <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                <button
+                  type="button"
+                  onClick={onNavigatePrivacy || (() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+                  className="hover:underline flex items-center gap-1"
+                >
+                  View Privacy Policy →
+                </button>
+                <button
+                  type="button"
+                  onClick={onNavigateTerms || (() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+                  className="hover:underline flex items-center gap-1"
+                >
+                  View Terms of Service →
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 flex flex-col items-center gap-4 relative z-10">
-          <p className="text-sm font-medium text-gray-500">
-            Don't have an account?
-          </p>
-          <button
-            type="button"
-            onClick={onNavigateRegister}
-            className={`w-full ${theme === "dark" ? "bg-gray-800 text-white hover:bg-gray-700" : "bg-slate-100 text-slate-900 hover:bg-slate-200"} font-bold py-3.5 rounded-xl transition-colors shadow-none`}
+        {/* Right Col: Sign-In / Login Form */}
+        <div className="lg:col-span-5 order-1 lg:order-2">
+          <div
+            className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-3xl p-6 sm:p-8 border w-full`}
           >
-            Create New Account
-          </button>
+            <h2
+              className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mb-6 tracking-tight`}
+            >
+              Sign In to Your Account
+            </h2>
 
-          <p className="text-[11px] text-gray-500 text-center mt-4">
-            By proceeding, you agree to our{" "}
-            <a href="/terms" className="text-indigo-500 hover:underline">
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href="/privacy" className="text-indigo-500 hover:underline">
-              Privacy Policy
-            </a>
-            .
-          </p>
+            <div className="space-y-4 relative z-10">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className={`w-full ${theme === "dark" ? "bg-white text-gray-900 hover:bg-gray-100" : "bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50"} font-bold py-3.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50`}
+              >
+                {loading ? (
+                  <div
+                    className={`w-5 h-5 border-2 ${theme === "dark" ? "border-gray-900/30 border-t-gray-900" : "border-gray-500/30 border-t-gray-700"} rounded-full animate-spin`}
+                  />
+                ) : (
+                  <>
+                    <img
+                      src="https://www.google.com/favicon.ico"
+                      className="w-5 h-5"
+                      alt="Google"
+                    />
+                    Continue with Google
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center gap-2 w-full py-1">
+                <div
+                  className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
+                ></div>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                  or email login
+                </span>
+                <div
+                  className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
+                ></div>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
+                    Email or Phone
+                  </label>
+                  <div
+                    className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
+                  >
+                    <User size={18} className="text-gray-400 mr-3" />
+                    <input
+                      type="text"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="student@example.com or 099..."
+                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
+                    Password
+                  </label>
+                  <div
+                    className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
+                  >
+                    <Lock size={18} className="text-gray-400 mr-3" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="text-red-500 text-[11px] font-bold text-center mt-2">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    "Log In"
+                  )}
+                </button>
+              </form>
+            </div>
+
+            <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-800 flex flex-col items-center gap-3 relative z-10">
+              <button
+                type="button"
+                onClick={onNavigateRegister}
+                className={`w-full ${theme === "dark" ? "bg-gray-800 text-white hover:bg-gray-700" : "bg-slate-100 text-slate-900 hover:bg-slate-200"} font-bold py-3 rounded-xl transition-colors shadow-none text-sm`}
+              >
+                Create New Student Account
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <footer className="mt-auto py-8 flex flex-col items-center gap-3">
-        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] opacity-40">
-          © {new Date().getFullYear()} educate mw
+      <footer className="mt-auto py-6 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500 max-w-5xl mx-auto w-full gap-4">
+        <p className="font-semibold">
+          © {new Date().getFullYear()} Educate MW • Ministry of Education & MANEB Syllabus Companion
         </p>
+        <div className="flex items-center gap-4 font-bold">
+          <button
+            type="button"
+            onClick={onNavigatePrivacy || (() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            Privacy Policy
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={onNavigateTerms || (() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            Terms of Service
+          </button>
+        </div>
       </footer>
     </div>
   );
@@ -7816,72 +7898,198 @@ function LegalPageView({
     <div
       className={`min-h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} p-6 pt-12 animate-in fade-in duration-500`}
     >
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-8 max-w-4xl mx-auto">
         <button
           onClick={onBack}
           className={`w-12 h-12 ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}
         >
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
-        <h1
-          className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-tight`}
-        >
-          {type === "terms" ? "Terms of Service" : "Privacy Policy"}
-        </h1>
+        <div>
+          <h1
+            className={`text-2xl sm:text-3xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-tight`}
+          >
+            {type === "terms" ? "Terms of Service" : "Privacy Policy"}
+          </h1>
+          <p className="text-xs text-indigo-500 font-bold tracking-wider uppercase">
+            Educate MW • Official Educational Platform
+          </p>
+        </div>
       </div>
       <div
-        className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-[2.5rem] p-8 border shadow-xl`}
+        className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-[2.5rem] p-6 sm:p-10 border shadow-xl max-w-4xl mx-auto`}
       >
         <div
-          className={`prose prose-sm max-w-none ${theme === "dark" ? "prose-invert text-gray-400" : "text-slate-600"} font-medium space-y-6 leading-relaxed`}
+          className={`prose prose-sm max-w-none ${theme === "dark" ? "prose-invert text-gray-300" : "text-slate-700"} font-medium space-y-6 leading-relaxed`}
         >
-          <p className="text-xs uppercase tracking-widest font-black text-indigo-400">
-            Last updated: May 15, 2026
-          </p>
-          <p>
-            Educate MW is committed to helping students in Malawi succeed. By
-            using our platform, you agree to follow our guidelines and respect
-            other learners.
-          </p>
-          <p>
-            We do not sell your personal data. Your progress and study history
-            are stored securely on Firebase to provide you with a personalized
-            experience.
-          </p>
-          <p>
-            Emi AI uses advanced machine learning. While we strive for accuracy,
-            always double-check important exam information with official MSCE
-            sources.
-          </p>
-          {type === "terms" && (
+          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-4">
+            <span className="text-xs uppercase tracking-widest font-black text-indigo-500">
+              Effective Date: January 1, 2026 (Updated)
+            </span>
+            <span className="text-xs text-gray-500 font-semibold">
+              Host: https://educatemw.vercel.app
+            </span>
+          </div>
+
+          {type === "privacy" ? (
             <>
-              <h3
-                className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mt-8 mb-4 uppercase tracking-widest`}
-              >
-                User Conduct
-              </h3>
-              <p>
-                As a student, you must respect others in the community, avoid
-                cheating, and contribute positively.
-              </p>
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  1. Overview & Application Identity
+                </h2>
+                <p>
+                  <strong>Educate MW</strong> ("we", "our", or "us"), available at <strong>https://educatemw.vercel.app</strong>, is an educational learning application designed to empower secondary school students in Malawi preparing for Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) national examinations administered by MANEB.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  2. User Data We Collect & Request
+                </h2>
+                <p>
+                  We are committed to full transparency regarding user data. When you access Educate MW, we collect only the minimal data required to provide a personalized, secure educational experience:
+                </p>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>
+                    <strong>Google Account Information (via Google Sign-In):</strong> When you sign in with Google, we access your basic public profile information, specifically your <strong>Name</strong>, <strong>Email Address</strong>, and <strong>Profile Picture</strong>.
+                  </li>
+                  <li>
+                    <strong>Academic Progress Data:</strong> We store your syllabus topic completion checklist, quiz scores, flashcard sets, study streak counters, and authenticated certificates.
+                  </li>
+                  <li>
+                    <strong>Device & Authentication Session Tokens:</strong> Standard Firebase Authentication tokens used strictly to keep your session logged in securely.
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  3. Purpose of Data Processing (Why We Request Data)
+                </h2>
+                <p>We process your data solely for the following educational and functional purposes:</p>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>To authenticate your identity and maintain your student account across multiple devices.</li>
+                  <li>To save and synchronize your syllabus progress, mock examination results, and study bookmarks.</li>
+                  <li>To generate personalized, grade-appropriate responses from Emi AI tutor tailored to your specific school class (e.g. Form 1, Form 2, Form 3, or Form 4).</li>
+                  <li>To issue downloadable and verifiable certificates of academic completion.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  4. Google API User Data Policy & Limited Use Disclosure
+                </h2>
+                <div className="bg-indigo-50 dark:bg-indigo-950/40 p-4 rounded-2xl border border-indigo-200 dark:border-indigo-800">
+                  <p className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm">
+                    <strong>Google API Compliance:</strong> Educate MW's use and transfer of information received from Google APIs to any other app will adhere to the{" "}
+                    <a
+                      href="https://developers.google.com/terms/api-services-user-data-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-bold text-indigo-600 dark:text-indigo-400"
+                    >
+                      Google API Services User Data Policy
+                    </a>
+                    , including the Limited Use requirements.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  5. Third-Party Sharing & Data Protection
+                </h2>
+                <p>
+                  <strong>We do NOT sell, rent, monetize, or trade your personal data or Google user data with any third parties or advertisers.</strong>
+                </p>
+                <p>
+                  Your information is stored in secured, encrypted Google Cloud / Firebase Firestore databases with strict role-based access rules preventing unauthorized access.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  6. User Data Rights & Account Deletion
+                </h2>
+                <p>
+                  You retain full ownership of your data. You have the right to request access to, export, or permanently delete your account and all associated data at any time.
+                </p>
+                <p>
+                  To request immediate deletion of your account and all stored records, you can use the in-app account settings or email our data protection administrator at:{" "}
+                  <a href="mailto:petedianotech@gmail.com" className="font-bold text-indigo-600 dark:text-indigo-400 underline">
+                    petedianotech@gmail.com
+                  </a>
+                  . Deletion requests are processed within 48 hours.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  1. Agreement to Terms
+                </h2>
+                <p>
+                  By accessing or using <strong>Educate MW</strong> (https://educatemw.vercel.app), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the application.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  2. Description of Educational Services
+                </h2>
+                <p>
+                  Educate MW provides Malawian secondary school students with educational study aids, including MANEB syllabus checklists, past paper archives, interactive practice quizzes, flashcards, study notes, and the Emi AI educational tutoring assistant.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  3. Student Code of Conduct & Acceptable Use
+                </h2>
+                <p>Users agree to:</p>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Use the service solely for legitimate academic and educational learning purposes.</li>
+                  <li>Maintain respectful communication in community forums and AI chat sessions.</li>
+                  <li>Not attempt to reverse engineer, scrape, overload, or disrupt the platform's infrastructure.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  4. Intellectual Property & Academic Guidance
+                </h2>
+                <p>
+                  Emi AI is an AI-powered educational study companion designed to explain concepts and assist revision. Students are advised to verify critical examination guidelines and dates with official school teachers and MANEB circulars.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                  5. Contact Information
+                </h2>
+                <p>
+                  If you have questions regarding these Terms or the platform, contact the Educate Malawi administrative team at:{" "}
+                  <a href="mailto:petedianotech@gmail.com" className="font-bold text-indigo-600 dark:text-indigo-400 underline">
+                    petedianotech@gmail.com
+                  </a>
+                  .
+                </p>
+              </div>
             </>
           )}
-          {type === "privacy" && (
-            <>
-              <h3
-                className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mt-8 mb-4 uppercase tracking-widest`}
-              >
-                Data Collection
-              </h3>
-              <p>
-                We only collect data necessary to provide you with a tailored
-                educational experience, such as test scores and study habits.
-              </p>
-            </>
-          )}
-          <p className="font-bold text-indigo-500 mt-8">
-            Happy studying and good luck with your exams!
-          </p>
+
+          <div className="pt-6 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+            <button
+              onClick={onBack}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all"
+            >
+              Return to Homepage
+            </button>
+            <p className="text-xs text-gray-500 font-semibold">
+              © {new Date().getFullYear()} Educate Malawi
+            </p>
+          </div>
         </div>
       </div>
     </div>
