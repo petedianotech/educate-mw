@@ -909,16 +909,16 @@ export function CertificatesCleanView({
                     </div>
                   </div>
 
-                  {/* Signature 2: P. Damiano */}
+                  {/* Signature 2: S. Lifa */}
                   <div className="flex-1 flex flex-col items-center border-t border-indigo-950/25 pt-2 max-w-[190px] mx-auto">
                     <div className="text-[11px] font-bold font-serif italic text-indigo-900 leading-none mb-1.5 h-4 flex items-end">
-                      {activeStatus.isUnlocked ? 'P. Damiano' : '••••••••••••'}
+                      {activeStatus.isUnlocked ? 'S. Lifa' : '••••••••••••'}
                     </div>
                     <div className="text-[7px] font-black uppercase tracking-widest text-indigo-950/60 leading-none">
-                      P. Damiano
+                      S. Lifa
                     </div>
                     <div className="text-[5.5px] font-bold uppercase tracking-widest text-indigo-950/40 mt-1">
-                      Director & Chief Architect
+                      Director of Academic Affairs
                     </div>
                   </div>
 

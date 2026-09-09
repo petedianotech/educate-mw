@@ -2106,6 +2106,7 @@ function EmiChatView({
           messages: messages.slice(-10),
           userMessage: { sender: "user", text },
           userLevel: profile?.level || "Form 4",
+          isPro: Boolean(profile?.isPro),
         }),
         signal: controller.signal,
       });
