@@ -747,6 +747,7 @@ export default function App() {
                   onMenuClick={() => setIsSidebarOpen(true)}
                   profile={userProfile}
                   onShowNotifications={() => setShowNotifications(true)}
+                  onOpenSettings={() => setShowSettings(true)}
                   theme={theme}
                   onThemeToggle={() =>
                     setTheme((prev) => (prev === "dark" ? "light" : "dark"))
@@ -1335,6 +1336,7 @@ function HomeView({
   onMenuClick,
   profile,
   onShowNotifications,
+  onOpenSettings,
   theme,
   onThemeToggle,
 }: {
@@ -1342,6 +1344,7 @@ function HomeView({
   onMenuClick: () => void;
   profile: any;
   onShowNotifications: () => void;
+  onOpenSettings?: () => void;
   theme: "light" | "dark";
   onThemeToggle: () => void;
 }) {
@@ -1362,52 +1365,56 @@ function HomeView({
       <header
         className={`fixed top-0 left-0 right-0 z-50 ${theme === "dark" ? "bg-gray-950/90" : "bg-white/90"} backdrop-blur-2xl border-b ${theme === "dark" ? "border-white/5" : "border-slate-200"}`}
       >
-        <div className="pt-4 pb-2 px-5">
-          <div className="flex justify-between items-center w-full max-w-7xl mx-auto relative">
-            <div className="flex items-center gap-3">
+        <div className="pt-3.5 pb-2 px-3 sm:px-5 max-w-7xl mx-auto">
+          <div className="flex justify-between items-center w-full relative">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={onMenuClick}
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400 hover:text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border`}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400 hover:text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border`}
               >
-                <Menu size={20} strokeWidth={2.5} />
+                <Menu size={19} strokeWidth={2.5} />
               </button>
 
-              <div className="flex items-center gap-2 cursor-pointer logo-container">
-                <div className="w-8 h-8 rounded-[10px] bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                  <GraduationCap
-                    className="text-white"
-                    size={16}
-                    strokeWidth={2.5}
+              <div 
+                onClick={() => onNavigate("home")} 
+                className="flex items-center gap-2 sm:gap-2.5 cursor-pointer logo-container group select-none"
+              >
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-sm shadow-blue-600/20 border border-blue-500/30 bg-blue-600 p-0.5 flex items-center justify-center transition-transform group-hover:scale-105 active:scale-95">
+                  <img
+                    src="/app-icon.jpg"
+                    alt="Educate MW"
+                    className="w-full h-full object-cover rounded-[9px]"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
                 <span
-                  className={`font-black text-lg tracking-tight hidden sm:block ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+                  className={`font-black text-base sm:text-lg tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
                 >
                   Educate
-                  <span className="text-indigo-500 font-bold opacity-90 pl-0.5">
+                  <span className="text-blue-600 font-bold opacity-90 pl-0.5">
                     MW
                   </span>
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
               <button
                 onClick={onThemeToggle}
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-yellow-400 hover:text-yellow-300" : "bg-slate-50 border-slate-200 text-indigo-600 hover:text-indigo-700"} active:scale-95 transition-all shadow-sm border`}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-yellow-400 hover:text-yellow-300" : "bg-slate-50 border-slate-200 text-indigo-600 hover:text-indigo-700"} active:scale-95 transition-all shadow-sm border`}
               >
-                {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               <button
                 onClick={onShowNotifications}
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400 hover:text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border relative`}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400 hover:text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border relative`}
               >
-                <Bell size={20} />
+                <Bell size={18} />
                 <span className="absolute top-2 right-2 w-2 h-2 bg-pink-500 rounded-full border border-white dark:border-gray-950 animate-pulse"></span>
               </button>
               <button
                 onClick={() => onNavigate("profile")}
-                className={`w-10 h-10 rounded-[14px] p-0.5 ${theme === "dark" ? "bg-gradient-to-tr from-gray-800 to-gray-700 hover:from-indigo-500 hover:to-purple-500" : "bg-gradient-to-tr from-slate-200 to-slate-300 hover:from-indigo-400 hover:to-purple-400"} active:scale-95 transition-all`}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] p-0.5 ${theme === "dark" ? "bg-gray-800 hover:bg-blue-600" : "bg-slate-200 hover:bg-blue-500"} active:scale-95 transition-all`}
               >
                 <Avatar
                   user={profile}
@@ -5505,11 +5512,12 @@ function AuthView({
       className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} p-6 pt-20 animate-in fade-in duration-500 overflow-y-auto`}
     >
       <div className="flex flex-col items-center mb-12">
-        <div className="w-24 h-24 bg-white rounded-[22px] flex items-center justify-center shadow-xl shadow-indigo-500/20 mb-6 overflow-hidden p-1 border-4 border-indigo-600/10">
+        <div className="w-24 h-24 rounded-[24px] flex items-center justify-center shadow-xl shadow-blue-600/20 mb-6 overflow-hidden p-1 bg-blue-600 border border-blue-500/30">
           <img
-            src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
+            src="/app-icon.jpg"
             alt="educate mw logo"
-            className="w-full h-full object-cover rounded-[16px]"
+            className="w-full h-full object-cover rounded-[19px]"
+            referrerPolicy="no-referrer"
           />
         </div>
         <h1
@@ -6254,11 +6262,12 @@ function RegisterView({
         className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-2xl p-8 border w-full max-w-md mx-auto`}
       >
         <div className="mb-8 text-center flex flex-col items-center">
-          <div className="w-20 h-20 bg-white rounded-[20px] flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20 overflow-hidden p-1 border-2 border-indigo-600/10 rotate-3">
+          <div className="w-20 h-20 rounded-[22px] flex items-center justify-center mb-6 shadow-xl shadow-blue-600/20 overflow-hidden p-1 bg-blue-600 border border-blue-500/30 rotate-2">
             <img
-              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
+              src="/app-icon.jpg"
               alt="educate mw logo"
-              className="w-full h-full object-cover rounded-[14px]"
+              className="w-full h-full object-cover rounded-[17px]"
+              referrerPolicy="no-referrer"
             />
           </div>
           <h3 className="text-2xl font-black mb-2 tracking-tight">
@@ -7806,14 +7815,15 @@ function AppSettingsModal({
         className={`w-full h-full p-6 pt-10 sm:p-8 md:p-12 max-w-2xl mx-auto flex flex-col animate-in slide-in-from-right duration-300 overflow-y-auto hide-scrollbar`}
       >
         <div className="mb-10 flex flex-col items-center">
-          <div className="w-24 h-24 bg-white rounded-[22px] overflow-hidden shadow-xl shadow-indigo-500/20 mb-4 border-4 border-indigo-600/10">
+          <div className="w-24 h-24 rounded-[24px] p-1 bg-blue-600 overflow-hidden shadow-xl shadow-blue-600/20 mb-4 border border-blue-500/30">
             <img 
-              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg" 
-              alt="Logo" 
-              className="w-full h-full object-cover" 
+              src="/app-icon.jpg" 
+              alt="Educate MW Logo" 
+              className="w-full h-full object-cover rounded-[20px]" 
+              referrerPolicy="no-referrer"
             />
           </div>
-          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-500">v3.5.2 Build</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-blue-600">v3.5.2 Build</p>
         </div>
 
         <div className="flex justify-between items-center mb-8 sticky top-0 bg-inherit z-30 pt-2 border-b border-gray-500/10 pb-4">
@@ -7915,17 +7925,12 @@ function AppSettingsModal({
           </div>
         </div>
 
-        <div className="mt-12 mb-8 bg-gradient-to-br from-blue-500/10 to-indigo-500/5 p-6 rounded-[2rem] border border-blue-500/10 flex flex-col items-center">
-          <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
-            <GraduationCap size={32} className="text-white" />
-          </div>
-          <h4
-            className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-widest`}
-          >
-            Educate MW
-          </h4>
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight mt-1 opacity-60 italic">
-            Your learning, redefined.
+        <div className="mt-8 mb-6 flex flex-col items-center justify-center text-center">
+          <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">
+            Educate MW &bull; v3.5.2
+          </p>
+          <p className="text-[10px] text-gray-400 font-semibold tracking-tight mt-0.5">
+            Malawi's Premier Digital Learning Platform
           </p>
         </div>
       </div>
@@ -8496,19 +8501,15 @@ function PwaInstallPrompt({
 
         {/* Circular glowing badge for app icon */}
         <div className="relative mb-5 mt-2">
-          {/* Outer glow rings */}
-          <div className="absolute -inset-1.5 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-[24px] blur-sm opacity-60 animate-pulse"></div>
+          {/* Subtle outer elevation */}
+          <div className="absolute -inset-1 bg-blue-600 rounded-[24px] blur-sm opacity-30 animate-pulse"></div>
           <div
-            className={`relative w-20 h-20 rounded-[22px] overflow-hidden shadow-2xl ${
-              theme === "dark"
-                ? "bg-gray-950 border-gray-800"
-                : "bg-slate-50 border-white"
-            } border-2`}
+            className={`relative w-20 h-20 rounded-[22px] overflow-hidden shadow-xl p-1 bg-blue-600 border border-blue-500/30`}
           >
             <img
-              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
+              src="/app-icon.jpg"
               alt="Educate MW App Icon"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover rounded-[18px]"
               referrerPolicy="no-referrer"
             />
           </div>
@@ -8676,21 +8677,21 @@ function EmiLoader({
       <div className="flex flex-col items-center max-w-sm px-6 text-center z-10 relative">
         {/* Simple elegant, fast loading ring with logo */}
         <div className="relative w-14 h-14 mb-5 flex items-center justify-center shrink-0">
-          <div className="absolute inset-0 rounded-full border-2 border-indigo-500/10 border-t-indigo-500 animate-spin" />
+          <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 border-t-blue-600 animate-spin" />
           <div
-            className={`w-9 h-9 rounded-xl ${theme === "dark" ? "bg-gray-900" : "bg-white shadow-sm"} flex items-center justify-center p-1.5 z-10`}
+            className={`w-9 h-9 rounded-xl p-0.5 bg-blue-600 shadow-md flex items-center justify-center z-10 overflow-hidden border border-blue-500/30`}
           >
             <img
-              src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
-              alt="E"
-              className="w-full h-full object-contain"
+              src="/app-icon.jpg"
+              alt="Educate MW"
+              className="w-full h-full object-cover rounded-[9px]"
               referrerPolicy="no-referrer"
             />
           </div>
         </div>
 
         {/* Simple crisp lettering */}
-        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-indigo-500 dark:text-indigo-400">
+        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-blue-600 dark:text-blue-400">
           {text}
         </p>
       </div>
@@ -8718,14 +8719,14 @@ function EmiSpinner({
     <div
       className={`relative flex items-center justify-center select-none shrink-0 ${outerSize}`}
     >
-      <div className="absolute inset-0 rounded-full border-2 border-indigo-500/10 border-t-indigo-500 animate-spin" />
+      <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 border-t-blue-600 animate-spin" />
       <div
-        className={`rounded-xl ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-100"} flex items-center justify-center border shadow-sm ${innerSize}`}
+        className={`rounded-xl p-0.5 bg-blue-600 flex items-center justify-center shadow-md overflow-hidden border border-blue-500/30 ${innerSize}`}
       >
         <img
-          src="https://i.ibb.co/G4sm9hB0/educate-mw-app-logo.jpg"
-          alt="E"
-          className="w-full h-full object-contain"
+          src="/app-icon.jpg"
+          alt="Educate MW"
+          className="w-full h-full object-cover rounded-[7px]"
           referrerPolicy="no-referrer"
         />
       </div>
