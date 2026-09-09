@@ -103,14 +103,6 @@ async function startServer() {
   app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
       const { messages, userMessage, useSearch, userLevel } = req.body;
-      
-      const cerebrasMessages = [
-        ...messages.map((m: any) => ({
-          role: m.sender === 'user' ? 'user' : 'assistant',
-          content: m.text
-        })),
-        { role: 'user', content: userMessage.text }
-      ];
 
       const systemInstruction = `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher.
 Your primary goal is to help Malawian students understand their school subjects,
@@ -122,20 +114,18 @@ ${userLevel ? `\nCRITICAL CONTEXT: The student you are currently teaching is in 
 Instructions & Guidelines:
 
 1.  Curriculum Alignment:
-
       - You have a comprehensive understanding of the Malawi National
         Examinations Board (MANEB) syllabus and the official Malawi secondary
         school curriculum.
-      - You cover all secondary school subjects, including but not limited to:
+      - You cover all secondary school subjects, including:
         Mathematics, Biology, Chemistry, Physics, Agriculture, English (Language
-        and Literature), Chichewa, History, Geography, Bible Knowledge, and
+        and Literature), Chichewa, History, Geography, Bible Knowledge, Computer Studies, and
         Social and Life Skills.
       - Whenever possible, use local, relatable Malawian examples to explain
         concepts (e.g., local farming practices in Agriculture, local geography,
         or familiar daily scenarios).
 
 2.  Language and Vocabulary:
-
       - Communicate in simple, clear, and direct English.
       - Avoid overly complex jargon, long-winded sentences, or advanced academic
         vocabulary that might confuse a student.
@@ -143,7 +133,6 @@ Instructions & Guidelines:
         and use it in an easy-to-understand sentence.
 
 3.  Tone and Personality:
-
       - Be friendly, encouraging, and respectful. Treat the student like a
         teacher who truly cares about their progress.
       - Use positive reinforcement (e.g., "Great question!", "Let's look at this
@@ -151,7 +140,6 @@ Instructions & Guidelines:
       - Never sound condescending, dismissive, or overly formal.
 
 4.  Pedagogical Approach (How to Teach):
-
       - Do not just give the final answer immediately if a student asks a
         homework question. Instead, guide them step-by-step.
       - Break down complex topics into smaller, digestible parts.
@@ -224,10 +212,51 @@ Instructions & Guidelines:
       - When writing chemical equations, write them in a professional way that is easy to understand.
       - When solving maths, present the solution clearly step-by-step, formatting the math equations elegantly using standard KaTeX/LaTeX formatting so it looks like it was solved on paper. (Use $$ for blocks and $ for inline equations).`;
 
-      const response = await callCerebras(cerebrasMessages, systemInstruction, 0.7);
+      const contents = [
+        ...(messages || []).map((m: any) => ({
+          role: m.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: m.text || '' }]
+        })),
+        {
+          role: 'user',
+          parts: [{ text: userMessage.text || '' }]
+        }
+      ];
 
-      let responseText = response.text || "Sorry, I couldn't find an answer to that.";
-      // Clean only unnecessary string escapes, keeping LaTeX formatting pristine
+      const config: any = {
+        systemInstruction,
+        temperature: 0.7,
+      };
+
+      if (useSearch) {
+        config.tools = [{ googleSearch: {} }];
+      }
+
+      let responseText = "";
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents,
+          config,
+        });
+        responseText = response.text || "Sorry, I couldn't find an answer to that.";
+      } catch (geminiError: any) {
+        console.warn("Gemini Flash Lite API error, checking backup:", geminiError);
+        if (process.env.CEREBRAS_API_KEY) {
+          const cerebrasMessages = [
+            ...(messages || []).map((m: any) => ({
+              role: m.sender === 'user' ? 'user' : 'assistant',
+              content: m.text || ''
+            })),
+            { role: 'user', content: userMessage.text || '' }
+          ];
+          const backupRes = await callCerebras(cerebrasMessages, systemInstruction, 0.7);
+          responseText = backupRes.text || "Sorry, I couldn't find an answer to that.";
+        } else {
+          throw geminiError;
+        }
+      }
+
       res.json({ text: responseText });
     } catch (error: any) {
       console.error("Chat API Error Details:", error);
@@ -236,10 +265,10 @@ Instructions & Guidelines:
 
       const msgLower = (error.message || "").toLowerCase();
       if (msgLower.includes("quota") || msgLower.includes("429")) {
-        errorMessage = "QUOTA_EXCEEDED: Emi AI is currently at maximum capacity due to high demand. Please try again in 1 minute.";
+        errorMessage = "QUOTA_EXCEEDED: Emi AI is currently at maximum capacity. Please try again in a few moments.";
         statusCode = 429;
       } else if (msgLower.includes("demand") || msgLower.includes("503") || msgLower.includes("unavailable") || msgLower.includes("overloaded")) {
-        errorMessage = "HIGH_DEMAND: Emi AI is experiencing a spike in questions from students preparing for national exams. Please tap send again in a few moments.";
+        errorMessage = "HIGH_DEMAND: Emi AI is experiencing high demand. Please try again in a moment.";
         statusCode = 503;
       } else if (error.message) {
         errorMessage = error.message;
@@ -268,9 +297,25 @@ Instructions & Guidelines:
         }
       ]`;
 
-      const response = await callCerebras([{ role: 'user', content: prompt }], "", 0.2);
-
-      const text = response.text || '';
+      let text = "";
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          }
+        });
+        text = response.text || '';
+      } catch (geminiError: any) {
+        if (process.env.CEREBRAS_API_KEY) {
+          const backupRes = await callCerebras([{ role: 'user', content: prompt }], "", 0.2);
+          text = backupRes.text || '';
+        } else {
+          throw geminiError;
+        }
+      }
       
       // Attempt to extract JSON from markdown if necessary
       const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
@@ -292,9 +337,25 @@ Instructions & Guidelines:
     try {
       const { prompt } = req.body;
 
-      const response = await callCerebras([{ role: 'user', content: prompt }], "", 0.7);
+      let responseText = "";
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            temperature: 0.7,
+          }
+        });
+        responseText = response.text || "I have some ideas for you. Let's discuss your interests further.";
+      } catch (geminiError: any) {
+        if (process.env.CEREBRAS_API_KEY) {
+          const backupRes = await callCerebras([{ role: 'user', content: prompt }], "", 0.7);
+          responseText = backupRes.text || "I have some ideas for you. Let's discuss your interests further.";
+        } else {
+          throw geminiError;
+        }
+      }
 
-      let responseText = response.text || "I have some ideas for you. Let's discuss your interests further.";
       responseText = responseText.replace(/\*/g, '');
       responseText = responseText.replace(/\$/g, '');
       res.json({ text: responseText });
@@ -331,13 +392,27 @@ Instructions & Guidelines:
         }
       ]`;
 
-      const response = await callCerebras([{ role: 'user', content: prompt }], "", 0.3);
+      let text = "";
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            temperature: 0.3,
+            responseMimeType: 'application/json',
+          }
+        });
+        text = response.text || '';
+      } catch (geminiError: any) {
+        if (process.env.CEREBRAS_API_KEY) {
+          const backupRes = await callCerebras([{ role: 'user', content: prompt }], "", 0.3);
+          text = backupRes.text || '';
+        } else {
+          throw geminiError;
+        }
+      }
 
-      const text = response.text || '';
-      
-      // Attempt to extract JSON from markdown if necessary
       const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
-
       res.json({ text: jsonStr });
     } catch (error: any) {
       console.error("Flashcards API Error:", error);

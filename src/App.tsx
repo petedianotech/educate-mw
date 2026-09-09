@@ -5675,24 +5675,13 @@ function SubscriptionView({
   profile: any;
   theme: "light" | "dark";
 }) {
-  const [copiedPeter, setCopiedPeter] = useState(false);
-  const [copiedLiffa, setCopiedLiffa] = useState(false);
+  const [copiedLifa, setCopiedLifa] = useState(false);
 
-  const handleCopyPeter = () => {
-    try {
-      navigator.clipboard.writeText("0987066051");
-      setCopiedPeter(true);
-      setTimeout(() => setCopiedPeter(false), 2000);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleCopyLiffa = () => {
+  const handleCopyLifa = () => {
     try {
       navigator.clipboard.writeText("0999136433");
-      setCopiedLiffa(true);
-      setTimeout(() => setCopiedLiffa(false), 2000);
+      setCopiedLifa(true);
+      setTimeout(() => setCopiedLifa(false), 2000);
     } catch (e) {
       console.error(e);
     }
@@ -5701,19 +5690,11 @@ function SubscriptionView({
   const handleOpenWhatsApp = (
     planName: string,
     price: string,
-    isLiffa: boolean = false,
   ) => {
-    if (isLiffa) {
-      const message = encodeURIComponent(
-        `Hi Mr. Liffa, I'm ${profile?.name || "a student"} (${profile?.email || ""}). I've sent ${price} via Airtel Money to 0999136433 for the ${planName} plan including MANEB past papers. Here is my transaction screenshot.`,
-      );
-      window.open(`https://wa.me/265999136433?text=${message}`, "_blank");
-    } else {
-      const message = encodeURIComponent(
-        `Hi Peter, I'm ${profile?.name || "a student"} (${profile?.email || ""}). I've sent ${price} via Airtel Money to 0987066051 for the ${planName} AI plan. Here is my transaction screenshot.`,
-      );
-      window.open(`https://wa.me/265987066051?text=${message}`, "_blank");
-    }
+    const message = encodeURIComponent(
+      `Hi Mr. Lifa, I'm ${profile?.name || "a student"} (${profile?.email || ""}). I've sent ${price} via Airtel Money to 0999136433 for the ${planName} plan. Here is my transaction screenshot.`,
+    );
+    window.open(`https://wa.me/265999136433?text=${message}`, "_blank");
   };
 
   return (
@@ -5757,79 +5738,43 @@ function SubscriptionView({
               className="w-5 h-5 object-contain"
               referrerPolicy="no-referrer"
             />
-            Official Airtel Money Manual Accounts
+            Official Airtel Money Manual Account
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-            {/* Account 1: Peter for AI */}
+          <div className="relative z-10">
+            {/* Account: S. Lifa */}
             <div
-              className={`p-4 rounded-2xl border ${theme === "dark" ? "bg-gray-900/60 border-gray-800" : "bg-slate-50 border-slate-100"} flex flex-col justify-between`}
+              className={`p-5 rounded-2xl border ${theme === "dark" ? "bg-gray-900/80 border-gray-800" : "bg-slate-50 border-slate-200"} flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-indigo-500">AI</span>
-                </div>
-                <div className="text-left">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">
-                    EMI AI PLAN ACCOUNT (K500 / K1500)
-                  </p>
-                  <h4 className="font-extrabold text-sm tracking-tight">
-                    Peter Damiano
-                  </h4>
-                  <p
-                    className={`text-xs font-semibold ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
-                  >
-                    0987066051 Airtel Money
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleCopyPeter}
-                className={`mt-4 w-full py-2 rounded-xl border font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                  copiedPeter
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                    : theme === "dark"
-                      ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800"
-                      : "bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm"
-                }`}
-              >
-                {copiedPeter ? "Copied Account!" : "Copy Peter's Number"}
-              </button>
-            </div>
-
-            {/* Account 2: Mr S. Liffa for Past papers */}
-            <div
-              className={`p-4 rounded-2xl border ${theme === "dark" ? "bg-gray-900/60 border-gray-800" : "bg-slate-50 border-slate-100"} flex flex-col justify-between`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-amber-500">HQ</span>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-black text-amber-500">SL</span>
                 </div>
                 <div className="text-left">
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                    FULL PRO + PAST PAPERS CARD (K5000)
+                    OFFICIAL AIRTEL MONEY RECEIVER (ALL PLANS)
                   </p>
-                  <h4 className="font-extrabold text-sm tracking-tight">
-                    S. Liffa (Teacher)
+                  <h4 className="font-extrabold text-base tracking-tight">
+                    S. Lifa (Teacher)
                   </h4>
                   <p
-                    className={`text-xs font-semibold ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
+                    className={`text-sm font-bold ${theme === "dark" ? "text-gray-300" : "text-slate-700"}`}
                   >
-                    0999136433 Airtel Money
+                    0999136433 <span className="text-xs text-red-500 font-semibold">• Airtel Money</span>
                   </p>
                 </div>
               </div>
               <button
-                onClick={handleCopyLiffa}
-                className={`mt-4 w-full py-2 rounded-xl border font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                  copiedLiffa
+                onClick={handleCopyLifa}
+                className={`py-3 px-6 rounded-xl border font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 ${
+                  copiedLifa
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
                     : theme === "dark"
-                      ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800"
+                      ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800 shadow-sm"
                       : "bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm"
                 }`}
               >
-                {copiedLiffa ? "Copied Account!" : "Copy Teacher's Number"}
+                {copiedLifa ? "Copied 0999136433!" : "Copy Number (0999136433)"}
               </button>
             </div>
           </div>
@@ -5838,22 +5783,19 @@ function SubscriptionView({
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>
-                How to pay: Dial *211# on Airtel SIM CARD. Select option to Send
-                Money.
+                <strong>Step 1:</strong> Dial *211# on your Airtel SIM Card and choose Send Money.
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>
-                For AI-only plans: Send to Peter Damiano (0987066051). For Full
-                Pro + Past Papers: Send to S. Liffa (0999136433).
+                <strong>Step 2:</strong> Send the plan amount (K500, K1,500, or K5,000) to <strong>S. Lifa (0999136433)</strong>.
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>
-                Take a screenshot of the confirmation message & click the
-                matching button below to instantly verify on WhatsApp.
+                <strong>Step 3:</strong> Save your confirmation SMS screenshot and click the matching button below to instantly verify on WhatsApp.
               </span>
             </div>
           </div>
@@ -5924,7 +5866,7 @@ function SubscriptionView({
             </div>
 
             <button
-              onClick={() => handleOpenWhatsApp("Weekly AI Pro", "K500", false)}
+              onClick={() => handleOpenWhatsApp("Weekly AI Pro", "K500")}
               className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
             >
               <img
@@ -6007,7 +5949,7 @@ function SubscriptionView({
 
             <button
               onClick={() =>
-                handleOpenWhatsApp("Monthly AI Gold Pass", "K1500", false)
+                handleOpenWhatsApp("Monthly AI Gold Pass", "K1500")
               }
               className="w-full py-4 bg-pink-600 hover:bg-pink-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-pink-600/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
             >
@@ -6100,7 +6042,6 @@ function SubscriptionView({
                   handleOpenWhatsApp(
                     "Full Pro Access with Pastpapers",
                     "K5000",
-                    true,
                   )
                 }
                 className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
@@ -6110,21 +6051,7 @@ function SubscriptionView({
                   alt="WA"
                   className="w-4 h-4 rounded-full"
                 />
-                Verify with S. Liffa
-              </button>
-              <button
-                onClick={() => {
-                  const message = encodeURIComponent(
-                    `Hi Peter, Mr. Liffa hasn't responded to my K5000 payment for Full Pro Access. My username is ${profile?.name || ""} (${profile?.email || ""}). Please check for me.`,
-                  );
-                  window.open(
-                    `https://wa.me/265987066051?text=${message}`,
-                    "_blank",
-                  );
-                }}
-                className={`w-full py-2 rounded-xl flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-[9px] ${theme === "dark" ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-slate-800"} transition-all`}
-              >
-                Contact Developer (Backup)
+                Verify with S. Lifa
               </button>
             </div>
           </div>
@@ -6160,8 +6087,7 @@ function SubscriptionView({
 
         <div className="text-center pt-2 opacity-60">
           <p className="text-[10px] font-black uppercase tracking-widest">
-            Airtel money payments managed directly by Peter Damiano. Support &
-            Help: 0987066051
+            Airtel money payments managed by S. Lifa. Support & Verification: 0999136433
           </p>
         </div>
       </div>
