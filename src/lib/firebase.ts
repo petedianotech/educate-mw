@@ -17,16 +17,11 @@ export const db = initializeFirestore(app, {
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-// Use standard profile and email scopes for student authentication
+// Standard Google sign-in (email & basic profile only, no Drive/Docs scopes)
 
 // Flag to indicate if we are in the middle of a sign-in flow.
 export let isSigningIn = false;
-// Cache the access token in memory.
-export let cachedAccessToken: string | null = null;
 
-export const setCachedAccessToken = (token: string | null) => {
-  cachedAccessToken = token;
-};
 export const setIsSigningIn = (val: boolean) => {
   isSigningIn = val;
 };

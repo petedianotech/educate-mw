@@ -39,8 +39,6 @@ import {
   auth,
   db,
   googleProvider,
-  setCachedAccessToken,
-  cachedAccessToken,
 } from "./lib/firebase";
 import {
   Avatar,
@@ -5342,11 +5340,7 @@ function AuthView({
     setLoading(true);
     setError("");
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        setCachedAccessToken(credential.accessToken);
-      }
+      await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
       setError(err.message || "Login failed");
       console.error(err);
