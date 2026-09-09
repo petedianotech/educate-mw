@@ -5720,11 +5720,11 @@ function SubscriptionView({
   };
 
   const handleOpenWhatsApp = (
-    planName: string,
-    price: string,
+    planName: string = "Full Pro Access",
+    price: string = "K7,000",
   ) => {
     const message = encodeURIComponent(
-      `Hi Mr. Lifa, I'm ${profile?.name || "a student"} (${profile?.email || ""}). I've sent ${price} via Airtel Money to 0999136433 for the ${planName} plan. Here is my transaction screenshot.`,
+      `Hi Mr. Lifa, I'm ${profile?.name || "a student"} (${profile?.email || ""}). I've sent ${price} via Airtel Money to 0999136433 for ${planName}. Here is my transaction screenshot.`,
     );
     window.open(`https://wa.me/265999136433?text=${message}`, "_blank");
   };
@@ -5748,15 +5748,15 @@ function SubscriptionView({
             Upgrade to Pro
           </h2>
           <p
-            className={`text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
+            className={`text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-amber-400" : "text-amber-600"}`}
           >
-            Airtel Money Manual Mode
+            Single Fixed Price • Full Access
           </p>
         </div>
         <div className="w-10" />
       </div>
 
-      <div className="flex-1 p-5 pb-20 max-w-5xl mx-auto w-full space-y-6">
+      <div className="flex-1 p-5 pb-20 max-w-3xl mx-auto w-full space-y-6">
         {/* Top Feature Card with Airtel money logo & copy widgets */}
         <div
           className={`${theme === "dark" ? "bg-indigo-950/20 border-indigo-500/30" : "bg-white border-indigo-100 shadow-md"} rounded-3xl p-6 border relative overflow-hidden`}
@@ -5770,7 +5770,7 @@ function SubscriptionView({
               className="w-5 h-5 object-contain"
               referrerPolicy="no-referrer"
             />
-            Official Airtel Money Manual Account
+            Official Airtel Money Account
           </h3>
 
           <div className="relative z-10">
@@ -5784,7 +5784,7 @@ function SubscriptionView({
                 </div>
                 <div className="text-left">
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                    OFFICIAL AIRTEL MONEY RECEIVER (ALL PLANS)
+                    OFFICIAL RECEIVER
                   </p>
                   <h4 className="font-extrabold text-base tracking-tight">
                     S. Lifa (Teacher)
@@ -5821,272 +5821,125 @@ function SubscriptionView({
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>
-                <strong>Step 2:</strong> Send the plan amount (K500, K1,500, or K5,000) to <strong>S. Lifa (0999136433)</strong>.
+                <strong>Step 2:</strong> Send exactly <strong>K7,000</strong> to <strong>S. Lifa (0999136433)</strong>.
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>
-                <strong>Step 3:</strong> Save your confirmation SMS screenshot and click the matching button below to instantly verify on WhatsApp.
+                <strong>Step 3:</strong> Save your confirmation SMS screenshot and click the button below to instantly verify on WhatsApp.
               </span>
             </div>
           </div>
         </div>
 
-        {/* Plan Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Weekly Plan */}
-          <div
-            className={`${theme === "dark" ? "bg-gray-900 border-indigo-500/20" : "bg-white border-indigo-100 shadow-lg"} rounded-3xl p-6 border flex flex-col justify-between relative`}
+        {/* Single Fixed Price Plan Card */}
+        <div
+          className={`${theme === "dark" ? "bg-gray-900 border-amber-500/40 shadow-[0_20px_50px_rgba(245,158,11,0.1)]" : "bg-white border-amber-300 shadow-xl shadow-amber-600/10"} rounded-3xl p-8 border-2 relative overflow-hidden text-left`}
+        >
+          <div className="absolute top-0 right-0 bg-amber-500 text-gray-950 text-[10px] font-black uppercase tracking-widest py-1.5 px-5 rounded-bl-2xl">
+            ONE FIXED PRICE
+          </div>
+
+          <div className="inline-flex items-center bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-4">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              FULL ACCESS UNLOCKED
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-black mb-1">
+            Educate MW Pro
+          </h3>
+          <p
+            className={`text-xs font-bold mb-6 ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
           >
-            <div>
-              <div className="inline-flex items-center bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1 rounded-full border border-indigo-100 dark:border-indigo-900/40 mb-4">
-                <span className="text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
-                  WEEKLY ACCESS
-                </span>
-              </div>
-              <h3 className="text-xl font-black mb-1">Weekly AI Pro</h3>
-              <p
-                className={`text-xs font-bold mb-4 ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
-              >
-                Fast booster for study sessions
-              </p>
+            Access everything on Educate MW with a single payment of K7,000. No recurring fees or hidden charges.
+          </p>
 
-              <div className="mb-6 flex items-baseline gap-1.5">
-                <span className="text-4xl font-black">K500</span>
-                <span
-                  className={`text-xs font-bold ${theme === "dark" ? "text-gray-500" : "text-slate-500"}`}
-                >
-                  / week
-                </span>
-              </div>
-
-              <div className="space-y-3 mb-8 text-left">
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-indigo-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    Unlimited Emi AI Text & Questions
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-indigo-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    Unlimited Live Voice Call duration
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-indigo-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    Priority answer delivery system
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5 text-slate-400">
-                  <span className="text-xs font-bold line-through">
-                    • No MANEB Past Papers files
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleOpenWhatsApp("Weekly AI Pro", "K500")}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
+          <div className="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-baseline gap-2">
+            <span className="text-5xl font-black text-amber-500">
+              K7,000
+            </span>
+            <span
+              className={`text-xs font-bold uppercase tracking-wider ${theme === "dark" ? "text-gray-300" : "text-slate-600"}`}
             >
-              <img
-                src="https://i.ibb.co/B5nZcRNC/images-3.jpg"
-                alt="WA"
-                className="w-4 h-4 rounded-full"
+              / Full Access
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={18}
+                className="text-amber-500 mt-0.5 shrink-0"
               />
-              Verify Weekly Pro (K500)
-            </button>
-          </div>
-
-          {/* Monthly Plan with Discount */}
-          <div
-            className={`${theme === "dark" ? "bg-gray-900 border-pink-500/20" : "bg-white border-pink-100 shadow-lg"} rounded-3xl p-6 border flex flex-col justify-between relative`}
-          >
-            <div className="absolute top-0 right-0 bg-pink-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3 rounded-bl-xl">
-              25% DISCOUNT
+              <span className="text-xs font-bold">
+                Unlimited Emi AI Questions & Solvers
+              </span>
             </div>
-
-            <div>
-              <div className="inline-flex items-center bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/20 mb-4">
-                <span className="text-[9px] font-black uppercase tracking-wider text-pink-600 dark:text-pink-400">
-                  POPULAR AI
-                </span>
-              </div>
-              <h3 className="text-xl font-black mb-1">Monthly AI Gold</h3>
-              <p
-                className={`text-xs font-bold mb-4 ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
-              >
-                MANEB curriculum AI success
-              </p>
-
-              <div className="mb-6 flex items-baseline gap-1.5">
-                <span className="text-4xl font-black text-pink-500">K1500</span>
-                <span
-                  className={`text-xs font-bold ${theme === "dark" ? "text-gray-500" : "text-slate-500"}`}
-                >
-                  / month
-                </span>
-                <span className="text-xs line-through text-gray-400 font-bold ml-1">
-                  K2000
-                </span>
-              </div>
-
-              <div className="space-y-3 mb-8 text-left">
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-pink-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    Everything in Weekly AI included
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-pink-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    Complete Emi AI Unlimited Access
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-pink-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-black text-pink-600 dark:text-pink-400">
-                    SAVE K500 Compared to Weekly!
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5 text-slate-400">
-                  <span className="text-xs font-bold line-through">
-                    • No MANEB Past Papers files
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() =>
-                handleOpenWhatsApp("Monthly AI Gold Pass", "K1500")
-              }
-              className="w-full py-4 bg-pink-600 hover:bg-pink-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-pink-600/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
-            >
-              <img
-                src="https://i.ibb.co/B5nZcRNC/images-3.jpg"
-                alt="WA"
-                className="w-4 h-4 rounded-full"
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={18}
+                className="text-amber-500 mt-0.5 shrink-0"
               />
-              Verify Monthly AI (K1500)
-            </button>
+              <span className="text-xs font-bold">
+                Unlimited Live Voice Call Tutoring
+              </span>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={18}
+                className="text-amber-500 mt-0.5 shrink-0"
+              />
+              <span className="text-xs font-bold">
+                Unlimited JCE & MSCE Past Papers
+              </span>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={18}
+                className="text-amber-500 mt-0.5 shrink-0"
+              />
+              <span className="text-xs font-bold">
+                Unlimited Study Notes & eBooks
+              </span>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={18}
+                className="text-amber-500 mt-0.5 shrink-0"
+              />
+              <span className="text-xs font-bold">
+                Official MANEB Solutions & Marking Keys
+              </span>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={18}
+                className="text-amber-500 mt-0.5 shrink-0"
+              />
+              <span className="text-xs font-bold">
+                Verified Pro Student Badge
+              </span>
+            </div>
           </div>
 
-          {/* K5000 Monthly Plan - Full Pro Access including pastpapers */}
-          <div
-            className={`${theme === "dark" ? "bg-gray-900 border-amber-500/30 shadow-[0_20px_50px_rgba(245,158,11,0.08)]" : "bg-white border-amber-200 shadow-xl shadow-amber-600/10"} rounded-3xl p-6 border-2 flex flex-col justify-between relative overflow-hidden`}
+          <button
+            onClick={() =>
+              handleOpenWhatsApp(
+                "Educate MW Full Access",
+                "K7,000",
+              )
+            }
+            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
           >
-            <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest py-1 px-4 rounded-bl-xl">
-              ELITE PACK
-            </div>
-
-            <div>
-              <div className="inline-flex items-center bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-4">
-                <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                  COMPLETE SUITE
-                </span>
-              </div>
-              <h3 className="text-xl font-black mb-1 font-sans">
-                Full Pro Access
-              </h3>
-              <p
-                className={`text-xs font-bold mb-4 ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
-              >
-                The Ultimate Student Pack with Pastpapers
-              </p>
-
-              <div className="mb-6 flex items-baseline gap-1.5">
-                <span className="text-4xl font-black text-amber-500">
-                  K5000
-                </span>
-                <span
-                  className={`text-xs font-bold ${theme === "dark" ? "text-gray-500" : "text-slate-500"}`}
-                >
-                  / month
-                </span>
-              </div>
-
-              <div className="space-y-3 mb-8 text-left">
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-amber-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    No limits for Emi AI questions
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-amber-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold">
-                    Unlimited eBook & Notes downloads
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-amber-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-black text-amber-600 dark:text-amber-400">
-                    UNLIMITED JCE & MSCE PAST PAPERS
-                  </span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle2
-                    size={16}
-                    className="text-amber-500 mt-0.5 shrink-0"
-                  />
-                  <span className="text-xs font-bold animate-pulse">
-                    Official MANEB study guidelines & answers
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                onClick={() =>
-                  handleOpenWhatsApp(
-                    "Full Pro Access with Pastpapers",
-                    "K5000",
-                  )
-                }
-                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
-              >
-                <img
-                  src="https://i.ibb.co/B5nZcRNC/images-3.jpg"
-                  alt="WA"
-                  className="w-4 h-4 rounded-full"
-                />
-                Verify with S. Lifa
-              </button>
-            </div>
-          </div>
+            <img
+              src="https://i.ibb.co/B5nZcRNC/images-3.jpg"
+              alt="WA"
+              className="w-5 h-5 rounded-full"
+            />
+            Verify Payment (K7,000 via WhatsApp)
+          </button>
         </div>
 
         {/* Free Limits card for clarity */}
@@ -8787,9 +8640,9 @@ function EmiProAdvertisingBanner({
           </h4>
           <p className="text-[11px] text-gray-300 font-semibold leading-relaxed max-w-xl">
             You are currently using Emi AI in free tier mode with limited
-            question credits. Upgrade to **Educate MW PRO** for only K500/week
-            or K1500/month (Airtel Money) to ask unlimited syllabus questions,
-            voice-call Emi (Coming Soon), and download exam materials!
+            question credits. Upgrade to **Educate MW PRO** for K7,000
+            (Airtel Money) to ask unlimited syllabus questions,
+            voice-call Emi, download past papers and all exam materials!
           </p>
         </div>
       </div>
