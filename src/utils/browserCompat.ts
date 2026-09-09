@@ -262,7 +262,103 @@ if (typeof window !== 'undefined' && typeof window.structuredClone === 'undefine
   };
 }
 
-// 12. Global resilience: Prevent uncaught unhandledrejection crashes
+// 12. AbortController and AbortSignal polyfill for Chrome < 66 / Android 6.0.1
+if (typeof window !== 'undefined' && typeof (window as any).AbortController === 'undefined') {
+  class MockAbortSignal {
+    aborted = false;
+    onabort: ((this: any, ev: any) => any) | null = null;
+    private listeners = new Map<string, Array<any>>();
+
+    addEventListener(type: string, listener: any) {
+      if (!this.listeners.has(type)) {
+        this.listeners.set(type, []);
+      }
+      this.listeners.get(type)!.push(listener);
+    }
+
+    removeEventListener(type: string, listener: any) {
+      if (this.listeners.has(type)) {
+        const arr = this.listeners.get(type)!;
+        const idx = arr.indexOf(listener);
+        if (idx !== -1) arr.splice(idx, 1);
+      }
+    }
+
+    dispatchEvent(event: any) {
+      if (this.onabort) this.onabort.call(this, event);
+      const arr = this.listeners.get('abort') || [];
+      for (const listener of arr) {
+        if (typeof listener === 'function') listener.call(this, event);
+        else if (listener && typeof listener.handleEvent === 'function') listener.handleEvent(event);
+      }
+      return true;
+    }
+  }
+
+  class MockAbortController {
+    signal = new MockAbortSignal();
+    abort() {
+      this.signal.aborted = true;
+      this.signal.dispatchEvent({ type: 'abort', target: this.signal });
+    }
+  }
+
+  (window as any).AbortController = MockAbortController;
+  (window as any).AbortSignal = MockAbortSignal;
+}
+
+// 13. matchMedia compatibility fallback for Android 6.0.1
+if (typeof window !== 'undefined') {
+  if (!window.matchMedia) {
+    (window as any).matchMedia = function () {
+      return {
+        matches: false,
+        media: '',
+        onchange: null,
+        addListener: function () {},
+        removeListener: function () {},
+        addEventListener: function () {},
+        removeEventListener: function () {},
+        dispatchEvent: function () { return false; },
+      };
+    };
+  } else {
+    try {
+      const mql = window.matchMedia('(min-width: 0px)') as any;
+      if (mql && !mql.addEventListener && mql.addListener) {
+        const proto = Object.getPrototypeOf(mql) || mql;
+        proto.addEventListener = function (type: string, fn: any) {
+          if (this.addListener) this.addListener(fn);
+        };
+        proto.removeEventListener = function (type: string, fn: any) {
+          if (this.removeListener) this.removeListener(fn);
+        };
+      }
+    } catch {
+      // Safe ignore
+    }
+  }
+}
+
+// 14. IntersectionObserver and ResizeObserver safe stubs for older Android
+if (typeof window !== 'undefined') {
+  if (!(window as any).IntersectionObserver) {
+    (window as any).IntersectionObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+  if (!(window as any).ResizeObserver) {
+    (window as any).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+}
+
+// 15. Global resilience: Prevent uncaught unhandledrejection crashes
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     // Gracefully absorb benign background connection or offline failures
@@ -280,3 +376,4 @@ if (typeof window !== 'undefined') {
 }
 
 export const isBrowserCompatible = true;
+
