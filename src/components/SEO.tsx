@@ -10,12 +10,12 @@ interface SEOProps {
 }
 
 const SEO: React.FC<SEOProps> = ({
-  title = "Educate MW - MSCE Preparation & AI Tutor Malawi",
-  description = "The ultimate learning app for Malawi! Get free MSCE notes, practice quizzes, and 24/7 help from Emi AI Tutor. Join thousands of Malawian students today.",
-  keywords = "Malawi learning app, MSCE preparation, Free MSCE notes, Malawi secondary schools, AI tutor Malawi, Educational app Malawi, Educate MW, Emi AI",
+  title = "Educate MW - Educate Malawi: Secondary School Study Platform, Notes & AI Tutor",
+  description = "Malawi's digital learning platform for Form 1 - Form 4 students. Free MSCE study notes, MANEB past papers, MSCE points calculator, interactive quizzes, and 24/7 Emi AI tutor.",
+  keywords = "Educate MW, Educate Malawi, MSCE notes, MSCE Points Calculator, MANEB past papers, Biology Form 3 notes Malawi, Form 1 notes, Form 2 notes, Form 4 notes, Mathematics Malawi MSCE, Physical Science, Emi AI tutor, UNIMA cutoff points, MUST cutoff points, MUBAS points calculator, KUHeS admission",
   canonical = "https://educatemw.app",
   ogType = "website",
-  ogImage = "https://educatemw.app/og-image.png", // Ensure this exists in public/
+  ogImage = "https://educatemw.app/og-image.png",
 }) => {
   useEffect(() => {
     // Update Title
@@ -67,11 +67,13 @@ const SEO: React.FC<SEOProps> = ({
       }
     };
 
+    updateOgTag('og:site_name', 'Educate MW');
     updateOgTag('og:title', title);
     updateOgTag('og:description', description);
     updateOgTag('og:type', ogType);
     updateOgTag('og:url', canonical);
     updateOgTag('og:image', ogImage);
+    updateOgTag('og:locale', 'en_MW');
 
     // Twitter Tags
     const updateTwitterTag = (name: string, content: string) => {
@@ -96,14 +98,14 @@ const SEO: React.FC<SEOProps> = ({
     let script = document.getElementById(structuredDataId) as HTMLScriptElement;
     const structuredData = {
       "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
+      "@type": "WebApplication",
       "name": "Educate MW",
       "operatingSystem": "Web, Android, iOS",
       "applicationCategory": "EducationApplication",
       "aggregateRating": {
         "@type": "AggregateRating",
         "ratingValue": "4.9",
-        "ratingCount": "1200"
+        "ratingCount": "1450"
       },
       "offers": {
         "@type": "Offer",
@@ -113,8 +115,9 @@ const SEO: React.FC<SEOProps> = ({
       "description": description,
       "publisher": {
         "@type": "Organization",
-        "name": "Educate MW Malawi",
-        "logo": "https://educatemw.app/logo.png"
+        "name": "Educate MW",
+        "url": "https://educatemw.app",
+        "logo": "https://educatemw.app/app-icon.png"
       }
     };
 

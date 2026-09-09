@@ -67,7 +67,7 @@ app.post(["/api/gemini/chat", "/gemini/chat"], async (req: any, res: any) => {
     const searchEnabled = true;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
@@ -120,7 +120,7 @@ app.post(["/api/gemini/quiz", "/gemini/quiz"], async (req: any, res: any) => {
     ]`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.2,
@@ -151,7 +151,7 @@ app.post(["/api/gemini/career", "/gemini/career"], async (req: any, res: any) =>
     const { prompt } = req.body;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -197,7 +197,7 @@ app.post(["/api/gemini/flashcards", "/gemini/flashcards"], async (req: any, res:
     ]`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.3,

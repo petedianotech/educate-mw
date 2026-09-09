@@ -14,9 +14,9 @@ export default defineConfig(({mode}) => {
         registerType: 'autoUpdate',
         injectRegister: 'auto',
         manifest: {
-          name: 'Educate MW | #1 Study App for Malawi',
-          short_name: 'EducateMW',
-          description: 'The ultimate learning platform for Malawian students Form 1-4.',
+          name: 'Educate Malawi',
+          short_name: 'Educate MW',
+          description: 'The comprehensive secondary school learning platform for Malawian students Form 1-4.',
           theme_color: '#5D44F2',
           background_color: '#030712',
           display: 'standalone',

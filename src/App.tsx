@@ -859,6 +859,7 @@ export default function App() {
                   theme={theme}
                   profile={userProfile}
                   onUpdateProfile={setUserProfile}
+                  onNavigateToEmi={() => navigateTo("emi")}
                 />
               )}
               {currentView === "msce-calculator" && (
@@ -1955,148 +1956,11 @@ function EmiChatView({
 
   useEffect(() => {
     if (!isLoading) {
-      setLoadingStatus("Emi is thinking...");
+      setLoadingStatus("Working...");
       return;
     }
-
-    const queryLower = lastQuery.toLowerCase().trim();
-    let topicText = "your topic";
-    let subjectText = "Malawi Curriculum guidelines";
-
-    // Subject/Topic category keyword definitions
-    if (
-      queryLower.includes("agri") ||
-      queryLower.includes("farm") ||
-      queryLower.includes("crop") ||
-      queryLower.includes("soil") ||
-      queryLower.includes("livestock") ||
-      queryLower.includes("plant")
-    ) {
-      subjectText = "Agriculture Science";
-      topicText = "agriculture and farming methods";
-    } else if (
-      queryLower.includes("biol") ||
-      queryLower.includes("cell") ||
-      queryLower.includes("human") ||
-      queryLower.includes("digestive") ||
-      queryLower.includes("disease")
-    ) {
-      subjectText = "Biology & Life Sciences";
-      topicText = "biology structures";
-    } else if (
-      queryLower.includes("letter") ||
-      queryLower.includes("report") ||
-      queryLower.includes("formal") ||
-      queryLower.includes("write") ||
-      queryLower.includes("writing") ||
-      queryLower.includes("english")
-    ) {
-      subjectText = "English Language";
-      topicText = "English communications and formats";
-    } else if (
-      queryLower.includes("nthondo") ||
-      queryLower.includes("samuel") ||
-      queryLower.includes("nthara")
-    ) {
-      subjectText = "Chichewa Literature (Nthondo)";
-      topicText = "Nthondo book chapters & themes";
-    } else if (
-      queryLower.includes("chamdothe") ||
-      queryLower.includes("ntaba")
-    ) {
-      subjectText = "Chichewa Literature (Chamdothe)";
-      topicText = "Chamdothe synopsis & setting";
-    } else if (
-      queryLower.includes("chichewa") ||
-      queryLower.includes("chikalata") ||
-      queryLower.includes("nthano")
-    ) {
-      subjectText = "Chichewa Language & Literature";
-      topicText = "Chichewa literature core questions";
-    } else if (
-      queryLower.includes("physics") ||
-      queryLower.includes("chem") ||
-      queryLower.includes("electric") ||
-      queryLower.includes("force") ||
-      queryLower.includes("acid") ||
-      queryLower.includes("science")
-    ) {
-      subjectText = "Physics & Chemistry";
-      topicText = "science and physical theory math";
-    } else if (
-      queryLower.includes("history") ||
-      queryLower.includes("war") ||
-      queryLower.includes("politics") ||
-      queryLower.includes("colonial")
-    ) {
-      subjectText = "History & Social Studies";
-      topicText = "historic syllabus timelines";
-    } else if (
-      queryLower.includes("geog") ||
-      queryLower.includes("map") ||
-      queryLower.includes("climate") ||
-      queryLower.includes("weather") ||
-      queryLower.includes("lake")
-    ) {
-      subjectText = "Geography & Environmental Studies";
-      topicText = "geography and climate factors";
-    } else if (
-      queryLower.includes("math") ||
-      queryLower.includes("algebra") ||
-      queryLower.includes("geometry") ||
-      queryLower.includes("solve") ||
-      queryLower.includes("calculat")
-    ) {
-      subjectText = "Mathematics";
-      topicText = "mathematical calculations";
-    }
-
-    // Attempt to extract the absolute best 2-4 content words from the user message to show as target topic search
-    const cleanQuery = lastQuery.replace(/[?:,.!]/g, " ");
-    const words = cleanQuery
-      .split(/\s+/)
-      .filter(
-        (w) =>
-          w.length > 4 &&
-          ![
-            "about",
-            "write",
-            "please",
-            "explain",
-            "what",
-            "where",
-            "which",
-            "their",
-            "there",
-          ].includes(w.toLowerCase()),
-      );
-    if (words.length > 0) {
-      topicText = words.slice(0, 3).join(" ");
-    } else if (cleanQuery.trim()) {
-      topicText = cleanQuery.trim();
-    }
-
-    const statuses = [
-      `Emi is analyzing your "${topicText}" query...`,
-      `Searching 2025/2026 JCE & MSCE Malawi syllabus for "${topicText}"...`,
-      `Retrieving official school curriculum details for "${subjectText}"...`,
-      `Verifying recommended academic books and literary guides for "${topicText}"...`,
-      `Formulating standard, exam-ready response for "${topicText}" under MANEB...`,
-      `Drafting clear answer structure with Chichewa & English illustrations...`,
-      `Ensuring precise academic standards with helpful memory tips...`,
-      `Polishing model guidelines to help you score full marks...`,
-    ];
-
-    let currentIndex = 0;
-    setLoadingStatus(statuses[0]);
-
-    const intervalId = setInterval(() => {
-      currentIndex = (currentIndex + 1) % statuses.length;
-      setLoadingStatus(statuses[currentIndex]);
-    }, 2800);
-
-    return () => clearInterval(intervalId);
-  }, [isLoading, lastQuery]);
+    setLoadingStatus("Working...");
+  }, [isLoading]);
 
   const speakText = (text: string, id: string) => {
     if ("speechSynthesis" in window) {
@@ -2549,7 +2413,7 @@ function EmiChatView({
                     </div>
                   </div>
                   <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">
-                    Thinking...
+                    Working...
                   </p>
                 </div>
               </div>
@@ -8536,8 +8400,8 @@ function PwaInstallPrompt({
         <p
           className={`text-xs leading-relaxed font-semibold mb-5 ${theme === "dark" ? "text-gray-400" : "text-slate-500"} max-w-[280px]`}
         >
-          Add the #1 Study App for Malawi to your Home Screen for easy 1-click
-          access, super-fast load speeds, and fully offline MSCE / JCE study
+          Add Educate Malawi to your Home Screen for easy 1-click
+          access, super-fast load speeds, and offline MSCE / JCE study
           session packs!
         </p>
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  ArrowLeft, 
+  ChevronLeft, 
   Calculator, 
   GraduationCap, 
   CheckCircle2, 
@@ -18,7 +18,10 @@ import {
   RotateCcw,
   Sparkles,
   ExternalLink,
-  BookOpen
+  BookOpen,
+  Award,
+  Filter,
+  Plus
 } from 'lucide-react';
 
 export interface SubjectGrade {
@@ -1016,31 +1019,32 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
   };
 
   const getGradePill = (grade: number) => {
-    if (grade === 0) return { label: 'Not Set', color: 'bg-slate-800/60 text-slate-400 border-slate-700' };
-    if (grade <= 2) return { label: `Distinction (${grade})`, color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' };
-    if (grade <= 6) return { label: `Credit (${grade})`, color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' };
-    if (grade <= 8) return { label: `Pass (${grade})`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/40' };
-    return { label: `Fail (${grade})`, color: 'bg-red-500/20 text-red-300 border-red-500/40' };
+    if (grade === 0) return { label: 'Not Set', color: theme === 'dark' ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-slate-100 text-slate-500 border-slate-200' };
+    if (grade <= 2) return { label: `Distinction (${grade})`, color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' };
+    if (grade <= 6) return { label: `Credit (${grade})`, color: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30' };
+    if (grade <= 8) return { label: `Pass (${grade})`, color: 'bg-amber-500/15 text-amber-400 border-amber-500/30' };
+    return { label: `Fail (${grade})`, color: 'bg-red-500/15 text-red-400 border-red-500/30' };
   };
 
   return (
-    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300 overflow-hidden select-none`}>
+    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300 overflow-hidden`}>
       
-      {/* Clean Top Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'} border-b flex items-center justify-between py-3 px-4 md:px-6 shrink-0 z-20 backdrop-blur-md`}>
-        <div className="flex items-center gap-3">
+      {/* Standard App Header */}
+      <div className={`p-4 border-b ${theme === "dark" ? "border-gray-800 bg-gray-950/90" : "border-slate-200 bg-white/90"} flex items-center justify-between sticky top-0 z-30 backdrop-blur-md shrink-0`}>
+        <div className="flex items-center">
           <button 
             onClick={onBack} 
-            className={`w-9 h-9 rounded-xl ${theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'} flex items-center justify-center transition-transform active:scale-95`}
+            className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-700"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
+            aria-label="Go Back"
           >
-            <ArrowLeft size={18} strokeWidth={2.5} />
+            <ChevronLeft size={24} strokeWidth={3} />
           </button>
-          <div>
-            <h1 className={`text-sm md:text-base font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'} uppercase flex items-center gap-1.5`}>
-              <Calculator size={17} className="text-indigo-500" /> MSCE Points Calculator
-            </h1>
-            <p className="text-[10px] text-slate-400 font-medium">
-              Malawi MANEB Aggregate & University Course Recommender
+          <div className="ml-3">
+            <h2 className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}>
+              MSCE Points Calculator
+            </h2>
+            <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
+              Aggregate & University Match
             </p>
           </div>
         </div>
@@ -1048,59 +1052,59 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
         <div className="flex items-center gap-2">
           <button
             onClick={handleResetAllToZero}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all ${
-              theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
+            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+              theme === 'dark' ? 'bg-gray-900 hover:bg-gray-800 text-gray-300 border border-gray-800' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+            } active:scale-95`}
             title="Reset all grades to 0"
           >
-            <RotateCcw size={13} />
-            <span className="hidden sm:inline">Reset to 0</span>
+            <RotateCcw size={14} />
+            <span className="hidden sm:inline">Reset</span>
           </button>
 
           <button
             onClick={handleCopyReport}
-            className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
               copiedNotification 
                 ? 'bg-emerald-600 text-white' 
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-            }`}
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20'
+            } active:scale-95`}
           >
-            {copiedNotification ? <Check size={13} /> : <Share2 size={13} />}
-            <span>{copiedNotification ? 'Copied!' : 'Share'}</span>
+            {copiedNotification ? <Check size={14} /> : <Share2 size={14} />}
+            <span>{copiedNotification ? 'Copied' : 'Share'}</span>
           </button>
         </div>
       </div>
 
-      {/* Toast Warning Notification */}
+      {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] max-w-md w-[90%] bg-indigo-700 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-semibold"
+            className="fixed top-18 left-1/2 -translate-x-1/2 z-[100] max-w-md w-[90%] bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold"
           >
-            <Info size={16} className="shrink-0 text-indigo-200" />
+            <Info size={16} className="shrink-0 text-white" />
             <span className="flex-1">{toastMessage}</span>
             <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-white/20 rounded-lg">
-              <Check size={13} />
+              <Check size={14} />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Navigation Sub-Tabs */}
-      <div className={`px-4 md:px-6 pt-2.5 pb-2 shrink-0 border-b ${theme === 'dark' ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-slate-200'} flex items-center gap-2 overflow-x-auto hide-scrollbar`}>
+      {/* Clean App Segmented Tabs */}
+      <div className={`px-4 md:px-6 py-2.5 shrink-0 border-b ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200'} flex items-center gap-2 overflow-x-auto hide-scrollbar`}>
         <button
           onClick={() => setActiveTab('calculator')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shrink-0 flex items-center gap-2 ${
             activeTab === 'calculator'
-              ? 'bg-indigo-600 text-white shadow-sm'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Calculator size={14} />
-          <span>Calculator & Matches</span>
+          <span>Points Calculator</span>
           {stats.enteredCount >= 6 && (
             <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/20 text-white">
               {stats.best6Sum} pts
@@ -1110,136 +1114,136 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
 
         <button
           onClick={() => setActiveTab('directory')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shrink-0 flex items-center gap-2 ${
             activeTab === 'directory'
-              ? 'bg-indigo-600 text-white shadow-sm'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Building2 size={14} />
-          <span>Malawi Universities Explorer</span>
+          <span>Malawi Universities ({MALAWI_PROGRAMMES.length} Courses)</span>
         </button>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto hide-scrollbar px-4 md:px-6 py-5 pb-24">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 pb-28 space-y-6">
         
         {/* ================= TAB 1: CALCULATOR & RECOMMENDATIONS ================= */}
         {activeTab === 'calculator' && (
-          <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-200">
+          <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-200">
             
-            {/* Friendly Hero Summary Card */}
-            <div className={`p-5 md:p-6 rounded-3xl border ${
-              theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
+            {/* Primary Score Hero Card */}
+            <div className={`p-6 rounded-3xl border ${
+              theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
             }`}>
-              <div className="flex flex-col md:flex-row items-center justify-between gap-5">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                 
                 {/* Score Number + Status */}
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                  <div className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex flex-col items-center justify-center text-center shrink-0 border ${
+                <div className="flex items-center gap-5 w-full md:w-auto">
+                  <div className={`w-24 h-24 rounded-2xl flex flex-col items-center justify-center text-center shrink-0 border ${
                     stats.enteredCount >= 6 
                       ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-400' 
-                      : 'bg-slate-800/40 border-slate-700 text-slate-400'
+                      : 'bg-slate-800/20 border-slate-700 text-slate-400'
                   }`}>
-                    <span className="text-3xl md:text-4xl font-black font-mono leading-none">
+                    <span className="text-4xl font-black font-mono leading-none">
                       {stats.enteredCount >= 6 ? stats.best6Sum : stats.enteredCount > 0 ? stats.best6Sum : 0}
                     </span>
-                    <span className="text-[9px] uppercase font-bold tracking-wider mt-1 text-slate-400">
-                      {stats.enteredCount >= 6 ? 'Best 6 Pts' : stats.enteredCount > 0 ? `${stats.enteredCount}/6 Added` : 'Points'}
+                    <span className="text-[9px] uppercase font-black tracking-widest mt-1 text-slate-400">
+                      {stats.enteredCount >= 6 ? 'Best 6 Pts' : stats.enteredCount > 0 ? `${stats.enteredCount}/6 Entered` : 'Points'}
                     </span>
                   </div>
 
-                  <div className="space-y-1 flex-1">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stats.tierBadgeBg}`}>
+                  <div className="space-y-1.5 flex-1">
+                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${stats.tierBadgeBg}`}>
                       {stats.qualificationTier}
                     </span>
-                    <h2 className={`text-base md:text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight`}>
                       {stats.enteredCount === 0 
                         ? 'Select your subject grades below'
                         : stats.enteredCount < 6 
-                          ? `Add ${6 - stats.enteredCount} more subject(s) to finish`
-                          : `MSCE Aggregate: ${stats.best6Sum} Points`}
-                    </h2>
-                    <p className="text-xs text-slate-400 leading-snug">
+                          ? `Add ${6 - stats.enteredCount} more subject(s) to complete`
+                          : `MSCE Best 6 Aggregate: ${stats.best6Sum} Points`}
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
                       {stats.enteredCount === 0 
-                        ? 'All values default to 0. Tap a grade (1 to 9) on your subjects below to calculate your points.'
-                        : 'In Malawi, lower points are better (1 = Distinction, 6 = Credit, 9 = Fail). English + 5 best subjects make your aggregate.'}
+                        ? 'English + 5 best subjects determine your MSCE aggregate (1 = Distinction, 6 = Credit, 9 = Fail). Lower is better.'
+                        : 'Your points and grades are analyzed in real-time against official NCHE and university admission criteria.'}
                     </p>
                   </div>
                 </div>
 
-                {/* Score Metrics Pills */}
-                <div className="grid grid-cols-3 gap-2 w-full md:w-auto shrink-0 text-center">
-                  <div className={`p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-gray-950/60 border-gray-800' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="text-lg font-bold text-emerald-400 font-mono">{stats.distinctions}</div>
-                    <div className="text-[9px] text-slate-400 font-medium">Distinctions (1-2)</div>
+                {/* Stat Badges */}
+                <div className="grid grid-cols-3 gap-2.5 w-full md:w-auto shrink-0 text-center">
+                  <div className={`p-3 rounded-2xl border ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="text-xl font-black text-emerald-400 font-mono">{stats.distinctions}</div>
+                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Distinctions</div>
                   </div>
-                  <div className={`p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-gray-950/60 border-gray-800' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="text-lg font-bold text-indigo-400 font-mono">{stats.credits}</div>
-                    <div className="text-[9px] text-slate-400 font-medium">Credits (1-6)</div>
+                  <div className={`p-3 rounded-2xl border ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="text-xl font-black text-indigo-400 font-mono">{stats.credits}</div>
+                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Credits</div>
                   </div>
-                  <div className={`p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-gray-950/60 border-gray-800' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className={`text-lg font-bold font-mono ${stats.hasEnglishCredit ? 'text-emerald-400' : stats.englishGrade > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
-                      {stats.englishGrade > 0 ? stats.englishGrade : '--'}
+                  <div className={`p-3 rounded-2xl border ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className={`text-xl font-black font-mono ${stats.hasEnglishCredit ? 'text-emerald-400' : stats.englishGrade > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+                      {stats.englishGrade > 0 ? `Gr ${stats.englishGrade}` : '--'}
                     </div>
-                    <div className="text-[9px] text-slate-400 font-medium">English Grade</div>
+                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">English</div>
                   </div>
                 </div>
 
               </div>
 
-              {/* Quick Example Presets bar */}
-              <div className="mt-4 pt-3.5 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="text-[11px] text-slate-400 font-medium">Try quick examples:</span>
-                <div className="flex flex-wrap gap-1.5">
+              {/* Quick Presets Bar */}
+              <div className="mt-5 pt-4 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Example Presets:</span>
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => loadPreset('medicine')}
-                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all ${
-                      theme === 'dark' ? 'bg-gray-800/80 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                      theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+                    } active:scale-95`}
                   >
-                    10 pts (Medicine)
+                    Medicine (10 pts)
                   </button>
                   <button
                     onClick={() => loadPreset('engineering')}
-                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all ${
-                      theme === 'dark' ? 'bg-gray-800/80 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                      theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+                    } active:scale-95`}
                   >
-                    14 pts (Engineering)
+                    Engineering (14 pts)
                   </button>
                   <button
                     onClick={() => loadPreset('law')}
-                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all ${
-                      theme === 'dark' ? 'bg-gray-800/80 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                      theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+                    } active:scale-95`}
                   >
-                    12 pts (Law)
+                    Law (12 pts)
                   </button>
                   <button
                     onClick={() => loadPreset('general')}
-                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all ${
-                      theme === 'dark' ? 'bg-gray-800/80 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                      theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 text-gray-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+                    } active:scale-95`}
                   >
-                    22 pts (General)
+                    General Pass (22 pts)
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Subject Grade Inputs Section */}
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
-                <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
-                  Your Subjects ({subjects.length})
+                <h3 className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
+                  Select Subject Grades ({subjects.length} Subjects)
                 </h3>
-                <span className="text-[11px] text-slate-400">
-                  {stats.enteredCount >= 6 ? '⭐ = Best 6 Subject' : 'Select grades 1 (best) to 9 (fail)'}
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {stats.enteredCount >= 6 ? '⭐ = Best 6 Subject' : 'Tap grade to set'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {subjects.map((sub) => {
                   const isBest6 = stats.best6Ids.has(sub.id) && sub.grade > 0;
                   const pill = getGradePill(sub.grade);
@@ -1247,38 +1251,39 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                   return (
                     <div 
                       key={sub.id}
-                      className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                      className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                         isBest6
                           ? theme === 'dark'
-                            ? 'bg-indigo-950/20 border-indigo-500/40' 
-                            : 'bg-indigo-50/60 border-indigo-300'
+                            ? 'bg-indigo-950/20 border-indigo-500/40 shadow-sm' 
+                            : 'bg-indigo-50/70 border-indigo-300 shadow-sm'
                           : theme === 'dark'
-                            ? 'bg-gray-900/60 border-gray-800' 
-                            : 'bg-white border-slate-200'
+                            ? 'bg-gray-900 border-gray-800' 
+                            : 'bg-white border-slate-200 shadow-sm'
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className={`text-xs md:text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                             {sub.name}
                           </h4>
                           {isBest6 && (
-                            <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/15 px-1.5 py-0.5 rounded-md shrink-0">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded-md shrink-0 border border-indigo-500/20">
                               Best 6
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">
                           {sub.id === 'eng' ? 'Mandatory for MSCE' : sub.category}
                         </p>
                       </div>
 
                       {/* Grade Selector Dropdown */}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <select
                           value={sub.grade}
                           onChange={(e) => updateGrade(sub.id, Number(e.target.value))}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer outline-none transition-all ${
+                          aria-label={`Select grade for ${sub.name}`}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold border cursor-pointer outline-none transition-all ${
                             sub.grade === 0 
                               ? theme === 'dark' ? 'bg-gray-950 border-gray-800 text-slate-400' : 'bg-slate-100 border-slate-300 text-slate-500'
                               : pill.color
@@ -1299,10 +1304,11 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                         {sub.id !== 'eng' && (
                           <button
                             onClick={() => handleRemoveSubject(sub.id)}
-                            className="p-1 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
                             title="Remove subject"
+                            aria-label={`Remove ${sub.name}`}
                           >
-                            <XCircle size={15} />
+                            <XCircle size={16} />
                           </button>
                         )}
                       </div>
@@ -1313,10 +1319,11 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
 
               {/* Add Additional Subject Row */}
               {MANEB_SUBJECTS.some(ms => !subjects.some(s => s.id === ms.id)) && (
-                <div className={`p-3 rounded-2xl border ${theme === 'dark' ? 'bg-gray-900/40 border-gray-800' : 'bg-slate-100 border-slate-200'} flex flex-col sm:flex-row items-center justify-between gap-2.5 mt-2`}>
-                  <span className="text-xs font-medium text-slate-400">
-                    Need to add Computer Studies, Accounting, French, etc.?
-                  </span>
+                <div className={`p-4 rounded-2xl border ${theme === 'dark' ? 'bg-gray-900/60 border-gray-800' : 'bg-slate-100 border-slate-200'} flex flex-col sm:flex-row items-center justify-between gap-3 mt-2`}>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <Plus size={16} className="text-indigo-400" />
+                    <span>Add optional elective (Computer Studies, Accounting, French...)</span>
+                  </div>
                   <select
                     onChange={(e) => {
                       if (e.target.value) {
@@ -1325,11 +1332,12 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                       }
                     }}
                     defaultValue=""
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                    aria-label="Add optional elective subject"
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold border ${
                       theme === 'dark' ? 'bg-gray-950 border-gray-800 text-white' : 'bg-white border-slate-300 text-slate-800'
                     }`}
                   >
-                    <option value="" disabled>+ Add Another Subject...</option>
+                    <option value="" disabled>+ Add Elective Subject...</option>
                     {MANEB_SUBJECTS.filter(ms => !subjects.some(s => s.id === ms.id)).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -1339,27 +1347,27 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
             </div>
 
             {/* University Recommendations Section */}
-            <div className="pt-3 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="pt-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className={`text-sm font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    University Course Matches ({filteredProgrammes.length})
+                  <h3 className={`text-base font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    University Degree Matches ({filteredProgrammes.length})
                   </h3>
                   <p className="text-xs text-slate-400">
                     {stats.enteredCount >= 6 
-                      ? `Based on your aggregate of ${stats.best6Sum} points and subject grades`
-                      : 'Showing course admission requirements. Enter your points above to see your exact eligibility!'}
+                      ? `Based on your aggregate of ${stats.best6Sum} points and subject qualifications`
+                      : 'Real-time admission eligibility and cutoff analysis'}
                   </p>
                 </div>
 
                 {/* Filter tabs */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
                   <button
                     onClick={() => setMatchFilter('all')}
-                    className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                       matchFilter === 'all'
-                        ? 'bg-indigo-600 text-white'
-                        : theme === 'dark' ? 'bg-gray-800 text-slate-400' : 'bg-slate-200 text-slate-700'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : theme === 'dark' ? 'bg-gray-900 text-slate-400 border border-gray-800' : 'bg-slate-200 text-slate-700'
                     }`}
                   >
                     All Courses
@@ -1368,9 +1376,9 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                     <>
                       <button
                         onClick={() => setMatchFilter('qualified')}
-                        className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                           matchFilter === 'qualified'
-                            ? 'bg-emerald-600 text-white'
+                            ? 'bg-emerald-600 text-white shadow-sm'
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         }`}
                       >
@@ -1378,9 +1386,9 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                       </button>
                       <button
                         onClick={() => setMatchFilter('competitive')}
-                        className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                           matchFilter === 'competitive'
-                            ? 'bg-amber-600 text-white'
+                            ? 'bg-amber-600 text-white shadow-sm'
                             : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                         }`}
                       >
@@ -1392,11 +1400,11 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
               </div>
 
               {/* Search & University Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border ${
                   theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800'
                 }`}>
-                  <Search size={14} className="text-slate-400 shrink-0" />
+                  <Search size={15} className="text-slate-400 shrink-0" />
                   <input
                     type="text"
                     value={searchQuery}
@@ -1406,7 +1414,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                   />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-white">
-                      <XCircle size={13} />
+                      <XCircle size={14} />
                     </button>
                   )}
                 </div>
@@ -1414,16 +1422,17 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                 <select
                   value={selectedUniversity}
                   onChange={(e) => setSelectedUniversity(e.target.value)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                  aria-label="Filter by University"
+                  className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold border ${
                     theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800'
                   }`}
                 >
                   <option value="ALL">All Universities (Public & Private)</option>
-                  <option value="KUHeS">KUHeS (Kamuzu University of Health Sciences)</option>
-                  <option value="MUST">MUST (Malawi Univ of Science & Tech)</option>
+                  <option value="KUHeS">KUHeS (Health Sciences & Medicine)</option>
+                  <option value="MUST">MUST (Science & Technology)</option>
                   <option value="MUBAS">MUBAS (Business & Engineering)</option>
                   <option value="UNIMA">UNIMA (Chancellor College)</option>
-                  <option value="LUANAR">LUANAR (Agriculture & Vet Med)</option>
+                  <option value="LUANAR">LUANAR (Agriculture & Natural Resources)</option>
                   <option value="MZUNI">MZUNI (Mzuzu University)</option>
                   <option value="CUNIMA">CUNIMA (Catholic University)</option>
                   <option value="MAU">MAU (Malawi Adventist University)</option>
@@ -1432,7 +1441,8 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                  aria-label="Filter by Field of Study"
+                  className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold border ${
                     theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800'
                   }`}
                 >
@@ -1448,73 +1458,73 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
               </div>
 
               {/* Course Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
                 {filteredProgrammes.map((prog) => (
                   <div
                     key={prog.id}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                    className={`p-5 rounded-3xl border transition-all flex flex-col justify-between ${
                       prog.matchStatus === 'qualified'
-                        ? theme === 'dark' ? 'bg-gray-900/90 border-emerald-500/30' : 'bg-white border-emerald-300 shadow-sm'
+                        ? theme === 'dark' ? 'bg-gray-900 border-emerald-500/30' : 'bg-white border-emerald-300 shadow-sm'
                         : prog.matchStatus === 'competitive'
-                          ? theme === 'dark' ? 'bg-gray-900/80 border-amber-500/30' : 'bg-white border-amber-300 shadow-sm'
-                          : theme === 'dark' ? 'bg-gray-900/40 border-gray-800 opacity-80' : 'bg-slate-50 border-slate-200 opacity-85'
+                          ? theme === 'dark' ? 'bg-gray-900 border-amber-500/30' : 'bg-white border-amber-300 shadow-sm'
+                          : theme === 'dark' ? 'bg-gray-900/60 border-gray-800 opacity-80' : 'bg-slate-50 border-slate-200 opacity-85'
                     }`}
                   >
                     <div>
                       {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${prog.matchBadgeColor}`}>
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${prog.matchBadgeColor}`}>
                           {prog.matchLabel}
                         </span>
 
-                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        <span className="text-[10.5px] font-black font-mono px-2.5 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                           Cutoff: ≤ {prog.cutoffPoints} pts
                         </span>
                       </div>
 
                       {/* University & Degree Title */}
-                      <div className="mb-1.5">
-                        <div className="text-[10.5px] text-indigo-400 font-bold uppercase tracking-wider">
+                      <div className="mb-2">
+                        <div className="text-[11px] text-indigo-400 font-black uppercase tracking-wider">
                           {prog.university} • <span className="text-slate-400 font-medium">{prog.location}</span>
                         </div>
-                        <h4 className={`text-sm font-bold mt-0.5 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                        <h4 className={`text-base font-black mt-1 leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                           {prog.title}
                         </h4>
-                        <p className="text-[10px] text-slate-500">
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                           {prog.degreeType} ({prog.duration})
                         </p>
                       </div>
 
                       {/* Brief description */}
-                      <p className="text-xs text-slate-400 line-clamp-2 my-2">
+                      <p className="text-xs text-slate-400 line-clamp-2 my-2.5 leading-relaxed">
                         {prog.description}
                       </p>
 
                       {/* Prerequisites Pills */}
-                      <div className={`p-2.5 rounded-xl border my-2 ${
-                        theme === 'dark' ? 'bg-gray-950/60 border-gray-800' : 'bg-slate-100 border-slate-200'
+                      <div className={`p-3 rounded-2xl border my-2.5 ${
+                        theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-100 border-slate-200'
                       }`}>
-                        <div className="text-[9.5px] font-bold text-slate-400 mb-1 flex items-center justify-between">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
                           <span>Required Subject Grades:</span>
                           {stats.enteredCount >= 6 && (
                             <span className={prog.prerequisitesMet ? 'text-emerald-400' : 'text-amber-400'}>
-                              {prog.prerequisitesMet ? '✅ Requirements Met' : '⚠️ Missing Grades'}
+                              {prog.prerequisitesMet ? 'Met' : 'Missing Grades'}
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {prog.requiredSubjects.map((req, rIdx) => {
                             const userG = stats.gradesMap[req.subjectId];
                             const isMet = userG > 0 && userG <= req.maxGrade;
                             return (
                               <span
                                 key={rIdx}
-                                className={`text-[9.5px] px-1.5 py-0.5 rounded-md font-medium border ${
+                                className={`text-[10px] px-2 py-0.5 rounded-lg font-bold border ${
                                   userG > 0 
                                     ? isMet 
-                                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                                      : 'bg-red-500/10 border-red-500/20 text-red-400'
-                                    : 'bg-slate-800/40 border-slate-700 text-slate-400'
+                                      ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400' 
+                                      : 'bg-red-500/15 border-red-500/25 text-red-400'
+                                    : theme === 'dark' ? 'bg-gray-900 border-gray-800 text-slate-400' : 'bg-white border-slate-300 text-slate-600'
                                 }`}
                               >
                                 {req.label} {userG > 0 ? `(You: ${userG})` : ''}
@@ -1526,9 +1536,9 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                     </div>
 
                     {/* Careers Footer */}
-                    <div className="pt-2 border-t border-gray-800/40 flex items-center justify-between text-[10px] text-slate-400">
-                      <span className="truncate flex items-center gap-1">
-                        <Briefcase size={11} className="text-indigo-400 shrink-0" />
+                    <div className="pt-3 border-t border-gray-800 flex items-center justify-between text-[11px] text-slate-400">
+                      <span className="truncate flex items-center gap-1.5">
+                        <Briefcase size={12} className="text-indigo-400 shrink-0" />
                         {prog.careerPaths.slice(0, 2).join(', ')}
                       </span>
                       <span className="text-indigo-400 font-bold shrink-0 ml-2">
@@ -1547,19 +1557,19 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
         {activeTab === 'directory' && (
           <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in duration-200">
             
-            <div className={`p-5 rounded-3xl border ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-              <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+            <div className={`p-6 rounded-3xl border ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-black uppercase tracking-wider">
                 <Building2 size={16} /> Accredited Higher Education Institutions in Malawi
               </div>
-              <h2 className={`text-base md:text-lg font-bold mt-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+              <h2 className={`text-lg font-black mt-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                 Public & Private Universities Directory (NCHE Accredited)
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 mt-1">
                 Explore campus locations, flagship programmes, and official university admission portals.
               </p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {[
                 {
                   code: 'UNIMA',
@@ -1636,40 +1646,40 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
               ].map((uni, idx) => (
                 <div 
                   key={idx}
-                  className={`p-4 rounded-2xl border ${
-                    theme === 'dark' ? 'bg-gray-900/60 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
+                  className={`p-5 rounded-3xl border ${
+                    theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-indigo-600/20">
                         {uni.code}
                       </div>
                       <div>
-                        <h4 className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                        <h4 className={`text-sm font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                           {uni.name}
                         </h4>
-                        <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <MapPin size={10} /> {uni.campuses}
+                        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                          <MapPin size={11} /> {uni.campuses}
                         </p>
                       </div>
                     </div>
 
-                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 self-start sm:self-auto">
+                    <span className="px-3 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 self-start sm:self-auto">
                       {uni.type}
                     </span>
                   </div>
 
-                  <div className={`p-2.5 rounded-xl border my-2 text-xs ${
-                    theme === 'dark' ? 'bg-gray-950/40 border-gray-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                  <div className={`p-3 rounded-2xl border my-3 text-xs ${
+                    theme === 'dark' ? 'bg-gray-950 border-gray-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
                   }`}>
-                    <span className="text-slate-400 font-semibold">Flagship Programmes: </span>
+                    <span className="text-slate-400 font-bold">Flagship Programmes: </span>
                     {uni.strengths}
                   </div>
 
-                  <div className="flex items-center justify-between text-[10.5px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span>Est: {uni.est}</span>
-                    <span className="text-indigo-400 font-medium">
+                    <span className="text-indigo-400 font-bold">
                       {uni.website}
                     </span>
                   </div>

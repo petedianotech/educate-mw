@@ -63,43 +63,6 @@ async function startServer() {
     httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
   });
 
-  const callCerebras = async (messages: any[], systemInstruction: string = "", temperature: number = 0.7) => {
-    const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
-    if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY not found in environment");
-    
-    let apiMessages = [];
-    if (systemInstruction) {
-      apiMessages.push({ role: "system", content: systemInstruction });
-    }
-    
-    apiMessages.push(...messages);
-    
-    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${CEREBRAS_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-oss-120b",
-        messages: apiMessages,
-        temperature: temperature
-      })
-    });
-    
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("Cerebras API Error:", err);
-      throw new Error(`Cerebras API failed: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      return { text: data.choices[0].message.content || "" };
-    }
-    return { text: "" };
-  };
-
   app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
       const { messages, userMessage, useSearch, userLevel } = req.body;
@@ -235,26 +198,14 @@ Instructions & Guidelines:
       let responseText = "";
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite',
+          model: 'gemini-2.5-flash',
           contents,
           config,
         });
         responseText = response.text || "Sorry, I couldn't find an answer to that.";
       } catch (geminiError: any) {
-        console.warn("Gemini Flash Lite API error, checking backup:", geminiError);
-        if (process.env.CEREBRAS_API_KEY) {
-          const cerebrasMessages = [
-            ...(messages || []).map((m: any) => ({
-              role: m.sender === 'user' ? 'user' : 'assistant',
-              content: m.text || ''
-            })),
-            { role: 'user', content: userMessage.text || '' }
-          ];
-          const backupRes = await callCerebras(cerebrasMessages, systemInstruction, 0.7);
-          responseText = backupRes.text || "Sorry, I couldn't find an answer to that.";
-        } else {
-          throw geminiError;
-        }
+        console.error("Gemini API error:", geminiError);
+        throw geminiError;
       }
 
       res.json({ text: responseText });
@@ -297,27 +248,15 @@ Instructions & Guidelines:
         }
       ]`;
 
-      let text = "";
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite',
-          contents: prompt,
-          config: {
-            temperature: 0.2,
-            responseMimeType: 'application/json',
-          }
-        });
-        text = response.text || '';
-      } catch (geminiError: any) {
-        if (process.env.CEREBRAS_API_KEY) {
-          const backupRes = await callCerebras([{ role: 'user', content: prompt }], "", 0.2);
-          text = backupRes.text || '';
-        } else {
-          throw geminiError;
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+          responseMimeType: 'application/json',
         }
-      }
-      
-      // Attempt to extract JSON from markdown if necessary
+      });
+      const text = response.text || '';
       const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
 
       res.json({ text: jsonStr });
@@ -337,25 +276,14 @@ Instructions & Guidelines:
     try {
       const { prompt } = req.body;
 
-      let responseText = "";
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite',
-          contents: prompt,
-          config: {
-            temperature: 0.7,
-          }
-        });
-        responseText = response.text || "I have some ideas for you. Let's discuss your interests further.";
-      } catch (geminiError: any) {
-        if (process.env.CEREBRAS_API_KEY) {
-          const backupRes = await callCerebras([{ role: 'user', content: prompt }], "", 0.7);
-          responseText = backupRes.text || "I have some ideas for you. Let's discuss your interests further.";
-        } else {
-          throw geminiError;
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.7,
         }
-      }
-
+      });
+      let responseText = response.text || "I have some ideas for you. Let's discuss your interests further.";
       responseText = responseText.replace(/\*/g, '');
       responseText = responseText.replace(/\$/g, '');
       res.json({ text: responseText });
@@ -392,26 +320,15 @@ Instructions & Guidelines:
         }
       ]`;
 
-      let text = "";
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite',
-          contents: prompt,
-          config: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          }
-        });
-        text = response.text || '';
-      } catch (geminiError: any) {
-        if (process.env.CEREBRAS_API_KEY) {
-          const backupRes = await callCerebras([{ role: 'user', content: prompt }], "", 0.3);
-          text = backupRes.text || '';
-        } else {
-          throw geminiError;
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+          responseMimeType: 'application/json',
         }
-      }
-
+      });
+      const text = response.text || '';
       const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
       res.json({ text: jsonStr });
     } catch (error: any) {
