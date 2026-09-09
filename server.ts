@@ -346,6 +346,60 @@ Instructions & Guidelines:
     }
   });
 
+  app.post(["/api/gemini/dictionary", "/gemini/dictionary"], async (req, res) => {
+    try {
+      const { word } = req.body;
+      if (!word || typeof word !== 'string') {
+        return res.status(400).json({ error: "Missing or invalid word parameter" });
+      }
+
+      const prompt = `Provide an authoritative, clear, and comprehensive dictionary definition for the term or word: "${word}".
+Tailor the explanation so that it is crystal clear for secondary school students (MSCE / JCE curriculum in Malawi) and general learners.
+
+Return ONLY a JSON object with this exact structure (no markdown fences, no conversational text):
+{
+  "word": "${word}",
+  "phonetic": "/sample_phonetic_transcription/",
+  "meanings": [
+    {
+      "partOfSpeech": "noun/verb/adjective/etc",
+      "definitions": [
+        {
+          "definition": "Clear, precise academic definition.",
+          "example": "An illustrative real-world sentence using the word."
+        }
+      ]
+    }
+  ],
+  "synonyms": ["synonym1", "synonym2"]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+        }
+      });
+
+      const text = response.text || '';
+      const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+      res.json(parsed);
+    } catch (error: any) {
+      console.error("Dictionary API Error:", error);
+      let errorMessage = error.message || "Failed to fetch word definition";
+      let statusCode = 500;
+      if (error.message && (error.message.toLowerCase().includes("quota") || error.message.toLowerCase().includes("429"))) {
+        errorMessage = "QUOTA_EXCEEDED: Maximum capacity reached. Please try again later.";
+        statusCode = 429;
+      }
+      res.status(statusCode).json({ error: errorMessage });
+    }
+  });
+
+
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

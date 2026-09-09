@@ -56,10 +56,10 @@ import { FlashcardsView } from "./components/FlashcardsView";
 import { CommunityView } from "./components/CommunityView";
 import { CertificatesCleanView } from "./components/CertificatesCleanView";
 import { LeaderboardView } from "./components/LeaderboardView";
-import { StudyProgressTracker } from "./components/StudyProgressTracker";
 import { AchievementsView } from "./components/AchievementsView";
 import { MscePointsCalculatorView } from "./components/MscePointsCalculatorView";
 import { ACHIEVEMENTS } from "./data/achievements";
+import { ACADEMIC_DICTIONARY, POPULAR_DICTIONARY_WORDS } from "./data/academicDictionary";
 import { CloudinaryUploader } from "./components/CloudinaryUploader";
 import { triggerExplicitDownload } from "./lib/cloudinary";
 import {
@@ -188,7 +188,6 @@ export type ViewState =
   | "certificates"
   | "leaderboard"
   | "achievements"
-  | "progress"
   | "msce-calculator";
 
 export default function App() {
@@ -691,11 +690,6 @@ export default function App() {
     return <EmiLoader text="Initializing Emi AI..." theme={theme} />;
   }
 
-  const completedScribSyllabus = userProfile?.completedSyllabus || [];
-  const completedCount = completedScribSyllabus.length;
-  const overallPercent = Math.round((completedCount / 47) * 100);
-  const pendingCount = Math.max(0, 47 - completedCount);
-
   return (
     <div
       className={`${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-930"} min-h-screen font-sans selection:bg-indigo-900/30 selection:text-indigo-100`}
@@ -851,15 +845,6 @@ export default function App() {
                   onBack={() => navigateTo("home")}
                   theme={theme}
                   profile={userProfile}
-                />
-              )}
-              {currentView === "progress" && (
-                <StudyProgressTracker
-                  onBack={() => navigateTo("home")}
-                  theme={theme}
-                  profile={userProfile}
-                  onUpdateProfile={setUserProfile}
-                  onNavigateToEmi={() => navigateTo("emi")}
                 />
               )}
               {currentView === "msce-calculator" && (
@@ -1070,40 +1055,6 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
-                {/* Visual Syllabus Progress Card inside sidebar itself */}
-                <div
-                  onClick={() => {
-                    navigateTo("progress");
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`p-4 mb-5 rounded-3xl border transition-all cursor-pointer active:scale-95 flex flex-col gap-2 ${
-                    theme === "dark"
-                      ? "bg-gray-950/60 hover:bg-gray-950 border-gray-800"
-                      : "bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-[10px] font-black uppercase tracking-widest ${theme === "dark" ? "text-gray-400" : "text-slate-800"}`}
-                    >
-                      Syllabus Progress
-                    </span>
-                    <span className="text-[10px] font-black font-mono text-emerald-500">
-                      {overallPercent}%
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                      style={{ width: `${overallPercent}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 font-sans">
-                    <span>{completedCount} Mastered</span>
-                    <span>{pendingCount} Left</span>
-                  </div>
-                </div>
-
                 <SidebarItem
                   theme={theme}
                   icon={
@@ -1119,22 +1070,6 @@ export default function App() {
                     setIsSidebarOpen(false);
                   }}
                   active={currentView === "msce-calculator"}
-                />
-                <SidebarItem
-                  theme={theme}
-                  icon={
-                    <CheckCircle2
-                      size={20}
-                      className="text-emerald-500"
-                      strokeWidth={2.5}
-                    />
-                  }
-                  label="Syllabus Tracker"
-                  onClick={() => {
-                    navigateTo("progress");
-                    setIsSidebarOpen(false);
-                  }}
-                  active={currentView === "progress"}
                 />
                 <SidebarItem
                   theme={theme}
@@ -3690,152 +3625,240 @@ function DictionaryView({
   );
 
   const speak = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text);
+    try {
+      if (!("speechSynthesis" in window)) return;
+      const utterance = new SpeechSynthesisUtterance(text);
 
-    const setVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const maleVoice = voices.find(
-        (v) =>
-          (v.name?.toLowerCase()?.includes("google us english male") ||
-            v.name?.toLowerCase()?.includes("microsoft james") ||
-            v.name?.toLowerCase()?.includes("guy") ||
-            v.name?.toLowerCase()?.includes("david") ||
-            v.name?.toLowerCase()?.includes("male") ||
-            v.name?.toLowerCase()?.includes("daniel")) &&
-          v.lang?.includes("en"),
-      );
-
-      if (maleVoice) {
-        utterance.voice = maleVoice;
-      } else {
-        const fallbackMale = voices.find(
+      const setVoiceAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(
           (v) =>
-            v.name?.toLowerCase()?.includes("male") && v.lang?.includes("en"),
+            (v.name?.toLowerCase()?.includes("google us english") ||
+              v.name?.toLowerCase()?.includes("natural") ||
+              v.name?.toLowerCase()?.includes("english") ||
+              v.name?.toLowerCase()?.includes("male") ||
+              v.name?.toLowerCase()?.includes("david")) &&
+            v.lang?.startsWith("en"),
         );
-        utterance.voice =
-          fallbackMale ||
-          voices.find((v) => v.lang?.includes("en")) ||
-          voices[0];
+
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        } else {
+          utterance.voice = voices.find((v) => v.lang?.startsWith("en")) || voices[0];
+        }
+
+        utterance.pitch = 0.9;
+        utterance.rate = 0.95;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      };
+
+      if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+      } else {
+        setVoiceAndSpeak();
       }
-
-      utterance.pitch = 0.8;
-      utterance.rate = 0.9;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    };
-
-    if (window.speechSynthesis.getVoices().length === 0) {
-      window.speechSynthesis.onvoiceschanged = setVoice;
-    } else {
-      setVoice();
+    } catch (e) {
+      console.error("Speech synthesis error:", e);
     }
   };
 
-  const searchWord = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const wordKey = query.trim().toLowerCase();
-    if (!wordKey) return;
+  const performSearch = async (searchTerm: string) => {
+    const rawWord = searchTerm.trim();
+    if (!rawWord) return;
+    const wordKey = rawWord.toLowerCase();
 
     setLoading(true);
     setError("");
     setResult(null);
 
-    // Try cache first
+    // 1. Check local persistent cache
     if (dictionaryCache[wordKey]) {
       setResult(dictionaryCache[wordKey]);
       setLoading(false);
       return;
     }
 
+    // 2. Check built-in curated academic dictionary
+    if (ACADEMIC_DICTIONARY[wordKey]) {
+      const localEntry = ACADEMIC_DICTIONARY[wordKey];
+      const nextCache = { ...dictionaryCache, [wordKey]: localEntry };
+      setDictionaryCache(nextCache);
+      try {
+        localStorage.setItem("mw_dictionary_cache_v2", JSON.stringify(nextCache));
+      } catch {}
+      setResult(localEntry);
+      setLoading(false);
+      return;
+    }
+
+    // 3. Try Free Dictionary API
+    let found = false;
     try {
-      // Try Free Dictionary API
+      const cleanWord = encodeURIComponent(wordKey.replace(/[^a-zA-Z0-9 -]/g, ""));
       const dictRes = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${wordKey}`,
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`,
       );
       if (dictRes.ok) {
         const data = await dictRes.json();
-        const entry = data[0];
-
-        const formattedResult = {
-          word: entry.word,
-          phonetic:
-            entry.phonetic ||
-            entry.phonetics?.find((p: any) => p.text)?.text ||
-            "",
-          meanings: entry.meanings.map((m: any) => ({
-            partOfSpeech: m.partOfSpeech,
-            definitions: m.definitions.slice(0, 2).map((d: any) => ({
-              definition: d.definition,
-              example: d.example,
+        if (Array.isArray(data) && data.length > 0) {
+          const entry = data[0];
+          const formattedResult = {
+            word: entry.word || rawWord,
+            phonetic:
+              entry.phonetic ||
+              entry.phonetics?.find((p: any) => p.text)?.text ||
+              "",
+            meanings: (entry.meanings || []).map((m: any) => ({
+              partOfSpeech: m.partOfSpeech || "general",
+              definitions: (m.definitions || []).slice(0, 3).map((d: any) => ({
+                definition: d.definition,
+                example: d.example || (d.synonyms?.length ? `Synonyms: ${d.synonyms.slice(0, 4).join(", ")}` : undefined),
+              })),
             })),
-          })),
-        };
+            synonyms: entry.meanings?.flatMap((m: any) => m.synonyms || []).slice(0, 6),
+          };
 
-        // Save to cache
-        const nextCache = { ...dictionaryCache, [wordKey]: formattedResult };
-        setDictionaryCache(nextCache);
-        localStorage.setItem(
-          "mw_dictionary_cache_v2",
-          JSON.stringify(nextCache),
-        );
-        setResult(formattedResult);
-      } else {
-        setError("Could not find definition. Try another word.");
+          const nextCache = { ...dictionaryCache, [wordKey]: formattedResult };
+          setDictionaryCache(nextCache);
+          try {
+            localStorage.setItem(
+              "mw_dictionary_cache_v2",
+              JSON.stringify(nextCache),
+            );
+          } catch {}
+          setResult(formattedResult);
+          found = true;
+        }
       }
-    } catch (err: any) {
-      setError("Check your connection or try a word you looked up previously.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+    } catch (apiErr) {
+      console.warn("Free Dictionary API network attempt failed, trying AI fallback:", apiErr);
     }
+
+    if (found) {
+      setLoading(false);
+      return;
+    }
+
+    // 4. Fallback to Gemini AI Dictionary Endpoint
+    try {
+      const aiRes = await fetch("/api/gemini/dictionary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word: rawWord }),
+      });
+
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        if (aiData && aiData.meanings && aiData.meanings.length > 0) {
+          const formattedAiResult = {
+            word: aiData.word || rawWord,
+            phonetic: aiData.phonetic || "",
+            meanings: aiData.meanings,
+            synonyms: aiData.synonyms || [],
+            subject: aiData.subject || "Academic & General Vocabulary",
+          };
+
+          const nextCache = { ...dictionaryCache, [wordKey]: formattedAiResult };
+          setDictionaryCache(nextCache);
+          try {
+            localStorage.setItem(
+              "mw_dictionary_cache_v2",
+              JSON.stringify(nextCache),
+            );
+          } catch {}
+          setResult(formattedAiResult);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (aiErr) {
+      console.error("Gemini dictionary fallback error:", aiErr);
+    }
+
+    // 5. Final fallback check if any partial match in local dictionary exists
+    const partialMatchKey = Object.keys(ACADEMIC_DICTIONARY).find(
+      (k) => k.includes(wordKey) || wordKey.includes(k)
+    );
+    if (partialMatchKey) {
+      setResult(ACADEMIC_DICTIONARY[partialMatchKey]);
+      setLoading(false);
+      return;
+    }
+
+    setError(`Could not find a definition for "${rawWord}". Please check spelling or select one of the suggested academic topics below.`);
+    setLoading(false);
+  };
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    performSearch(query);
+  };
+
+  const handleChipClick = (word: string) => {
+    setQuery(word);
+    performSearch(word);
   };
 
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} animate-in slide-in-from-right duration-300`}
+      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} animate-in slide-in-from-right duration-300`}
     >
+      {/* Header */}
       <div
-        className={`${theme === "dark" ? "bg-gray-900/90 border-gray-800 text-white" : "bg-white/90 border-slate-200 text-slate-900"} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}
+        className={`${theme === "dark" ? "bg-gray-900/90 border-gray-800 text-white" : "bg-white/90 border-slate-200 text-slate-900"} backdrop-blur-xl pt-4 pb-3 px-5 flex items-center justify-between shrink-0 z-10 border-b shadow-md`}
       >
-        <button
-          onClick={onBack}
-          className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-700"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
-        >
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <div className="ml-4">
-          <h2
-            className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
+        <div className="flex items-center">
+          <button
+            onClick={onBack}
+            className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white hover:bg-gray-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
           >
-            Dictionary
-          </h2>
-          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-            Explore Language
-          </p>
+            <ChevronLeft size={24} strokeWidth={3} />
+          </button>
+          <div className="ml-4">
+            <h2
+              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
+            >
+              Academic Dictionary
+            </h2>
+            <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
+              MSCE Terminology & English Lexicon
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-8 pb-10 hide-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-12 hide-scrollbar max-w-4xl mx-auto w-full">
+        {/* Search Bar */}
         <form
-          onSubmit={searchWord}
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[2rem] px-5 py-3.5 flex items-center border mb-8 mt-2 transition-all focus-within:border-indigo-500/50 group`}
+          onSubmit={handleSearchSubmit}
+          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-md"} rounded-[2rem] px-5 py-3.5 flex items-center border mb-4 transition-all focus-within:border-indigo-500/50 group`}
         >
           <Search
-            className="text-gray-500 mr-2.5 group-focus-within:text-indigo-400 transition-colors"
-            size={18}
-            strokeWidth={3}
+            className="text-gray-400 mr-3 group-focus-within:text-indigo-500 transition-colors"
+            size={20}
+            strokeWidth={2.5}
           />
           <input
             type="text"
-            placeholder="Search any word..."
-            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-black placeholder-gray-600`}
+            placeholder="Search any word or term (e.g. Osmosis, Velocity, Metaphor)..."
+            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm sm:text-base font-semibold placeholder-gray-400`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {query.trim() && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold mr-2 px-1"
+            >
+              Clear
+            </button>
+          )}
           <button
             type="submit"
             disabled={!query.trim() || loading}
-            className="bg-indigo-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform disabled:opacity-30"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform disabled:opacity-30"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -3845,89 +3868,149 @@ function DictionaryView({
           </button>
         </form>
 
+        {/* Popular Topic Suggestions Chips */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+            <Sparkles size={14} className="text-indigo-500" />
+            <span>Popular Academic Terminology</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {POPULAR_DICTIONARY_WORDS.map((word) => (
+              <button
+                key={word}
+                type="button"
+                onClick={() => handleChipClick(word)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                  query.toLowerCase() === word.toLowerCase()
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                    : theme === "dark"
+                    ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                }`}
+              >
+                {word}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Error Notification */}
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-center text-sm font-bold">
+          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-2xl text-center text-sm font-bold mb-6">
             {error}
           </div>
         )}
 
+        {/* Result Display */}
         {result && (
-          <div className="animate-in fade-in slide-in-from-bottom duration-500">
+          <div className="animate-in fade-in slide-in-from-bottom duration-300">
             <div
-              className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-100 shadow-sm"} rounded-[32px] p-8 border mb-6`}
+              className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[28px] p-6 sm:p-8 border mb-6`}
             >
-              <div className="flex justify-between items-start mb-8">
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3
-                    className={`font-black text-4xl ${theme === "dark" ? "text-white" : "text-slate-900"} mb-2 capitalize tracking-tighter`}
-                  >
-                    {result.word}
-                  </h3>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3
+                      className={`font-black text-3xl sm:text-4xl ${theme === "dark" ? "text-white" : "text-slate-900"} capitalize tracking-tight`}
+                    >
+                      {result.word}
+                    </h3>
+                    {result.subject && (
+                      <span className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                        {result.subject}
+                      </span>
+                    )}
+                  </div>
                   {result.phonetic && (
-                    <p className="text-sm text-indigo-400 font-black tracking-[0.2em] uppercase">
+                    <p className="text-sm text-indigo-500 dark:text-indigo-400 font-bold tracking-wider mt-1 font-mono">
                       {result.phonetic}
                     </p>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => speak(result.word)}
-                    className="w-14 h-14 bg-indigo-600 text-white flex items-center justify-center rounded-2xl shadow-xl shadow-indigo-600/30 active:scale-90 transition-transform"
-                  >
-                    <Volume2 size={28} />
-                  </button>
-                </div>
+
+                <button
+                  type="button"
+                  title="Listen to pronunciation"
+                  onClick={() => speak(result.word)}
+                  className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center rounded-2xl shadow-lg shadow-indigo-600/30 active:scale-90 transition-transform shrink-0"
+                >
+                  <Volume2 size={24} />
+                </button>
               </div>
 
-              <div className="space-y-8">
-                {result.meanings.map((meaning: any, i: number) => (
-                  <div key={i}>
-                    <div className="flex items-center gap-4 mb-4">
-                      <span className="font-black text-indigo-500 text-sm italic uppercase tracking-widest">
+              {/* Meanings & Definitions */}
+              <div className="space-y-6">
+                {result.meanings && result.meanings.map((meaning: any, i: number) => (
+                  <div key={i} className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="font-black text-indigo-600 dark:text-indigo-400 text-xs sm:text-sm uppercase tracking-wider font-mono">
                         {meaning.partOfSpeech}
                       </span>
                       <div
-                        className={`h-[1px] ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
+                        className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
                       ></div>
                     </div>
-                    <ul className="space-y-6">
-                      {meaning.definitions
-                        .slice(0, 3)
-                        .map((def: any, idx: number) => (
-                          <li
-                            key={idx}
-                            className={`${theme === "dark" ? "text-gray-200" : "text-slate-800"} text-lg leading-relaxed font-bold border-l-4 border-indigo-500/30 pl-6 py-1`}
-                          >
-                            {def.definition}
-                            {def.example && (
-                              <div
-                                className={`mt-4 p-5 rounded-3xl ${theme === "dark" ? "bg-indigo-900/20 text-indigo-300" : "bg-indigo-50 text-indigo-700"} text-[14px] font-bold leading-relaxed border border-indigo-500/5`}
-                              >
-                                <div className="text-[10px] uppercase font-black tracking-widest opacity-40 mb-2">
-                                  Usage Context
-                                </div>
-                                "{def.example}"
-                              </div>
-                            )}
-                          </li>
-                        ))}
+                    <ul className="space-y-4">
+                      {meaning.definitions && meaning.definitions.map((def: any, idx: number) => (
+                        <li
+                          key={idx}
+                          className={`${theme === "dark" ? "text-gray-200" : "text-slate-800"} text-base sm:text-lg leading-relaxed font-semibold border-l-4 border-indigo-500 pl-4 py-0.5`}
+                        >
+                          <div>{def.definition}</div>
+                          {def.example && (
+                            <div
+                              className={`mt-2.5 p-3.5 rounded-xl ${theme === "dark" ? "bg-indigo-950/30 text-indigo-200 border-indigo-900/40" : "bg-indigo-50 text-indigo-900 border-indigo-100"} text-xs sm:text-sm font-medium leading-relaxed border`}
+                            >
+                              <span className="text-[10px] uppercase font-black tracking-wider text-indigo-500 block mb-1">
+                                Usage Example
+                              </span>
+                              "{def.example}"
+                            </div>
+                          )}
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 ))}
+
+                {/* Synonyms if available */}
+                {result.synonyms && result.synonyms.length > 0 && (
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+                    <span className="text-xs uppercase font-black tracking-wider text-gray-400 block mb-2">
+                      Related Concepts & Synonyms:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {result.synonyms.map((syn: string, idx: number) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleChipClick(syn)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${theme === "dark" ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+                        >
+                          {syn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
+        {/* Empty State */}
         {!result && !error && !loading && (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 text-center">
             <div
-              className={`w-20 h-20 rounded-3xl ${theme === "dark" ? "bg-gray-900 text-gray-700" : "bg-slate-100 text-slate-300"} flex items-center justify-center mb-6`}
+              className={`w-20 h-20 rounded-3xl ${theme === "dark" ? "bg-gray-900 text-gray-700" : "bg-slate-100 text-slate-300"} flex items-center justify-center mb-4`}
             >
-              <BookA size={40} strokeWidth={1.5} />
+              <BookA size={38} strokeWidth={1.5} />
             </div>
-            <p className="font-black uppercase tracking-widest text-xs">
-              Search any word to explore
+            <h4 className="font-bold text-sm text-gray-500 uppercase tracking-widest mb-1">
+              Search Any Academic or General Term
+            </h4>
+            <p className="text-xs text-gray-400 max-w-sm">
+              Instant curriculum-aligned definitions, pronunciation audio, parts of speech, and usage context.
             </p>
           </div>
         )}
@@ -5424,9 +5507,9 @@ function AuthView({
               </div>
 
               <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
-                <div className="font-bold text-emerald-500 text-sm mb-1">📊 National Syllabus Tracker</div>
+                <div className="font-bold text-emerald-500 text-sm mb-1">📐 MSCE Points Calculator</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                  Track topic mastery across Form 1 to Form 4 for all core Malawian subjects.
+                  Calculate MSCE aggregate points and discover university program requirements.
                 </p>
               </div>
 
