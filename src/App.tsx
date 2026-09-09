@@ -5931,14 +5931,14 @@ function SubscriptionView({
                 "K7,000",
               )
             }
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5"
+            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
           >
-            <img
-              src="https://i.ibb.co/B5nZcRNC/images-3.jpg"
-              alt="WA"
-              className="w-5 h-5 rounded-full"
-            />
-            Verify Payment (K7,000 via WhatsApp)
+            <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm border border-emerald-400/40">
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
+              </svg>
+            </div>
+            <span>Verify Payment (K7,000 via WhatsApp)</span>
           </button>
         </div>
 
