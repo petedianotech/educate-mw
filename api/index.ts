@@ -16,6 +16,11 @@ app.get(["/api/payment/config", "/payment/config"], (req: any, res: any) => {
   });
 });
 
+// API to get Gemini API key for direct client-to-Gemini connection
+app.get(["/api/gemini/token", "/gemini/token"], (req: any, res: any) => {
+  res.json({ token: process.env.GEMINI_API_KEY });
+});
+
 // API to verify PayChangu payment synchronously
 app.post(["/api/payment/verify", "/payment/verify"], async (req: any, res: any) => {
   try {

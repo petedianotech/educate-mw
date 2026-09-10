@@ -5659,13 +5659,22 @@ function AuthView({
   const [loading, setLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
+    if (loading) return;
     setLoading(true);
     setError("");
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      setError(err.message || "Login failed");
-      console.error(err);
+      console.error("Google Login Error:", err);
+      if (err.code === "auth/popup-closed-by-user") {
+        setError(""); // Ignore closed popups gracefully
+      } else if (err.code === "auth/popup-blocked") {
+        setError("Popup blocked by browser. Please allow popups or try Email login.");
+      } else if (err.code === "auth/cancelled-popup-request") {
+        setError(""); // Multiple clicks ignored
+      } else {
+        setError(err.message || "Login failed");
+      }
     } finally {
       setLoading(false);
     }
