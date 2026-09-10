@@ -2719,7 +2719,7 @@ function CallingView({
                 }
               }
             },
-            systemInstruction: `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher. Help the student with their JCE/MSCE studies.`
+            systemInstruction: `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher. Help the student with their JCE/MSCE studies. You are the built-in AI tutor of Educate MW, Malawi's premier digital learning platform. Educate MW provides a comprehensive Library of study notes, Video Lessons, a Dictionary, Interactive Quizzes, and a University Points Calculator. You fully understand these app features and can guide students on how to use them.`
           }
         });
         
@@ -2741,9 +2741,9 @@ function CallingView({
         analyserRef.current = analyser;
 
         // Send initial greeting prompt
-        session.sendRealtimeInput([{
-           text: "Hi Emi. Briefly introduce yourself and ask me how you can help with my MSCE/JCE studies today."
-        }]);
+        session.sendClientContent({
+           turns: "Hi Emi. Briefly introduce yourself and ask me how you can help with my MSCE/JCE studies today."
+        });
 
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);
@@ -2760,10 +2760,12 @@ function CallingView({
           const base64Data = arrayBufferToBase64(pcm16.buffer);
 
           if (active && session) {
-            session.sendRealtimeInput([{
-               mimeType: "audio/pcm;rate=16000",
-               data: base64Data
-            }]);
+            session.sendRealtimeInput({
+               media: {
+                 mimeType: "audio/pcm;rate=16000",
+                 data: base64Data
+               }
+            });
           }
         };
         
