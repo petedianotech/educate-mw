@@ -35,6 +35,18 @@ interface BoardUser {
   achievements?: string[];
 }
 
+const INITIAL_LEADERBOARD_USERS: BoardUser[] = [
+  { id: 'demo1', name: 'Tamanda Phiri', points: 2850, level: 'Form 4', streak: 12, isPro: true, gender: 'female', avatarGradient: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)', achievements: ['first_quiz', 'streak_7', 'speed_demon'] },
+  { id: 'demo2', name: 'Alinafe Mwale', points: 2420, level: 'Form 3', streak: 8, isPro: false, gender: 'male', avatarGradient: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', achievements: ['first_quiz', 'library_reader'] },
+  { id: 'demo3', name: 'Chisomo Banda', points: 1980, level: 'Form 4', streak: 15, isPro: true, gender: 'female', avatarGradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', achievements: ['perfect_score', 'streak_7'] },
+  { id: 'demo4', name: 'Limbani Chiumia', points: 1750, level: 'Form 2', streak: 5, isPro: false, gender: 'male', avatarGradient: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)', achievements: ['first_quiz'] },
+  { id: 'demo5', name: 'Kondwani Mtambo', points: 1610, level: 'Form 1', streak: 0, isPro: false, gender: 'male', avatarGradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', achievements: ['academic_explorer'] },
+  { id: 'demo6', name: 'Wongani Gondwe', points: 1540, level: 'Form 4', streak: 22, isPro: true, gender: 'male', avatarGradient: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)', achievements: ['streak_30', 'flashcard_master'] },
+  { id: 'demo7', name: 'Chimwemwe Zulu', points: 1420, level: 'Form 3', streak: 6, isPro: false, gender: 'female', avatarGradient: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)', achievements: ['night_owl'] },
+  { id: 'demo8', name: 'Blessings Kachale', points: 1350, level: 'Form 4', streak: 10, isPro: true, gender: 'male', avatarGradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', achievements: ['quiz_master'] },
+  { id: 'demo9', name: 'Tadala Mvula', points: 1210, level: 'Form 2', streak: 4, isPro: false, gender: 'female', avatarGradient: 'linear-gradient(135deg, #96fbc4 0%, #f9f586 100%)', achievements: ['early_bird'] }
+];
+
 export function LeaderboardView({ 
   onBack, 
   theme = 'dark',
@@ -44,61 +56,80 @@ export function LeaderboardView({
   theme?: 'light' | 'dark';
   profile: any;
 }) {
-  const [users, setUsers] = useState<BoardUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<BoardUser[]>(() => {
+    try {
+      const cached = localStorage.getItem('mw_leaderboard_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_LEADERBOARD_USERS;
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('All');
   const [copiedLink, setCopiedLink] = useState(false);
   
   useEffect(() => {
+    let isMounted = true;
     async function fetchLeaderboard() {
-      setLoading(true);
       try {
-        const q = query(
-          collection(db, 'users'),
-          orderBy('points', 'desc'),
-          firestoreLimit(100)
-        );
-        const snap = await getDocs(q);
-        const list: BoardUser[] = [];
-        snap.forEach(docSnap => {
-          const data = docSnap.data();
-          list.push({
-            id: docSnap.id,
-            name: data.name || data.displayName || 'Learner',
-            points: typeof data.points === 'number' ? data.points : 0,
-            level: data.level || 'Form 4',
-            streak: typeof data.streak === 'number' ? data.streak : 0,
-            isPro: !!data.isPro,
-            avatarId: data.avatarId || '',
-            gender: data.gender || 'male',
-            avatarGradient: data.avatarGradient || '',
-            achievements: data.achievements || []
+        const fetchPromise = (async () => {
+          const q = query(
+            collection(db, 'users'),
+            orderBy('points', 'desc'),
+            firestoreLimit(100)
+          );
+          const snap = await getDocs(q);
+          const list: BoardUser[] = [];
+          snap.forEach(docSnap => {
+            const data = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              name: data.name || data.displayName || 'Learner',
+              points: typeof data.points === 'number' ? data.points : 0,
+              level: data.level || 'Form 4',
+              streak: typeof data.streak === 'number' ? data.streak : 0,
+              isPro: !!data.isPro,
+              avatarId: data.avatarId || '',
+              gender: data.gender || 'male',
+              avatarGradient: data.avatarGradient || '',
+              achievements: data.achievements || []
+            });
           });
-        });
+          return list;
+        })();
+
+        // Add 3-second safety timeout so low-end devices never stall
+        const timeoutPromise = new Promise<BoardUser[]>((_, reject) => 
+          setTimeout(() => reject(new Error('Leaderboard fetch timeout')), 3000)
+        );
+
+        const list = await Promise.race([fetchPromise, timeoutPromise]);
         
-        // If sorting failed on server, sort explicitly in client
-        const sorted = list.sort((a, b) => b.points - a.points);
-        setUsers(sorted);
+        if (isMounted) {
+          if (list && list.length > 0) {
+            const sorted = list.sort((a, b) => b.points - a.points);
+            setUsers(sorted);
+            try {
+              localStorage.setItem('mw_leaderboard_cache', JSON.stringify(sorted));
+            } catch {}
+          } else {
+            setUsers(INITIAL_LEADERBOARD_USERS);
+          }
+        }
       } catch (err) {
-        console.error("Error drawing leaderboard:", err);
-        // Fallback robust demo data representing active Malawian students if Firebase call is empty/indexes setting up
-        const demoUsers: BoardUser[] = [
-          { id: 'demo1', name: 'Tamanda Phiri', points: 2850, level: 'Form 4', streak: 12, isPro: true, gender: 'female', avatarGradient: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)' },
-          { id: 'demo2', name: 'Alinafe Mwale', points: 2420, level: 'Form 3', streak: 8, isPro: false, gender: 'male', avatarGradient: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)' },
-          { id: 'demo3', name: 'Chisomo Banda', points: 1980, level: 'Form 4', streak: 15, isPro: true, gender: 'female', avatarGradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)' },
-          { id: 'demo4', name: 'Limbani Chiumia', points: 1750, level: 'Form 2', streak: 5, isPro: false, gender: 'male', avatarGradient: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)' },
-          { id: 'demo5', name: 'Kondwani Mtambo', points: 1610, level: 'Form 1', streak: 0, isPro: false, gender: 'male', avatarGradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-          { id: 'demo6', name: 'Wongani Gondwe', points: 1540, level: 'Form 4', streak: 22, isPro: true, gender: 'male', avatarGradient: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)' },
-          { id: 'demo7', name: 'Chimwemwe Zulu', points: 1420, level: 'Form 3', streak: 6, isPro: false, gender: 'female', avatarGradient: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)' }
-        ];
-        setUsers(demoUsers);
+        console.warn("Leaderboard network fetch fallback active:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
     
     fetchLeaderboard();
+    return () => { isMounted = false; };
   }, []);
 
   // Filtered and sorted list

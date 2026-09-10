@@ -203,8 +203,17 @@ const DEFAULT_SETS: FlashcardSet[] = [
 
 export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
   // State
-  const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>(DEFAULT_SETS);
-  const [loading, setLoading] = useState(true);
+  const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>(() => {
+    try {
+      const cached = localStorage.getItem('mw_flashcards_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_SETS;
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -224,9 +233,16 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
 
   // Firestore synchronization
   useEffect(() => {
+    let isMounted = true;
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
     try {
       const q = query(collection(db, 'flashcards'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        clearTimeout(safetyTimeout);
         if (!snapshot.empty) {
           const firestoreSets: FlashcardSet[] = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -242,21 +258,27 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
 
           // Combine with default sets (avoiding duplicates by id)
           const customOnly = firestoreSets.filter(fs => !DEFAULT_SETS.some(ds => ds.id === fs.id));
-          setFlashcardSets([...DEFAULT_SETS, ...customOnly]);
-        } else {
-          setFlashcardSets(DEFAULT_SETS);
+          const combined = [...DEFAULT_SETS, ...customOnly];
+          setFlashcardSets(combined);
+          try {
+            localStorage.setItem('mw_flashcards_cache', JSON.stringify(combined));
+          } catch {}
         }
         setLoading(false);
       }, (err) => {
+        clearTimeout(safetyTimeout);
         console.warn("Firestore flashcards live query failed, using built-in sets:", err);
-        setFlashcardSets(DEFAULT_SETS);
-        setLoading(false);
+        if (isMounted) setLoading(false);
       });
-      return () => unsubscribe();
+      return () => {
+        isMounted = false;
+        clearTimeout(safetyTimeout);
+        unsubscribe();
+      };
     } catch (e) {
+      clearTimeout(safetyTimeout);
       console.warn("Firestore initialization error, using fallback sets:", e);
-      setFlashcardSets(DEFAULT_SETS);
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
   }, []);
 

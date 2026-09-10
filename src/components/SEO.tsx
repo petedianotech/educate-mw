@@ -12,7 +12,7 @@ interface SEOProps {
 const SEO: React.FC<SEOProps> = ({
   title = "Educate MW - Educate Malawi: Secondary School Study Platform, Notes & AI Tutor",
   description = "Malawi's digital learning platform for Form 1 - Form 4 students. Free MSCE study notes, MANEB past papers, MSCE points calculator, interactive quizzes, and 24/7 Emi AI tutor.",
-  keywords = "Educate MW, Educate Malawi, MSCE notes, MSCE Points Calculator, MANEB past papers, Biology Form 3 notes Malawi, Form 1 notes, Form 2 notes, Form 4 notes, Mathematics Malawi MSCE, Physical Science, Emi AI tutor, UNIMA cutoff points, MUST cutoff points, MUBAS points calculator, KUHeS admission",
+  keywords = "Educate MW, Educate Malawi, MSCE notes, MSCE Points Calculator, MANEB past papers, Biology Form 3 notes Malawi, Form 1 notes, Form 2 notes, Form 4 notes, Mathematics Malawi MSCE, Physics, Chemistry, Emi AI tutor, UNIMA cutoff points, MUST cutoff points, MUBAS points calculator, KUHeS admission",
   canonical = "https://educatemw.app",
   ogType = "website",
   ogImage = "https://educatemw.app/og-image.png",

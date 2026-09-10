@@ -60,6 +60,9 @@ import { AchievementsView } from "./components/AchievementsView";
 import { MscePointsCalculatorView } from "./components/MscePointsCalculatorView";
 import { ACHIEVEMENTS } from "./data/achievements";
 import { ACADEMIC_DICTIONARY, POPULAR_DICTIONARY_WORDS } from "./data/academicDictionary";
+import { DEFAULT_MATERIALS } from "./data/defaultMaterials";
+import { DEFAULT_VIDEOS } from "./data/defaultVideos";
+import { DEFAULT_QUIZZES } from "./data/defaultQuizzes";
 import { CloudinaryUploader } from "./components/CloudinaryUploader";
 import { triggerExplicitDownload } from "./lib/cloudinary";
 import {
@@ -3243,8 +3246,15 @@ function LibraryView({
   const [filter, setFilter] = useState<"all" | "offline">("all");
   const [filterSubject, setFilterSubject] = useState("");
   const [filterLevel, setFilterLevel] = useState("");
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [materials, setMaterials] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("mw_library_materials_cache");
+      return cached ? JSON.parse(cached) : DEFAULT_MATERIALS;
+    } catch {
+      return DEFAULT_MATERIALS;
+    }
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
 
   useEffect(() => {
@@ -3261,36 +3271,45 @@ function LibraryView({
   });
 
   useEffect(() => {
-    // Fast loading: load from cache first
-    const cachedMaterials = localStorage.getItem("mw_library_materials_cache");
-    if (cachedMaterials) {
-      setMaterials(JSON.parse(cachedMaterials));
-      setLoading(false);
-    }
+    let isMounted = true;
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
 
     const q = query(collection(db, "materials"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setMaterials(data);
-        localStorage.setItem(
-          "mw_library_materials_cache",
-          JSON.stringify(data),
-        );
-        setLoading(false);
-      },
-      (error) => {
-        if (!error.message.includes("offline")) {
-          console.error("Library snapshot error:", error);
+        if (!isMounted) return;
+        clearTimeout(safetyTimeout);
+        if (!snapshot.empty) {
+          const liveData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setMaterials(liveData);
+          try {
+            localStorage.setItem(
+              "mw_library_materials_cache",
+              JSON.stringify(liveData),
+            );
+          } catch {}
         }
         setLoading(false);
       },
+      (error) => {
+        clearTimeout(safetyTimeout);
+        if (!error.message.includes("offline")) {
+          console.warn("Library snapshot notice:", error);
+        }
+        if (isMounted) setLoading(false);
+      },
     );
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
   }, []);
 
   const handleDownload = async (item: any) => {
@@ -3299,7 +3318,9 @@ function LibraryView({
       const next = current.includes(item.id)
         ? current.filter((i) => i !== item.id)
         : [...current, item.id];
-      localStorage.setItem("mw_downloaded_notes", JSON.stringify(next));
+      try {
+        localStorage.setItem("mw_downloaded_notes", JSON.stringify(next));
+      } catch {}
       return next;
     });
 
@@ -3312,11 +3333,38 @@ function LibraryView({
     }
   };
 
-  const uniqueSubjects = Array.from(
+  const standardSubjects = [
+    "All Subjects",
+    "Biology",
+    "Physics",
+    "Chemistry",
+    "Mathematics",
+    "English",
+    "Agriculture",
+    "Geography",
+    "History",
+    "Social Studies",
+    "Chichewa",
+    "Bible Knowledge",
+    "Computer Studies",
+  ];
+
+  const dynamicSubjects = Array.from(
     new Set((materials || []).map((m) => m.subject).filter(Boolean)),
   ) as string[];
+
+  const allSubjectsList = Array.from(
+    new Set([...standardSubjects.slice(1), ...dynamicSubjects]),
+  );
+
   const uniqueLevels = Array.from(
-    new Set((materials || []).map((m) => m.level).filter(Boolean)),
+    new Set([
+      "Form 1",
+      "Form 2",
+      "Form 3",
+      "Form 4",
+      ...(materials || []).map((m) => m.level).filter(Boolean),
+    ]),
   ) as string[];
 
   const visibleItems = (materials || [])
@@ -3324,19 +3372,39 @@ function LibraryView({
     .filter((item) =>
       filter === "offline" ? (downloadedIds || []).includes(item.id) : true,
     )
-    .filter((item) => !filterSubject || item.subject === filterSubject)
-    .filter((item) => !filterLevel || item.level === filterLevel)
-    .filter(
-      (item) =>
-        !searchQuery.trim() ||
-        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
+    .filter((item) => {
+      if (!filterSubject || filterSubject === "All Subjects") return true;
+      const itemSub = (item.subject || "").toLowerCase().trim();
+      const targetSub = filterSubject.toLowerCase().trim();
+      return itemSub === targetSub || itemSub.includes(targetSub) || targetSub.includes(itemSub);
+    })
+    .filter((item) => {
+      if (!filterLevel || filterLevel === "All Levels") return true;
+      const itemLvl = (item.level || "").toLowerCase().trim();
+      const targetLvl = filterLevel.toLowerCase().trim();
+      return itemLvl === targetLvl || itemLvl.includes(targetLvl);
+    })
+    .filter((item) => {
+      if (!searchQuery.trim()) return true;
+      const queryLower = searchQuery.toLowerCase().trim();
+      return (
+        (item.title && item.title.toLowerCase().includes(queryLower)) ||
+        (item.excerpt && item.excerpt.toLowerCase().includes(queryLower)) ||
+        (item.subject && item.subject.toLowerCase().includes(queryLower))
+      );
+    })
     .sort((a, b) => {
       const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
       const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
       return dateB - dateA;
     });
+
+  const clearFilters = () => {
+    setFilterSubject("");
+    setFilterLevel("");
+    setSearchQuery("");
+    setFilter("all");
+  };
 
   return (
     <div
@@ -3356,27 +3424,35 @@ function LibraryView({
           <h2
             className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
           >
-            Library
+            Study Library
           </h2>
           <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-            Your study vault
+            MSCE & JCE Syllabus Vault
           </p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-8 pb-32 space-y-7 hide-scrollbar">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-6 hide-scrollbar max-w-4xl mx-auto w-full">
         {/* Search */}
         <div
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[22px] px-4 py-3.5 flex items-center border focus-within:border-indigo-500/50 transition-colors`}
+          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[22px] px-4 py-3 flex items-center border focus-within:border-indigo-500/50 transition-colors`}
         >
           <Search className="text-gray-500 mr-2.5" size={18} strokeWidth={3} />
           <input
             type="text"
-            placeholder="Search your notes & books..."
+            placeholder="Search topics, past papers, notes & books..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-bold placeholder-gray-600`}
+            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-bold placeholder-gray-500`}
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold px-2 py-1"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         {/* Filter Tabs */}
@@ -3387,24 +3463,66 @@ function LibraryView({
             onClick={() => setFilter("all")}
             className={`flex-1 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${filter === "all" ? "bg-indigo-600 text-white shadow-lg" : "text-gray-500"}`}
           >
-            LIBRARY
+            ALL MATERIALS
           </button>
           <button
             onClick={() => setFilter("offline")}
             className={`flex-1 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all flex items-center justify-center gap-2 ${filter === "offline" ? "bg-indigo-600 text-white shadow-lg" : "text-gray-500"}`}
           >
-            <Download size={14} /> OFFLINE
+            <Download size={14} /> OFFLINE NOTES ({downloadedIds.length})
           </button>
         </div>
 
+        {/* Quick Subject Filter Pill Bar */}
+        <div>
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+              Filter by Subject
+            </span>
+            {(filterSubject || filterLevel || searchQuery) && (
+              <button
+                onClick={clearFilters}
+                className="text-[10px] font-bold text-indigo-500 hover:underline"
+              >
+                Reset All Filters
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+            {standardSubjects.map((sub) => {
+              const isSelected =
+                (!filterSubject && sub === "All Subjects") ||
+                filterSubject.toLowerCase() === sub.toLowerCase();
+              return (
+                <button
+                  key={sub}
+                  onClick={() =>
+                    setFilterSubject(sub === "All Subjects" ? "" : sub)
+                  }
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
+                    isSelected
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
+                      : theme === "dark"
+                      ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                  }`}
+                >
+                  {sub}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Level Select & Detailed Dropdowns */}
         <div className="flex gap-2">
           <select
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
             className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none`}
           >
-            <option value="">All Subjects</option>
-            {uniqueSubjects.map((sub) => (
+            <option value="">All Subjects (Dropdown)</option>
+            {allSubjectsList.map((sub) => (
               <option key={sub} value={sub}>
                 {sub}
               </option>
@@ -3416,7 +3534,7 @@ function LibraryView({
             onChange={(e) => setFilterLevel(e.target.value)}
             className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none`}
           >
-            <option value="">All Levels</option>
+            <option value="">All Levels (Forms 1-4)</option>
             {uniqueLevels.map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
@@ -3426,22 +3544,23 @@ function LibraryView({
         </div>
 
         <div>
-          <h3
-            className={`font-bold ${theme === "dark" ? "text-gray-100" : "text-slate-800"} mb-4 px-1 flex items-center justify-between`}
-          >
-            {filter === "all" ? "Study Materials" : "Offline Notes"}
-            {filter === "offline" && (
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2.5 py-1 rounded-full uppercase tracking-widest">
-                {visibleItems.length} items
-              </span>
-            )}
-          </h3>
-          <div className="space-y-4">
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h3
+              className={`font-black text-sm uppercase tracking-wider ${theme === "dark" ? "text-gray-200" : "text-slate-800"}`}
+            >
+              {filter === "all" ? "Available Study Packs" : "Downloaded Offline Notes"}
+            </h3>
+            <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-1 rounded-full uppercase tracking-widest font-black">
+              {visibleItems.length} {visibleItems.length === 1 ? "Item" : "Items"}
+            </span>
+          </div>
+
+          <div className="space-y-3.5">
             {loading ? (
               <div className="py-10 flex justify-center">
                 <EmiSpinner size="md" theme={theme} />
               </div>
-            ) : (
+            ) : visibleItems.length > 0 ? (
               visibleItems.map((item) => {
                 const isCloudinaryPdf =
                   item.type === "pdf" &&
@@ -3454,7 +3573,7 @@ function LibraryView({
                   <div key={item.id}>
                     <LibraryItem
                       title={item.title}
-                      type={item.type}
+                      type={item.type || "doc"}
                       date={
                         item.createdAt?.toDate
                           ? item.createdAt.toDate().toLocaleDateString()
@@ -3465,7 +3584,9 @@ function LibraryView({
                           ? "bg-red-500/20 text-red-500"
                           : item.type === "video"
                             ? "bg-blue-500/20 text-blue-500"
-                            : "bg-emerald-500/20 text-emerald-500"
+                            : item.type === "book"
+                              ? "bg-purple-500/20 text-purple-500"
+                              : "bg-emerald-500/20 text-emerald-500"
                       }
                       isDownloaded={downloadedIds.includes(item.id)}
                       onDownload={() => handleDownload(item)}
@@ -3478,22 +3599,27 @@ function LibraryView({
                   </div>
                 );
               })
-            )}
-            {!loading && visibleItems.length === 0 && (
-              <div className="text-center py-10">
+            ) : (
+              <div className="text-center py-12 px-4 rounded-3xl border border-dashed border-gray-500/20">
                 <div
                   className={`w-16 h-16 ${theme === "dark" ? "bg-gray-900" : "bg-slate-100"} rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-500`}
                 >
                   <Download size={32} strokeWidth={1.5} />
                 </div>
                 <p
-                  className={`text-sm font-bold ${theme === "dark" ? "text-gray-400" : "text-slate-600"}`}
+                  className={`text-sm font-black ${theme === "dark" ? "text-gray-300" : "text-slate-700"}`}
                 >
-                  No materials available.
+                  No materials match your current filter.
                 </p>
-                <p className="text-[11px] text-gray-500 max-w-[200px] mx-auto mt-2 leading-relaxed">
-                  Admin will publish materials soon. Check back later!
+                <p className="text-[11px] text-gray-500 max-w-[260px] mx-auto mt-1 leading-relaxed">
+                  Try selecting a different subject or reset your filters to view all syllabus notes.
                 </p>
+                <button
+                  onClick={clearFilters}
+                  className="mt-4 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition-transform"
+                >
+                  Reset All Filters
+                </button>
               </div>
             )}
           </div>
@@ -3609,8 +3735,17 @@ function DictionaryView({
   onBack: () => void;
   theme: "light" | "dark";
 }) {
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("All");
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<any>(() => {
+    try {
+      const lastWord = localStorage.getItem("mw_dict_last_word");
+      if (lastWord && ACADEMIC_DICTIONARY[lastWord.toLowerCase()]) {
+        return ACADEMIC_DICTIONARY[lastWord.toLowerCase()];
+      }
+    } catch {}
+    return ACADEMIC_DICTIONARY["photosynthesis"] || null;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dictionaryCache, setDictionaryCache] = useState<Record<string, any>>(
@@ -3626,31 +3761,35 @@ function DictionaryView({
 
   const speak = (text: string) => {
     try {
-      if (!("speechSynthesis" in window)) return;
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
       const utterance = new SpeechSynthesisUtterance(text);
 
       const setVoiceAndSpeak = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(
-          (v) =>
-            (v.name?.toLowerCase()?.includes("google us english") ||
-              v.name?.toLowerCase()?.includes("natural") ||
-              v.name?.toLowerCase()?.includes("english") ||
-              v.name?.toLowerCase()?.includes("male") ||
-              v.name?.toLowerCase()?.includes("david")) &&
-            v.lang?.startsWith("en"),
-        );
+        try {
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(
+            (v) =>
+              (v.name?.toLowerCase()?.includes("google us english") ||
+                v.name?.toLowerCase()?.includes("natural") ||
+                v.name?.toLowerCase()?.includes("english") ||
+                v.name?.toLowerCase()?.includes("male") ||
+                v.name?.toLowerCase()?.includes("david")) &&
+              v.lang?.startsWith("en"),
+          );
 
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-        } else {
-          utterance.voice = voices.find((v) => v.lang?.startsWith("en")) || voices[0];
+          if (preferredVoice) {
+            utterance.voice = preferredVoice;
+          } else if (voices.length > 0) {
+            utterance.voice = voices.find((v) => v.lang?.startsWith("en")) || voices[0];
+          }
+
+          utterance.pitch = 0.95;
+          utterance.rate = 0.95;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        } catch (innerErr) {
+          console.warn("Speech voice selection ignored:", innerErr);
         }
-
-        utterance.pitch = 0.9;
-        utterance.rate = 0.95;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
       };
 
       if (window.speechSynthesis.getVoices().length === 0) {
@@ -3659,7 +3798,7 @@ function DictionaryView({
         setVoiceAndSpeak();
       }
     } catch (e) {
-      console.error("Speech synthesis error:", e);
+      console.warn("Speech synthesis notice:", e);
     }
   };
 
@@ -3670,7 +3809,10 @@ function DictionaryView({
 
     setLoading(true);
     setError("");
-    setResult(null);
+
+    try {
+      localStorage.setItem("mw_dict_last_word", wordKey);
+    } catch {}
 
     // 1. Check local persistent cache
     if (dictionaryCache[wordKey]) {
@@ -3692,13 +3834,18 @@ function DictionaryView({
       return;
     }
 
-    // 3. Try Free Dictionary API
+    // 3. Try Free Dictionary API with timeout
     let found = false;
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const cleanWord = encodeURIComponent(wordKey.replace(/[^a-zA-Z0-9 -]/g, ""));
       const dictRes = await fetch(
         `https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeoutId);
+
       if (dictRes.ok) {
         const data = await dictRes.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -3732,7 +3879,7 @@ function DictionaryView({
         }
       }
     } catch (apiErr) {
-      console.warn("Free Dictionary API network attempt failed, trying AI fallback:", apiErr);
+      console.warn("Free Dictionary API attempt timed out or failed:", apiErr);
     }
 
     if (found) {
@@ -3740,13 +3887,17 @@ function DictionaryView({
       return;
     }
 
-    // 4. Fallback to Gemini AI Dictionary Endpoint
+    // 4. Fallback to Gemini AI Dictionary Endpoint with timeout
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const aiRes = await fetch("/api/gemini/dictionary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ word: rawWord }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (aiRes.ok) {
         const aiData = await aiRes.json();
@@ -3773,7 +3924,7 @@ function DictionaryView({
         }
       }
     } catch (aiErr) {
-      console.error("Gemini dictionary fallback error:", aiErr);
+      console.warn("Gemini dictionary fallback error:", aiErr);
     }
 
     // 5. Final fallback check if any partial match in local dictionary exists
@@ -3800,6 +3951,28 @@ function DictionaryView({
     performSearch(word);
   };
 
+  const SUBJECT_CATEGORIES = [
+    "All",
+    "Biology",
+    "Physics",
+    "Chemistry",
+    "Mathematics",
+    "English",
+    "Geography",
+    "Agriculture",
+    "History",
+  ];
+
+  const filteredWords = selectedSubjectFilter === "All"
+    ? POPULAR_DICTIONARY_WORDS
+    : Object.values(ACADEMIC_DICTIONARY)
+        .filter((entry) => {
+          const subj = (entry.subject || "").toLowerCase();
+          return subj.includes(selectedSubjectFilter.toLowerCase());
+        })
+        .map((e) => e.word)
+        .slice(0, 15);
+
   return (
     <div
       className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} animate-in slide-in-from-right duration-300`}
@@ -3822,17 +3995,17 @@ function DictionaryView({
               Academic Dictionary
             </h2>
             <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-              MSCE Terminology & English Lexicon
+              MSCE & JCE Syllabus Lexicon
             </p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-12 hide-scrollbar max-w-4xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-16 hide-scrollbar max-w-4xl mx-auto w-full space-y-5">
         {/* Search Bar */}
         <form
           onSubmit={handleSearchSubmit}
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-md"} rounded-[2rem] px-5 py-3.5 flex items-center border mb-4 transition-all focus-within:border-indigo-500/50 group`}
+          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-md"} rounded-[2rem] px-5 py-3 flex items-center border transition-all focus-within:border-indigo-500/50 group`}
         >
           <Search
             className="text-gray-400 mr-3 group-focus-within:text-indigo-500 transition-colors"
@@ -3841,7 +4014,7 @@ function DictionaryView({
           />
           <input
             type="text"
-            placeholder="Search any word or term (e.g. Osmosis, Velocity, Metaphor)..."
+            placeholder="Search academic terms (e.g. Osmosis, Velocity, Metaphor)..."
             className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm sm:text-base font-semibold placeholder-gray-400`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -3858,7 +4031,7 @@ function DictionaryView({
           <button
             type="submit"
             disabled={!query.trim() || loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform disabled:opacity-30"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform disabled:opacity-30 shrink-0"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -3868,20 +4041,45 @@ function DictionaryView({
           </button>
         </form>
 
-        {/* Popular Topic Suggestions Chips */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-            <Sparkles size={14} className="text-indigo-500" />
-            <span>Popular Academic Terminology</span>
+        {/* Subject Filter Pills */}
+        <div>
+          <div className="flex items-center gap-2 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+            <Sparkles size={13} className="text-indigo-500" />
+            <span>Curriculum Categories</span>
           </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
+            {SUBJECT_CATEGORIES.map((cat) => {
+              const isSelected = selectedSubjectFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedSubjectFilter(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
+                    isSelected
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                      : theme === "dark"
+                      ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Popular / Filtered Terms Chips */}
+        <div>
           <div className="flex flex-wrap gap-2">
-            {POPULAR_DICTIONARY_WORDS.map((word) => (
+            {(filteredWords.length > 0 ? filteredWords : POPULAR_DICTIONARY_WORDS).map((word) => (
               <button
                 key={word}
                 type="button"
                 onClick={() => handleChipClick(word)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
-                  query.toLowerCase() === word.toLowerCase()
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border capitalize ${
+                  (query && query.toLowerCase() === word.toLowerCase()) || (result && result.word.toLowerCase() === word.toLowerCase())
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                     : theme === "dark"
                     ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
@@ -3896,7 +4094,7 @@ function DictionaryView({
 
         {/* Error Notification */}
         {error && (
-          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-2xl text-center text-sm font-bold mb-6">
+          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-2xl text-center text-sm font-bold">
             {error}
           </div>
         )}
@@ -4031,20 +4229,55 @@ function QuizzesView({
   const [topic, setTopic] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [numQuestions, setNumQuestions] = useState(5);
-  const [publicQuizzes, setPublicQuizzes] = useState<any[]>([]);
+  const [publicQuizzes, setPublicQuizzes] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("mw_public_quizzes_cache");
+      return cached ? JSON.parse(cached) : DEFAULT_QUIZZES;
+    } catch {
+      return DEFAULT_QUIZZES;
+    }
+  });
 
   useEffect(() => {
+    let isMounted = true;
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted && (!publicQuizzes || publicQuizzes.length === 0)) {
+        setPublicQuizzes(DEFAULT_QUIZZES);
+      }
+    }, 2500);
+
     const q = query(
       collection(db, "quizzes"),
       orderBy("createdAt", "desc"),
       limit(10),
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPublicQuizzes(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
-    });
-    return () => unsubscribe();
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!isMounted) return;
+        clearTimeout(safetyTimeout);
+        if (!snapshot.empty) {
+          const liveData: any[] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          // Merge with DEFAULT_QUIZZES so user always has plenty
+          const merged = [...liveData, ...DEFAULT_QUIZZES.filter(dq => !liveData.some((ld: any) => ld.topic === dq.topic))];
+          setPublicQuizzes(merged);
+          try {
+            localStorage.setItem("mw_public_quizzes_cache", JSON.stringify(merged));
+          } catch {}
+        }
+      },
+      (error) => {
+        clearTimeout(safetyTimeout);
+        if (!error.message.includes("offline")) {
+          console.warn("Quizzes snapshot notice:", error);
+        }
+      }
+    );
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
   }, []);
 
   const [quizHistory, setQuizHistory] = useState<any[]>(() => {
@@ -4056,12 +4289,22 @@ function QuizzesView({
     }
   });
 
+  const SUGGESTED_TOPICS = [
+    "Biology: Genetics & Heredity",
+    "Math: Quadratic Equations",
+    "Chemistry: Acids & Bases",
+    "Physics: Forces & Newton's Laws",
+    "English: Grammar & Figure of Speech",
+    "Geography: Weather & ITCZ",
+    "Agriculture: Soil Fertility",
+  ];
+
   const generateAIQuiz = async () => {
     if (!topic.trim()) return;
 
     if (!navigator.onLine) {
       alert(
-        "You are offline! You can access all of your 'Practiced Offline Quizzes' listed below, or complete Trending Quizzes offline.",
+        "You are offline! You can practice the offline syllabus quizzes and your history listed below without internet.",
       );
       return;
     }
@@ -4131,54 +4374,13 @@ function QuizzesView({
   };
 
   const startPredefinedQuiz = (name: string) => {
-    const questions =
-      name === "Math Fundamentals"
-        ? [
-            {
-              q: "What is 5x + 2 = 17?",
-              options: ["x=2", "x=3", "x=4", "x=5"],
-              answer: "x=3",
-              summary:
-                "Subtracting 2 from 17 gives 15. Then dividing 15 by 5 gives x=3.",
-            },
-            {
-              q: "What is the formula for the Area of a circle?",
-              options: ["πr²", "2πr", "π²r", "r²"],
-              answer: "πr²",
-              summary:
-                "The area of a circle is calculated by multiplying pi (π) by the square of the radius (r²).",
-            },
-            {
-              q: "What is 15% of 200?",
-              options: ["15", "20", "30", "45"],
-              answer: "30",
-              summary: "15% of 200 is calculated as (15/100) * 200 = 30.",
-            },
-          ]
-        : [
-            {
-              q: "Which planet is the hottest in the solar system?",
-              options: ["Venus", "Mars", "Mercury", "Jupiter"],
-              answer: "Venus",
-              summary:
-                "Venus is the hottest planet because of its thick atmosphere that traps heat through the greenhouse effect.",
-            },
-            {
-              q: "What is the chemical symbol for Gold?",
-              options: ["Ag", "Au", "Pb", "Fe"],
-              answer: "Au",
-              summary:
-                "The chemical symbol for Gold (Au) comes from its Latin name 'Aurum'.",
-            },
-            {
-              q: "What gas do plants absorb during photosynthesis?",
-              options: ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"],
-              answer: "Carbon Dioxide",
-              summary:
-                "Plants take in Carbon Dioxide and water to produce glucose and oxygen through photosynthesis.",
-            },
-          ];
-    onStartQuiz(questions, name);
+    const found = DEFAULT_QUIZZES.find(q => q.topic.toLowerCase().includes(name.toLowerCase()));
+    if (found) {
+      onStartQuiz(found.questions, found.topic);
+      return;
+    }
+    const fallbackQuiz = DEFAULT_QUIZZES[0];
+    onStartQuiz(fallbackQuiz.questions, fallbackQuiz.topic);
   };
 
   return (
@@ -4202,12 +4404,12 @@ function QuizzesView({
             Quiz Center
           </h2>
           <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-            Test Your Skills
+            Test Your Knowledge
           </p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-8 pb-32 space-y-8 hide-scrollbar">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-7 hide-scrollbar max-w-4xl mx-auto w-full">
         {/* AI Generation Card */}
         <div
           className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-6 rounded-[32px] border relative overflow-hidden group`}
@@ -4225,7 +4427,7 @@ function QuizzesView({
                   AI Quiz Generator
                 </h3>
                 <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
-                  Instant Study Sessions
+                  Custom Examinations & Instant Quizzes
                 </p>
               </div>
             </div>
@@ -4244,7 +4446,32 @@ function QuizzesView({
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-4">
+              {/* Quick Topic Pills */}
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-2">
+                  Quick Topic Recommendations:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUGGESTED_TOPICS.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTopic(t)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                        topic === t
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : theme === "dark"
+                          ? "bg-gray-950 text-gray-400 border-gray-800 hover:text-white"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:text-indigo-600"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 pt-2">
                 <div className="flex-1 flex flex-col gap-1">
                   <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">
                     Questions: {numQuestions}
@@ -4262,7 +4489,7 @@ function QuizzesView({
                 <button
                   onClick={generateAIQuiz}
                   disabled={!topic.trim() || isGenerating}
-                  className="bg-indigo-600 text-white font-black text-[11px] py-4 px-6 rounded-2xl active:scale-95 transition-all shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50 tracking-widest uppercase"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-3.5 px-6 rounded-2xl active:scale-95 transition-all shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50 tracking-widest uppercase"
                 >
                   {isGenerating ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -4278,21 +4505,21 @@ function QuizzesView({
         {/* Cached / Offline Practiced Quizzes */}
         {quizHistory.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom duration-300">
-            <div className="flex items-center justify-between mb-4 px-1">
+            <div className="flex items-center justify-between mb-3 px-1">
               <h3
                 className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm uppercase tracking-wider`}
               >
                 Practiced Offline Quizzes
               </h3>
-              <span className="text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 px-2.5 py-1 rounded-full uppercase tracking-widest font-black">
+              <span className="text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase tracking-widest font-black">
                 Ready Offline
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2.5">
               {quizHistory.map((q, idx) => (
                 <div
                   key={idx}
-                  className={`${theme === "dark" ? "bg-gray-900/40 border-gray-800/80 hover:bg-gray-900/80" : "bg-white border-slate-250 shadow-sm hover:bg-slate-50"} rounded-2xl p-4 border flex items-center justify-between transition-all group`}
+                  className={`${theme === "dark" ? "bg-gray-900/60 border-gray-800/80 hover:bg-gray-900" : "bg-white border-slate-200 shadow-sm hover:bg-slate-50"} rounded-2xl p-4 border flex items-center justify-between transition-all group`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center shrink-0">
@@ -4321,89 +4548,74 @@ function QuizzesView({
           </div>
         )}
 
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
+        {/* Daily Challenge Banner */}
+        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-7 rounded-[32px] text-white shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
-            <h3 className="text-2xl font-black mb-2 leading-tight">
-              Daily Challenge
+            <h3 className="text-xl font-black mb-1.5 leading-tight">
+              Daily Challenge: Mathematics
             </h3>
-            <p className="text-indigo-100 text-xs font-bold leading-relaxed mb-6 max-w-[200px]">
-              Unlock 500 bonus points by completing today's challenge.
+            <p className="text-indigo-100 text-xs font-bold leading-relaxed mb-5 max-w-[240px]">
+              Complete today's challenge to earn 500 bonus MSCE knowledge points.
             </p>
             <button
-              onClick={() => startPredefinedQuiz("Math Fundamentals")}
-              className="bg-white text-indigo-700 font-black text-xs py-3 px-6 rounded-2xl active:scale-95 transition-all"
+              onClick={() => startPredefinedQuiz("Mathematics")}
+              className="bg-white text-indigo-700 font-black text-xs py-2.5 px-5 rounded-xl active:scale-95 transition-all shadow-md uppercase tracking-wider"
             >
-              Start Now
+              Start Challenge
             </button>
           </div>
           <Target
-            className="absolute top-1/2 right-[-20px] -translate-y-1/2 text-white/10 w-48 h-48"
+            className="absolute top-1/2 right-[-15px] -translate-y-1/2 text-white/10 w-40 h-40"
             strokeWidth={1}
           />
         </div>
 
+        {/* Community & Syllabus Quizzes Grid */}
         <div>
-          <h3
-            className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg mb-6 px-1 uppercase tracking-tight`}
-          >
-            Community Quizzes
-          </h3>
-          <div className="grid grid-cols-1 gap-5">
-            {publicQuizzes.length > 0 ? (
-              publicQuizzes.map((quiz, i) => (
-                <div
-                  key={quiz.id}
-                  className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[32px] p-6 border flex flex-col items-center text-center group relative overflow-hidden`}
-                >
-                  <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
-                  <div
-                    className={`w-16 h-16 ${theme === "dark" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border-indigo-100"} rounded-2xl flex items-center justify-center mb-5 border group-hover:scale-110 transition-transform`}
-                  >
-                    <BrainCircuit size={32} strokeWidth={2.5} />
-                  </div>
-                  <h3
-                    className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mb-2 tracking-tight`}
-                  >
-                    {quiz.topic}
-                  </h3>
-                  <p className="text-xs text-gray-500 font-bold mb-6 px-4 leading-relaxed">
-                    {quiz.questions?.length || 5} Questions • Community
-                    Generated
-                  </p>
-                  <button
-                    onClick={() => onStartQuiz(quiz.questions, quiz.topic)}
-                    className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"} font-black py-4 rounded-2xl border active:scale-95 transition-all text-[11px] tracking-widest uppercase`}
-                  >
-                    Begin Test
-                  </button>
-                </div>
-              ))
-            ) : (
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h3
+              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm uppercase tracking-wider`}
+            >
+              Syllabus & Community Quizzes
+            </h3>
+            <span className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
+              {publicQuizzes.length} Quizzes Ready
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {publicQuizzes.map((quiz) => (
               <div
-                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[32px] p-6 border flex flex-col items-center text-center group relative overflow-hidden`}
+                key={quiz.id}
+                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[28px] p-5 border flex flex-col justify-between group relative overflow-hidden`}
               >
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
-                <div
-                  className={`w-16 h-16 ${theme === "dark" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-100"} rounded-2xl flex items-center justify-center mb-5 border group-hover:scale-110 transition-transform`}
-                >
-                  <CheckCheck size={32} strokeWidth={2.5} />
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+                <div className="flex items-start gap-3.5 mb-4">
+                  <div
+                    className={`w-12 h-12 ${theme === "dark" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border-indigo-100"} rounded-2xl flex items-center justify-center border shrink-0`}
+                  >
+                    <BrainCircuit size={24} strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4
+                      className={`font-black text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1 leading-snug line-clamp-2`}
+                    >
+                      {quiz.topic}
+                    </h4>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      {quiz.questions?.length || 5} Questions • {quiz.level || "MSCE & JCE"}
+                    </span>
+                  </div>
                 </div>
-                <h3
-                  className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mb-2 tracking-tight`}
-                >
-                  Math Fundamentals
-                </h3>
-                <p className="text-xs text-gray-500 font-bold mb-6 px-4 leading-relaxed">
-                  Master the core concepts of algebra and geometry step by step.
-                </p>
+
                 <button
-                  onClick={() => startPredefinedQuiz("Math Fundamentals")}
-                  className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"} font-black py-4 rounded-2xl border active:scale-95 transition-all text-[11px] tracking-widest uppercase`}
+                  onClick={() => onStartQuiz(quiz.questions, quiz.topic)}
+                  className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"} font-black py-3 rounded-xl border active:scale-95 transition-all text-[10px] tracking-widest uppercase`}
                 >
-                  Begin Test
+                  Begin Quiz
                 </button>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
@@ -5796,18 +6008,31 @@ function SubscriptionView({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={handleCopyLifa}
-                className={`py-3 px-6 rounded-xl border font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 ${
-                  copiedLifa
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                    : theme === "dark"
-                      ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800 shadow-sm"
-                      : "bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm"
-                }`}
-              >
-                {copiedLifa ? "Copied 0999136433!" : "Copy Number (0999136433)"}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <button
+                  onClick={handleCopyLifa}
+                  className={`py-3 px-5 rounded-xl border font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 ${
+                    copiedLifa
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                      : theme === "dark"
+                        ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800 shadow-sm"
+                        : "bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm"
+                  }`}
+                >
+                  {copiedLifa ? "Copied 0999136433!" : "Copy Number"}
+                </button>
+                <button
+                  onClick={() =>
+                    handleOpenWhatsApp("Educate MW Full Access", "K7,000")
+                  }
+                  className="py-3 px-5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all active:scale-95 shrink-0 bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-md shadow-[#25D366]/20 cursor-pointer"
+                >
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
+                  </svg>
+                  <span>Chat on WhatsApp</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -5931,14 +6156,14 @@ function SubscriptionView({
                 "K7,000",
               )
             }
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+            className="w-full py-3.5 px-4 sm:px-6 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-black uppercase tracking-wider text-[11px] sm:text-xs rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer leading-tight"
           >
-            <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm border border-emerald-400/40">
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <div className="w-8 h-8 rounded-full bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-md">
+              <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
                 <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
               </svg>
             </div>
-            <span>Verify Payment (K7,000 via WhatsApp)</span>
+            <span className="text-center">Verify Payment (K7,000 via WhatsApp)</span>
           </button>
         </div>
 
@@ -8041,27 +8266,108 @@ function VideosView({
   theme: "light" | "dark";
   onBack: () => void;
 }) {
-  const [videos, setVideos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedSubject, setSelectedSubject] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [videos, setVideos] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("mw_videos_cache");
+      return cached ? JSON.parse(cached) : DEFAULT_VIDEOS;
+    } catch {
+      return DEFAULT_VIDEOS;
+    }
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }, 2500);
+
     const qVideos = query(
       collection(db, "materials"),
       where("type", "==", "video"),
       orderBy("createdAt", "desc"),
     );
-    const unsubscribe = onSnapshot(qVideos, (snapshot) => {
-      setVideos(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    });
-    return () => unsubscribe();
+
+    const unsubscribe = onSnapshot(
+      qVideos,
+      (snapshot) => {
+        if (!isMounted) return;
+        clearTimeout(safetyTimeout);
+        if (!snapshot.empty) {
+          const liveVideos: any[] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          // Merge with DEFAULT_VIDEOS to ensure a rich collection
+          const merged = [
+            ...liveVideos,
+            ...DEFAULT_VIDEOS.filter(dv => !liveVideos.some((lv: any) => lv.title === dv.title)),
+          ];
+          setVideos(merged);
+          try {
+            localStorage.setItem("mw_videos_cache", JSON.stringify(merged));
+          } catch {}
+        } else if (videos.length === 0) {
+          setVideos(DEFAULT_VIDEOS);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        clearTimeout(safetyTimeout);
+        if (isMounted) {
+          if (!err.message.includes("offline")) {
+            console.warn("Videos snapshot notice:", err);
+          }
+          if (videos.length === 0) {
+            setVideos(DEFAULT_VIDEOS);
+          }
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
   }, []);
+
+  const VIDEO_SUBJECTS = [
+    "All",
+    "Biology",
+    "Physics",
+    "Chemistry",
+    "Mathematics",
+    "English",
+    "Geography",
+    "Agriculture",
+    "History",
+  ];
+
+  const filteredVideos = videos.filter((video) => {
+    const matchesSubject =
+      selectedSubject === "All" ||
+      (video.subject || "").toLowerCase() === selectedSubject.toLowerCase() ||
+      (video.title || "").toLowerCase().includes(selectedSubject.toLowerCase()) ||
+      (video.desc || "").toLowerCase().includes(selectedSubject.toLowerCase());
+
+    const matchesSearch =
+      !searchQuery.trim() ||
+      (video.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (video.desc || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (video.subject || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesSubject && matchesSearch;
+  });
 
   return (
     <div
-      className={`min-h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} p-6 pt-10 animate-in fade-in duration-500 pb-20`}
+      className={`min-h-full ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} p-5 sm:p-8 pt-8 animate-in fade-in duration-300 pb-28 max-w-5xl mx-auto w-full`}
     >
-      <div className="flex items-center gap-4 mb-4">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
         <button
           onClick={onBack}
           className={`w-12 h-12 ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}
@@ -8072,77 +8378,145 @@ function VideosView({
           <h1
             className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-tight`}
           >
-            Learn via Video
+            Video Lessons & Tutorials
           </h1>
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-            Video Tutorials & Notes
+          <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
+            MSCE & JCE Curriculum Visual Guides
           </p>
         </div>
       </div>
 
-      {loading ? (
+      {/* Search Input */}
+      <div
+        className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-2xl px-4 py-3 flex items-center border mb-4 focus-within:border-indigo-500 transition-colors`}
+      >
+        <Search size={18} className="text-gray-400 mr-3 shrink-0" />
+        <input
+          type="text"
+          placeholder="Search video tutorials by topic, subject, or title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={`bg-transparent outline-none flex-1 text-sm font-semibold ${theme === "dark" ? "text-white" : "text-slate-900"} placeholder-gray-400`}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="text-xs font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 px-1.5"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Subject Filter Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-6 hide-scrollbar">
+        {VIDEO_SUBJECTS.map((subject) => {
+          const isSelected = selectedSubject === subject;
+          return (
+            <button
+              key={subject}
+              onClick={() => setSelectedSubject(subject)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
+                isSelected
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                  : theme === "dark"
+                  ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+              }`}
+            >
+              {subject}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && videos.length === 0 ? (
         <div className="py-20 flex justify-center">
           <EmiSpinner size="md" theme={theme} />
         </div>
-      ) : videos.length === 0 ? (
-        <div className="text-center py-20">
+      ) : filteredVideos.length === 0 ? (
+        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-[28px] border border-slate-200 dark:border-gray-800 p-8">
           <div
-            className={`w-20 h-20 ${theme === "dark" ? "bg-gray-900" : "bg-white shadow-sm"} rounded-3xl flex items-center justify-center mx-auto mb-6 text-gray-500 border border-gray-200 dark:border-gray-800 rotate-3`}
+            className={`w-16 h-16 ${theme === "dark" ? "bg-gray-800 text-gray-500" : "bg-slate-100 text-slate-400"} rounded-2xl flex items-center justify-center mx-auto mb-4`}
           >
-            <Video size={36} strokeWidth={1.5} />
+            <Video size={32} strokeWidth={1.5} />
           </div>
           <p
-            className={`text-base font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-widest`}
+            className={`text-base font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-wider mb-1`}
           >
-            No Videos Yet
+            No Videos Found
           </p>
-          <p className="text-[11px] text-gray-500 max-w-[200px] mx-auto mt-3 leading-relaxed font-semibold">
-            Our teachers are working on new video lessons. Check back later!
+          <p className="text-xs text-gray-500 max-w-sm mx-auto font-medium">
+            Try adjusting your search query or select "All" from the subject categories above.
           </p>
+          <button
+            onClick={() => {
+              setSelectedSubject("All");
+              setSearchQuery("");
+            }}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold active:scale-95"
+          >
+            Reset Filters
+          </button>
         </div>
       ) : (
-        <div className="space-y-6 pb-20">
-          {videos.map((video) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredVideos.map((video) => {
             const videoId = getYouTubeId(video.url || video.content || "");
             return (
               <div
                 key={video.id}
-                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-3xl overflow-hidden border shadow-xl`}
+                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-3xl overflow-hidden border shadow-md flex flex-col justify-between group hover:border-indigo-500/50 transition-all`}
               >
                 <div className="aspect-video bg-black relative">
                   {videoId ? (
                     <iframe
                       width="100%"
                       height="100%"
-                      src={`https://www.youtube.com/embed/${videoId}`}
+                      src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0`}
                       title={video.title}
                       frameBorder="0"
+                      loading="lazy"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
-                      className="absolute inset-0"
+                      className="absolute inset-0 w-full h-full"
                     ></iframe>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-500 flex-col">
                       <Video size={32} className="mb-2 opacity-50" />
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        Invalid URL
+                        Video Preview
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="p-5">
-                  <h3
-                    className={`font-black text-lg leading-tight ${theme === "dark" ? "text-white" : "text-slate-900"} mb-2`}
-                  >
-                    {video.title}
-                  </h3>
-                  {video.desc && (
-                    <p
-                      className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-slate-600"} font-medium line-clamp-2`}
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {video.subject && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                          {video.subject}
+                        </span>
+                      )}
+                      {video.level && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          {video.level}
+                        </span>
+                      )}
+                    </div>
+                    <h3
+                      className={`font-black text-base leading-snug ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1.5`}
                     >
-                      {video.desc}
-                    </p>
-                  )}
+                      {video.title}
+                    </h3>
+                    {video.desc && (
+                      <p
+                        className={`text-xs ${theme === "dark" ? "text-gray-400" : "text-slate-600"} font-medium line-clamp-2 leading-relaxed`}
+                      >
+                        {video.desc}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -8675,28 +9049,71 @@ function EmiLoader({
 }) {
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme === "dark" ? "bg-gray-950 text-white" : "bg-slate-50 text-slate-900"} overflow-hidden select-none`}
+      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950 text-white" : "bg-slate-50 text-slate-900"} overflow-hidden select-none`}
     >
-      <div className="flex flex-col items-center max-w-sm px-6 text-center z-10 relative">
-        {/* Simple elegant, fast loading ring with logo */}
-        <div className="relative w-14 h-14 mb-5 flex items-center justify-center shrink-0">
-          <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 border-t-blue-600 animate-spin" />
-          <div
-            className={`w-9 h-9 rounded-xl p-0.5 bg-blue-600 shadow-md flex items-center justify-center z-10 overflow-hidden border border-blue-500/30`}
-          >
-            <img
-              src="/app-icon.jpg"
-              alt="Educate MW"
-              className="w-full h-full object-cover rounded-[9px]"
-              referrerPolicy="no-referrer"
-            />
+      {/* Skeleton Header matching Home screen */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 ${theme === "dark" ? "bg-gray-950/90" : "bg-white/90"} backdrop-blur-2xl border-b ${theme === "dark" ? "border-white/5" : "border-slate-200"}`}
+      >
+        <div className="pt-3.5 pb-2 px-3 sm:px-5 max-w-7xl mx-auto">
+          <div className="flex justify-between items-center w-full relative">
+            <div className="flex items-center gap-2 sm:gap-3 opacity-50">
+              <div
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400" : "bg-slate-50 border-slate-200 text-slate-500"} shadow-sm border`}
+              >
+                <Menu size={19} strokeWidth={2.5} />
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-2.5 logo-container select-none">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-sm shadow-blue-600/20 border border-blue-500/30 bg-blue-600 p-0.5 flex items-center justify-center">
+                  <img
+                    src="/app-icon.jpg"
+                    alt="Educate MW"
+                    className="w-full h-full object-cover rounded-[9px]"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <span
+                  className={`font-black text-base sm:text-lg tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+                >
+                  Educate
+                  <span className="text-blue-600 font-bold opacity-90 pl-0.5">
+                    MW
+                  </span>
+                </span>
+              </div>
+            </div>
+            {/* Right side skeleton dots (optional, keeping it simple) */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 opacity-50">
+               <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-slate-100 border-slate-200"} border`}></div>
+            </div>
           </div>
         </div>
+      </header>
 
-        {/* Simple crisp lettering */}
-        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-blue-600 dark:text-blue-400">
-          {text}
-        </p>
+      {/* Main loading area */}
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center max-w-sm px-6 text-center z-10 relative">
+          {/* Simple elegant, fast loading ring with logo */}
+          <div className="relative w-14 h-14 mb-5 flex items-center justify-center shrink-0">
+            <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 border-t-blue-600 animate-spin" />
+            <div
+              className={`w-9 h-9 rounded-xl p-0.5 bg-blue-600 shadow-md flex items-center justify-center z-10 overflow-hidden border border-blue-500/30`}
+            >
+              <img
+                src="/app-icon.jpg"
+                alt="Educate MW"
+                className="w-full h-full object-cover rounded-[9px]"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+
+          {/* Simple crisp lettering */}
+          <p className="text-[11px] font-black uppercase tracking-[0.15em] text-blue-600 dark:text-blue-400">
+            {text}
+          </p>
+        </div>
       </div>
     </div>
   );

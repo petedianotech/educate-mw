@@ -28,7 +28,7 @@ The Malawi School Certificate of Education (MSCE) exams are a significant milest
 The Malawi syllabus is comprehensive. Make sure you have the official MANEB syllabus for every subject you're sitting for.
 
 ## 2. Create a Study Timetable
-Don't just study randomly. Allocate specific hours to subjects you find challenging, like Mathematics or Physical Science.
+Don't just study randomly. Allocate specific hours to subjects you find challenging, like Mathematics, Physics, or Chemistry.
 
 ## 3. Use Past Papers
 Practicing with past MANEB papers helps you understand the questioning style and time management.
@@ -85,7 +85,7 @@ Science teaches you how to solve problems logically and methodically. This skill
 ### 3. Understanding the World
 Chemistry explains the world at a molecular level—essential for Agriculture and Food Science, which are pillars of our economy.
 
-## Tips for Mastering physical Science
+## Tips for Mastering Physics and Chemistry
 *   **Don't skip labs:** Practical experience is key.
 *   **Master the Formulas:** Physics is all about relationships between variables.
 *   **Ask Emi:** Our AI tutor can break down the Periodic Table or Newton's Laws in simple English for you.

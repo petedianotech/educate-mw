@@ -6,57 +6,151 @@ import { GroupChat } from './GroupChat';
 import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 
+const DEFAULT_COMMUNITY_FEEDS = [
+  {
+    id: 'feed-1',
+    text: "Has anyone worked through the 2023 MSCE Biology Paper 1 questions on genetic crosses and monohybrid ratios? Let's discuss tips!",
+    userId: 'student1',
+    name: 'Tamanda Phiri',
+    initial: 'T',
+    color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    likes: 18,
+    replies: 7,
+    createdAt: null,
+    timeText: '15 minutes ago'
+  },
+  {
+    id: 'feed-2',
+    text: "Quick physics reminder for Form 4s: Remember that Work Done = Force × Distance in the direction of force (Joules). Don't forget SI unit conversions!",
+    userId: 'student2',
+    name: 'Mr. Lifa (Teacher)',
+    initial: 'L',
+    color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    likes: 34,
+    replies: 12,
+    createdAt: null,
+    timeText: '1 hour ago'
+  },
+  {
+    id: 'feed-3',
+    text: "Studying Agriculture today: Focus on nitrogen cycle, compost manure preparation methods, and contour marker ridges for soil conservation.",
+    userId: 'student3',
+    name: 'Alinafe Mwale',
+    initial: 'A',
+    color: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+    likes: 11,
+    replies: 4,
+    createdAt: null,
+    timeText: '3 hours ago'
+  }
+];
+
 export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
   const [activeGroup, setActiveGroup] = useState<{name: string, members: number} | null>(null);
   
-  const [feeds, setFeeds] = useState<any[]>([]);
+  const [feeds, setFeeds] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('mw_community_feeds_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_COMMUNITY_FEEDS;
+  });
   const [newPost, setNewPost] = useState('');
   const [posting, setPosting] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'feeds'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        setFeeds(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setLoading(false);
-    });
-    return () => unsubscribe();
+    let isMounted = true;
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
+    try {
+      const q = query(collection(db, 'feeds'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (isMounted) {
+          clearTimeout(safetyTimeout);
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setFeeds(list);
+            try {
+              localStorage.setItem('mw_community_feeds_cache', JSON.stringify(list));
+            } catch {}
+          }
+          setLoading(false);
+        }
+      }, (err) => {
+        clearTimeout(safetyTimeout);
+        console.warn("Feeds live query error, using local feeds:", err);
+        if (isMounted) setLoading(false);
+      });
+      return () => {
+        isMounted = false;
+        clearTimeout(safetyTimeout);
+        unsubscribe();
+      };
+    } catch (e) {
+      clearTimeout(safetyTimeout);
+      console.warn("Feeds listener init error:", e);
+      setLoading(false);
+    }
   }, []);
 
   const handlePost = async (e: React.FormEvent) => {
       e.preventDefault();
       if(!newPost.trim()) return;
       setPosting(true);
+      const tempPost = {
+        id: 'local-' + Date.now(),
+        text: newPost.trim(),
+        userId: auth.currentUser?.uid || 'guest',
+        name: auth.currentUser?.displayName || 'Student',
+        initial: (auth.currentUser?.displayName || 'S')[0],
+        color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        likes: 0,
+        replies: 0,
+        createdAt: null,
+        timeText: 'Just now'
+      };
+      
+      setFeeds(prev => [tempPost, ...prev]);
+      setNewPost('');
+
       try {
          await addDoc(collection(db, 'feeds'), {
-             text: newPost,
-             userId: auth.currentUser?.uid || 'guest',
-             name: auth.currentUser?.displayName || 'Student',
-             initial: (auth.currentUser?.displayName || 'S')[0],
-             color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+             text: tempPost.text,
+             userId: tempPost.userId,
+             name: tempPost.name,
+             initial: tempPost.initial,
+             color: tempPost.color,
              likes: 0,
              replies: 0,
              createdAt: serverTimestamp()
          });
-         setNewPost('');
       } catch (err) {
-         console.error(err);
+         console.warn("Could not sync post to cloud:", err);
       } finally {
           setPosting(false);
       }
   };
 
-  const formatTime = (date: any) => {
-      if(!date) return 'Just now';
-      const seconds = Math.floor((new Date().getTime() - date.toDate().getTime()) / 1000);
-      if(seconds < 60) return `${Math.max(1, seconds)} seconds ago`;
-      const interval = seconds / 31536000;
-      if (interval > 1) return Math.floor(interval) + " years ago";
-      if (interval > 2592000) return Math.floor(seconds / 2592000) + " months ago";
-      if (interval > 86400) return Math.floor(seconds / 86400) + " days ago";
-      if (interval > 3600) return Math.floor(seconds / 3600) + " hours ago";
-      if (interval > 60) return Math.floor(seconds / 60) + " minutes ago";
-      return "Just now";
+  const formatTime = (date: any, fallbackText?: string) => {
+      if (fallbackText) return fallbackText;
+      if(!date || !date.toDate) return 'Just now';
+      try {
+        const seconds = Math.floor((new Date().getTime() - date.toDate().getTime()) / 1000);
+        if(seconds < 60) return `${Math.max(1, seconds)} seconds ago`;
+        const interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + " years ago";
+        if (interval > 2592000) return Math.floor(seconds / 2592000) + " months ago";
+        if (interval > 86400) return Math.floor(seconds / 86400) + " days ago";
+        if (interval > 3600) return Math.floor(seconds / 3600) + " hours ago";
+        if (interval > 60) return Math.floor(seconds / 60) + " minutes ago";
+      } catch {}
+      return "Recently";
   };
 
   if (activeGroup) {
@@ -105,18 +199,18 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
          
          <div className="px-5 pt-4">
             <div className="flex items-center justify-between mb-6">
-                <h3 className="font-black text-white text-lg">Trending Feed</h3>
-                <MessageCircle size={18} className="text-gray-600" />
+                <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg`}>Trending Feed</h3>
+                <MessageCircle size={18} className="text-gray-500" />
             </div>
 
             <form onSubmit={handlePost} className="mb-8">
-               <div className="bg-gray-900 border border-gray-800 rounded-[28px] p-4 flex gap-3 focus-within:border-indigo-500/50 transition-all shadow-sm">
+               <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} border rounded-[28px] p-4 flex gap-3 focus-within:border-indigo-500/50 transition-all`}>
                    <input 
                        type="text" 
                        value={newPost}
                        onChange={e => setNewPost(e.target.value)}
-                       placeholder="Share a thought or ask a question..." 
-                       className="bg-transparent flex-1 outline-none text-[13px] text-gray-200"
+                       placeholder="Share a study question or exam tip..." 
+                       className={`bg-transparent flex-1 outline-none text-[13px] ${theme === 'dark' ? 'text-gray-200' : 'text-slate-900'} placeholder-gray-500`}
                    />
                    <button type="submit" disabled={posting || !newPost.trim()} className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 disabled:opacity-50 shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform">
                        {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={2.5} />}
@@ -129,33 +223,33 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
                    <div className="flex justify-center p-8"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>
                ) : feeds.length === 0 ? (
                    <div className="text-center p-8 opacity-50">
-                       <MessageCircle size={32} className="mx-auto mb-3 text-gray-600" />
-                       <p className="text-white font-bold text-sm">No posts yet</p>
+                       <MessageCircle size={32} className="mx-auto mb-3 text-gray-500" />
+                       <p className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>No posts yet</p>
                        <p className="text-gray-500 text-xs mt-1">Be the first to share something!</p>
                    </div>
                ) : (
                    feeds.map((post, i) => (
-                     <div key={post.id} className="bg-gray-900 p-6 rounded-[32px] shadow-sm border border-gray-800 transition-all hover:border-gray-700 animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: `${Math.min(i, 5) * 100}ms`}}>
+                     <div key={post.id || i} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-[32px] border transition-all hover:border-indigo-500/30 animate-in fade-in slide-in-from-bottom-4`} style={{animationDelay: `${Math.min(i, 5) * 80}ms`}}>
                         <div className="flex items-center gap-3 mb-4">
-                           <div className={`w-10 h-10 rounded-max flex items-center justify-center font-black text-sm border rounded-2xl ${post.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
-                              {post.initial}
+                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm border ${post.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
+                              {post.initial || 'S'}
                            </div>
                            <div>
-                              <h4 className="font-black text-white text-sm leading-tight">{post.name}</h4>
-                              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest leading-none mt-1">{formatTime(post.createdAt)}</p>
+                              <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm leading-tight`}>{post.name}</h4>
+                              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest leading-none mt-1">{formatTime(post.createdAt, post.timeText)}</p>
                            </div>
                         </div>
-                        <p className="text-gray-300 text-[14px] font-medium leading-relaxed mb-6">{post.text}</p>
+                        <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'} text-[14px] font-medium leading-relaxed mb-6`}>{post.text}</p>
                         <div className="flex items-center gap-6">
-                           <button className="flex items-center gap-2 text-gray-500 hover:text-indigo-400 transition-colors">
+                           <button className="flex items-center gap-2 text-gray-500 hover:text-indigo-400 transition-colors active:scale-95">
                               <ThumbsUp size={16} />
                               <span className="text-[11px] font-black uppercase tracking-widest">{post.likes || 0}</span>
                            </button>
-                           <button className="flex items-center gap-2 text-gray-500 hover:text-indigo-400 transition-colors">
+                           <button className="flex items-center gap-2 text-gray-500 hover:text-indigo-400 transition-colors active:scale-95">
                               <MessageCircle size={16} />
                               <span className="text-[11px] font-black uppercase tracking-widest">{post.replies || 0}</span>
                            </button>
-                           <button className="ml-auto text-gray-700">
+                           <button className="ml-auto text-gray-500 hover:text-indigo-400 active:scale-95">
                               <Share2 size={16} />
                            </button>
                         </div>
