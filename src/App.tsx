@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { motion } from "motion/react";
 import SEO from "./components/SEO";
 import { BlogView, BlogPostView } from "./components/BlogSystem";
@@ -2189,16 +2190,11 @@ function EmiChatView({
             </div>
           )}
           <button
-            onClick={() => {
-              alert("🚀 Live Call is coming soon! We're putting the finishing touches on Emi's voice. Stay tuned!");
-            }}
-            className={`w-10 h-10 relative group ${theme === "dark" ? "bg-indigo-500/10 text-indigo-400/50" : "bg-indigo-50 text-indigo-400"} rounded-full flex items-center justify-center shrink-0 transition-all opacity-80`}
-            title="Live Call Coming Soon"
+            onClick={() => setIsCalling(true)}
+            className={`w-10 h-10 relative group ${theme === "dark" ? "bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"} rounded-full flex items-center justify-center shrink-0 transition-all`}
+            title="Start Live Call"
           >
-            <Phone size={18} fill="currentColor" className="opacity-40" />
-            <div className="absolute -top-1 -right-1 bg-amber-500 text-[6px] font-black text-white px-1 py-0.5 rounded-full uppercase tracking-tighter shadow-sm whitespace-nowrap">
-              Soon
-            </div>
+            <Phone size={18} fill="currentColor" />
           </button>
         </div>
       </div>
@@ -2650,112 +2646,136 @@ function CallingView({
         if (!active) return;
         streamRef.current = stream;
 
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}/api/gemini/live?voice=${encodeURIComponent(voiceName)}`;
-        const ws = new WebSocket(wsUrl);
+        // Fetch token from our backend to connect directly
+        const tokenRes = await fetch("/api/gemini/token");
+        const tokenData = await tokenRes.json();
+        const apiKey = tokenData.token;
+        if (!apiKey) throw new Error("Gemini API key not found on server.");
 
-        ws.onopen = () => {
-          setIsConnected(true);
-          const AudioContextClass =
-            window.AudioContext || (window as any).webkitAudioContext;
-          const audioContext = new AudioContextClass({ sampleRate: 16000 });
-          audioContextRef.current = audioContext;
-          nextPlayTimeRef.current = audioContext.currentTime;
-
-          // Safe resume gesture bypass for suspended state
-          audioContext
-            .resume()
-            .catch((e) => console.log("AudioContext resume failed:", e));
-
-          const analyser = audioContext.createAnalyser();
-          analyser.fftSize = 256;
-          analyserRef.current = analyser;
-
-          // Send initial greeting prompt so the Live AI introduces itself!
-          ws.send(
-            JSON.stringify({
-              text: "Hi Emi. Briefly introduce yourself and ask me how you can help with my MSCE/JCE studies today.",
-            }),
-          );
-
-          const source = audioContext.createMediaStreamSource(stream);
-          source.connect(analyser);
-
-          const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-          processor.onaudioprocess = (e) => {
-            if (isMutedRef.current) return;
-            const inputData = e.inputBuffer.getChannelData(0);
-            const pcm16 = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-              pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
-            }
-            const base64Data = arrayBufferToBase64(pcm16.buffer);
-
-            if (active && ws.readyState === WebSocket.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  audio: base64Data,
-                }),
-              );
-            }
-          };
-          source.connect(processor);
-          processor.connect(audioContext.destination);
+        const ai = new GoogleGenAI({ apiKey });
+        
+        const voiceMapping: Record<string, string> = {
+          'Aoede': 'Zephyr',
+          'Kore': 'Kore',
+          'Puck': 'Puck',
+          'Charon': 'Charon',
+          'Fenrir': 'Fenrir'
         };
+        const targetVoice = voiceMapping[voiceName] || 'Zephyr';
 
-        ws.onmessage = (event) => {
-          const message = JSON.parse(event.data);
+        const session = await ai.live.connect({
+          model: "gemini-3.1-flash-live-preview",
+          callbacks: {
+            onmessage: (message: any) => {
+              if (!active) return;
+              
+              // Audio
+              const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+              if (base64Audio && audioContextRef.current) {
+                const ctx = audioContextRef.current;
+                const binaryString = atob(base64Audio);
+                const len = binaryString.length;
+                const alignedLen = len - (len % 2);
+                const bytes = new Uint8Array(alignedLen);
+                for (let i = 0; i < alignedLen; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                const pcm16 = new Int16Array(bytes.buffer);
+                const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000);
+                const channelData = audioBuffer.getChannelData(0);
+                for (let i = 0; i < pcm16.length; i++) {
+                  channelData[i] = pcm16[i] / 32768.0;
+                }
+                const trackSource = ctx.createBufferSource();
+                trackSource.buffer = audioBuffer;
+                trackSource.connect(ctx.destination);
 
-          if (message.error) {
-            setErrorMsg(message.error);
-            setIsConnected(false);
-            return;
-          }
-
-          if (message.interrupted) {
-            nextPlayTimeRef.current = 0;
-          }
-          const base64Audio = message.audio;
-          if (base64Audio && audioContextRef.current) {
-            const ctx = audioContextRef.current;
-            const binaryString = atob(base64Audio);
-            const len = binaryString.length;
-            const alignedLen = len - (len % 2); // ensures aligned bytes for 16-bit array
-            const bytes = new Uint8Array(alignedLen);
-            for (let i = 0; i < alignedLen; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
+                const schedTime = Math.max(
+                  nextPlayTimeRef.current,
+                  ctx.currentTime,
+                );
+                trackSource.start(schedTime);
+                nextPlayTimeRef.current = schedTime + audioBuffer.duration;
+              }
+              
+              // Interruption
+              if (message.serverContent?.interrupted) {
+                 nextPlayTimeRef.current = 0;
+              }
+              
+              // Error
+              if (message.error) {
+                 console.error("Gemini Live Error:", message.error);
+                 setErrorMsg("Emi is having trouble speaking. Please try again.");
+              }
             }
-            const pcm16 = new Int16Array(bytes.buffer);
-            const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000); // 24kHz live API TTS sample rate
-            const channelData = audioBuffer.getChannelData(0);
-            for (let i = 0; i < pcm16.length; i++) {
-              channelData[i] = pcm16[i] / 32768.0;
-            }
-            const trackSource = ctx.createBufferSource();
-            trackSource.buffer = audioBuffer;
-            trackSource.connect(ctx.destination);
+          },
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: targetVoice
+                }
+              }
+            },
+            systemInstruction: `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher. Help the student with their JCE/MSCE studies.`
+          }
+        });
+        
+        setIsConnected(true);
 
-            const schedTime = Math.max(
-              nextPlayTimeRef.current,
-              ctx.currentTime,
-            );
-            trackSource.start(schedTime);
-            nextPlayTimeRef.current = schedTime + audioBuffer.duration;
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContextClass({ sampleRate: 16000 });
+        audioContextRef.current = audioContext;
+        nextPlayTimeRef.current = audioContext.currentTime;
+
+        // Safe resume gesture bypass for suspended state
+        audioContext
+          .resume()
+          .catch((e) => console.log("AudioContext resume failed:", e));
+
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyserRef.current = analyser;
+
+        // Send initial greeting prompt
+        session.sendRealtimeInput([{
+           text: "Hi Emi. Briefly introduce yourself and ask me how you can help with my MSCE/JCE studies today."
+        }]);
+
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        processor.onaudioprocess = (e) => {
+          if (isMutedRef.current) return;
+          const inputData = e.inputBuffer.getChannelData(0);
+          const pcm16 = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
+          }
+          const base64Data = arrayBufferToBase64(pcm16.buffer);
+
+          if (active && session) {
+            session.sendRealtimeInput([{
+               mimeType: "audio/pcm;rate=16000",
+               data: base64Data
+            }]);
           }
         };
+        
+        source.connect(processor);
+        processor.connect(audioContext.destination);
 
-        ws.onerror = (err) => console.error("Live Error:", err);
-        ws.onclose = () => {
-          if (active) setIsConnected(false);
-        };
-
-        sessionRef.current = Promise.resolve(ws);
+        sessionRef.current = session;
       } catch (err: any) {
-        console.error("Mic access denied or error:", err);
+        console.error("Connection error:", err);
         setErrorMsg(
           err.message ||
-            "Microphone access denied. Please allow microphone permissions and try again.",
+            "Failed to connect to Emi. Please ensure you have internet access and microphone permissions.",
         );
       }
     };
@@ -2770,7 +2790,14 @@ function CallingView({
         audioContextRef.current.close().catch(() => {});
       }
       if (sessionRef.current) {
-        sessionRef.current.then((s: any) => s.close()).catch(() => {});
+        try {
+          // If it's a promise (legacy), handle it, otherwise it's the real session
+          if (typeof sessionRef.current.then === 'function') {
+            sessionRef.current.then((s: any) => s.close?.()).catch(() => {});
+          } else {
+            sessionRef.current.close?.();
+          }
+        } catch(e) {}
       }
     };
   }, [voiceName]);
