@@ -2555,6 +2555,7 @@ function CallingView({
   const [seconds, setSeconds] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [isEmiSpeaking, setIsEmiSpeaking] = useState(false);
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [voiceName, setVoiceName] = useState<string>(
     localStorage.getItem("emi_voice") || "Kore",
   );
@@ -2562,17 +2563,23 @@ function CallingView({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState<string>("");
-  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [userAnalyserNode, setUserAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [emiAnalyserNode, setEmiAnalyserNode] = useState<AnalyserNode | null>(null);
 
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
   const outputAudioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const userAnalyserRef = useRef<AnalyserNode | null>(null);
+  const emiAnalyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const silentGainRef = useRef<GainNode | null>(null);
   const sessionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const isMutedRef = useRef(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const userSpeakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const voiceOptions = [
     { name: "Kore", desc: "Warm & Friendly" },
@@ -2583,8 +2590,17 @@ function CallingView({
     { name: "Aoede", desc: "Gentle & Expressive" },
   ];
 
+  // Sync mute state immediately to audio track and ref
   useEffect(() => {
     isMutedRef.current = isMuted;
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !isMuted;
+      });
+    }
+    if (isMuted) {
+      setIsUserSpeaking(false);
+    }
   }, [isMuted]);
 
   useEffect(() => {
@@ -2643,9 +2659,9 @@ function CallingView({
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
-      if (analyserRef.current) {
-        source.connect(analyserRef.current);
-        analyserRef.current.connect(ctx.destination);
+      if (emiAnalyserRef.current) {
+        source.connect(emiAnalyserRef.current);
+        emiAnalyserRef.current.connect(ctx.destination);
       } else {
         source.connect(ctx.destination);
       }
@@ -2669,6 +2685,38 @@ function CallingView({
     } catch (err) {
       console.error("Audio playback error:", err);
     }
+  };
+
+  // High-fidelity downsampler from device microphone sampleRate to 16,000Hz PCM
+  const downsampleTo16k = (buffer: Float32Array, inputSampleRate: number): Int16Array => {
+    if (inputSampleRate === 16000) {
+      const pcm16 = new Int16Array(buffer.length);
+      for (let i = 0; i < buffer.length; i++) {
+        const s = Math.max(-1, Math.min(1, buffer[i]));
+        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return pcm16;
+    }
+    const ratio = inputSampleRate / 16000;
+    const newLength = Math.round(buffer.length / ratio);
+    const result = new Int16Array(newLength);
+    let offsetResult = 0;
+    let offsetBuffer = 0;
+    while (offsetResult < result.length) {
+      const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+      let accum = 0;
+      let count = 0;
+      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+        accum += buffer[i];
+        count++;
+      }
+      const sample = count > 0 ? accum / count : 0;
+      const s = Math.max(-1, Math.min(1, sample));
+      result[offsetResult] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      offsetResult++;
+      offsetBuffer = nextOffsetBuffer;
+    }
+    return result;
   };
 
   useEffect(() => {
@@ -2707,11 +2755,10 @@ function CallingView({
       try {
         setErrorMsg(null);
 
-        // 1. Get microphone stream
+        // 1. Get microphone stream with clear echo cancellation
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             channelCount: 1,
-            sampleRate: 16000,
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
@@ -2722,6 +2769,10 @@ function CallingView({
           return;
         }
         streamRef.current = stream;
+        // Respect current mute setting immediately
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = !isMutedRef.current;
+        });
 
         // 2. Fetch API token from backend
         const tokenRes = await fetch("/api/gemini/token");
@@ -2739,10 +2790,10 @@ function CallingView({
         nextPlayTimeRef.current = outputCtx.currentTime;
         outputCtx.resume().catch(() => {});
 
-        const analyser = outputCtx.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-        setAnalyserNode(analyser);
+        const emiAnalyser = outputCtx.createAnalyser();
+        emiAnalyser.fftSize = 256;
+        emiAnalyserRef.current = emiAnalyser;
+        setEmiAnalyserNode(emiAnalyser);
 
         // 4. Initialize GoogleGenAI with Live API
         const ai = new GoogleGenAI({
@@ -2832,21 +2883,54 @@ function CallingView({
           turnComplete: true,
         });
 
-        // 6. Setup Input AudioContext (16kHz for mic capture)
-        const inputCtx = new AudioContextClass({ sampleRate: 16000 });
+        // 6. Setup Input AudioContext (mic capture & real-time downsampling)
+        const inputCtx = new AudioContextClass();
         inputAudioCtxRef.current = inputCtx;
         inputCtx.resume().catch(() => {});
 
+        const userAnalyser = inputCtx.createAnalyser();
+        userAnalyser.fftSize = 256;
+        userAnalyserRef.current = userAnalyser;
+        setUserAnalyserNode(userAnalyser);
+
         const source = inputCtx.createMediaStreamSource(stream);
-        const processor = inputCtx.createScriptProcessor(4096, 1, 1);
+        sourceNodeRef.current = source;
+
+        const processor = inputCtx.createScriptProcessor(2048, 1, 1);
+        processorNodeRef.current = processor;
+
+        const silentGain = inputCtx.createGain();
+        silentGain.gain.value = 0; // Prevent microphone feedback loop to speakers
+        silentGainRef.current = silentGain;
+
+        source.connect(userAnalyser);
+        userAnalyser.connect(processor);
+        processor.connect(silentGain);
+        silentGain.connect(inputCtx.destination);
 
         processor.onaudioprocess = (e) => {
           if (isMutedRef.current || !active) return;
           const inputData = e.inputBuffer.getChannelData(0);
-          const pcm16 = new Int16Array(inputData.length);
+
+          // Calculate RMS to detect user speaking activity
+          let sum = 0;
           for (let i = 0; i < inputData.length; i++) {
-            pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
+            sum += inputData[i] * inputData[i];
           }
+          const rms = Math.sqrt(sum / inputData.length);
+          if (rms > 0.012) {
+            setIsUserSpeaking(true);
+            if (userSpeakingTimeoutRef.current) {
+              clearTimeout(userSpeakingTimeoutRef.current);
+            }
+            userSpeakingTimeoutRef.current = setTimeout(() => {
+              setIsUserSpeaking(false);
+            }, 350);
+          }
+
+          // Resample buffer to 16kHz PCM
+          const pcm16 = downsampleTo16k(inputData, inputCtx.sampleRate);
+          if (pcm16.length === 0) return;
 
           let binary = "";
           const bytes = new Uint8Array(pcm16.buffer);
@@ -2867,9 +2951,6 @@ function CallingView({
             } catch (err) {}
           }
         };
-
-        source.connect(processor);
-        processor.connect(inputCtx.destination);
       } catch (err: any) {
         console.error("Live connection error:", err);
         if (active) {
@@ -2890,8 +2971,18 @@ function CallingView({
       if (speakingTimeoutRef.current) {
         clearTimeout(speakingTimeoutRef.current);
       }
+      if (userSpeakingTimeoutRef.current) {
+        clearTimeout(userSpeakingTimeoutRef.current);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (processorNodeRef.current) {
+        processorNodeRef.current.onaudioprocess = null;
+        try { processorNodeRef.current.disconnect(); } catch (e) {}
+      }
+      if (sourceNodeRef.current) {
+        try { sourceNodeRef.current.disconnect(); } catch (e) {}
       }
       if (inputAudioCtxRef.current) {
         inputAudioCtxRef.current.close().catch(() => {});
@@ -2976,30 +3067,47 @@ function CallingView({
             className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-yellow-500"}`}
           ></div>
           <span className="text-[10px] font-extrabold tracking-wider uppercase">
-            {isConnected ? "Secure" : "Connecting"}
+            {isConnected ? "Secure Live" : "Connecting"}
           </span>
         </div>
       </div>
 
       {/* Studio Centered Stage with Double Interspatial Pulsing Circles */}
       <div className="flex flex-col items-center relative z-10 w-full flex-1 justify-center max-w-sm mt-3">
-        <div className="mb-12 relative flex items-center justify-center">
-          {/* External layered pulsing shadows */}
+        <div className="mb-8 relative flex items-center justify-center">
+          {/* Dynamic multi-color ambient pulsing glow rings */}
           {isConnected && (
             <>
-              <div className="absolute inset-[-20px] bg-indigo-500/10 rounded-full opacity-60 animate-pulse duration-1000 -z-10"></div>
-              <div className="absolute inset-[-40px] bg-emerald-400/5 rounded-full opacity-40 animate-pulse duration-1500 -z-10"></div>
-              <div className="absolute inset-[-60px] bg-indigo-500/5 rounded-full opacity-20 animate-pulse duration-2000 -z-10"></div>
+              <div
+                className={`absolute inset-[-20px] rounded-full transition-all duration-300 -z-10 ${
+                  isEmiSpeaking
+                    ? "bg-indigo-500/25 animate-pulse"
+                    : isUserSpeaking && !isMuted
+                      ? "bg-emerald-500/25 animate-pulse"
+                      : "bg-indigo-500/10 opacity-60"
+                }`}
+              ></div>
+              <div
+                className={`absolute inset-[-45px] rounded-full transition-all duration-500 -z-10 ${
+                  isEmiSpeaking
+                    ? "bg-purple-500/15 animate-ping duration-1000"
+                    : isUserSpeaking && !isMuted
+                      ? "bg-teal-400/20 animate-ping duration-1000"
+                      : "bg-emerald-400/5 opacity-40"
+                }`}
+              ></div>
             </>
           )}
 
           {/* Premium Vector Avatar Track Globe */}
           <div
-            className={`w-[210px] h-[210px] ${
+            className={`w-[190px] h-[190px] ${
               theme === "dark"
                 ? "bg-gray-900/60 border-indigo-500/30"
                 : "bg-white border-indigo-200"
-            } rounded-full flex items-center justify-center border-4 relative z-10 p-3.5 shadow-[0_20px_50px_rgba(99,102,241,0.15)]`}
+            } rounded-full flex items-center justify-center border-4 relative z-10 p-3.5 shadow-[0_20px_50px_rgba(99,102,241,0.15)] transition-transform duration-300 ${
+              isEmiSpeaking ? "scale-105" : isUserSpeaking && !isMuted ? "scale-102" : ""
+            }`}
           >
             <div
               className={`w-full h-full ${
@@ -3015,50 +3123,98 @@ function CallingView({
                 className="w-[85%] h-[85%] object-contain p-2 relative z-20 transform hover:scale-105 transition-all duration-300"
               />
 
-              {/* Subtitle Glow overlay */}
-              <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              {/* Speaking Pulse Glow overlay */}
+              <div
+                className={`absolute inset-0 transition-opacity duration-300 ${
+                  isEmiSpeaking
+                    ? "bg-indigo-500/20 opacity-100"
+                    : isUserSpeaking && !isMuted
+                      ? "bg-emerald-500/20 opacity-100"
+                      : "opacity-0"
+                }`}
+              ></div>
             </div>
           </div>
 
-          {/* Real-time orbital glowing dots */}
+          {/* Real-time status indicator orbs */}
           {isConnected && (
             <>
-              <div className="absolute w-3 h-3 bg-emerald-400 rounded-full animate-ping top-[15%] right-[10%]"></div>
-              <div className="absolute w-2 h-2 bg-indigo-500 rounded-full bottom-[15%] left-[10%] animate-bounce"></div>
+              <div
+                className={`absolute w-3.5 h-3.5 rounded-full top-[10%] right-[10%] transition-colors duration-300 shadow-md ${
+                  isMuted
+                    ? "bg-red-500 shadow-red-500/50"
+                    : isUserSpeaking
+                      ? "bg-emerald-400 animate-ping shadow-emerald-400/50"
+                      : "bg-emerald-500"
+                }`}
+                title={isMuted ? "Microphone Muted" : isUserSpeaking ? "Microphone Active" : "Microphone Ready"}
+              ></div>
+              <div
+                className={`absolute w-3 h-3 rounded-full bottom-[10%] left-[10%] transition-colors duration-300 shadow-md ${
+                  isEmiSpeaking
+                    ? "bg-indigo-400 animate-bounce shadow-indigo-400/50"
+                    : "bg-indigo-600/60"
+                }`}
+                title={isEmiSpeaking ? "Emi is Speaking" : "Emi is Listening"}
+              ></div>
             </>
           )}
         </div>
 
         {/* Title and Study Assistant Heading */}
         <h3
-          className={`text-4xl font-extrabold mb-2 tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"} text-center drop-shadow-sm`}
+          className={`text-3xl font-extrabold mb-1 tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"} text-center drop-shadow-sm`}
         >
           Emi AI
         </h3>
         <p
-          className={`text-xs font-bold ${theme === "dark" ? "text-indigo-300" : "text-indigo-600"} text-center uppercase tracking-widest mb-6`}
+          className={`text-[11px] font-bold ${theme === "dark" ? "text-indigo-300" : "text-indigo-600"} text-center uppercase tracking-widest mb-4`}
         >
           MSCE Curriculum Expert
         </p>
 
         {/* Connection, Timer Badge & Dynamic Text Outputs */}
         <div
-          className={`backdrop-blur-xl px-7 py-3 rounded-2xl border flex flex-col items-center ${
+          className={`backdrop-blur-xl px-6 py-3 rounded-2xl border flex flex-col items-center ${
             theme === "dark"
               ? "bg-slate-900/60 border-slate-800 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
               : "bg-white border-slate-200/80 shadow-[0_8px_32px_rgba(99,102,241,0.05)]"
-          } min-w-[240px] max-w-[340px] my-3 transition-all duration-300`}
+          } min-w-[260px] max-w-[340px] mb-3 transition-all duration-300`}
         >
           <div className="flex items-center gap-2 mb-1">
             <div
-              className={`w-2 h-2 rounded-full ${isEmiSpeaking ? "bg-indigo-500 animate-ping" : isConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`}
+              className={`w-2.5 h-2.5 rounded-full ${
+                isMuted
+                  ? "bg-red-500"
+                  : isEmiSpeaking
+                    ? "bg-indigo-500 animate-ping"
+                    : isUserSpeaking
+                      ? "bg-emerald-500 animate-ping"
+                      : isConnected
+                        ? "bg-teal-500 animate-pulse"
+                        : "bg-slate-400"
+              }`}
             ></div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">
-              {isEmiSpeaking
-                ? "Emi Speaking..."
-                : isConnected
-                  ? "Listening to you..."
-                  : "Connecting..."}
+            <span
+              className={`text-[10px] font-black uppercase tracking-wider ${
+                isMuted
+                  ? "text-red-500"
+                  : isEmiSpeaking
+                    ? "text-indigo-500"
+                    : isUserSpeaking
+                      ? "text-emerald-500"
+                      : "text-slate-500"
+              }`}
+            >
+              {isMuted
+                ? "Microphone Muted"
+                : isEmiSpeaking
+                  ? "Emi Speaking..."
+                  : isUserSpeaking
+                    ? "You are Speaking..."
+                    : isConnected
+                      ? "Listening to you..."
+                      : "Connecting..."}
             </span>
             <span className="text-[11px] font-mono font-black ml-2 text-slate-500">
               {formatTime(seconds)}
@@ -3068,11 +3224,13 @@ function CallingView({
           <p
             className={`text-xs text-center font-medium mt-1 leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
           >
-            {liveTranscript
-              ? `"${liveTranscript}"`
-              : isConnected
-                ? "Speak naturally with Emi to discuss any MSCE/JCE topic..."
-                : "Establishing secure real-time Live connection..."}
+            {isMuted
+              ? "Microphone is muted. Tap the mic button below to unmute and speak."
+              : liveTranscript
+                ? `"${liveTranscript}"`
+                : isConnected
+                  ? "Speak naturally with Emi to discuss any MSCE/JCE topic..."
+                  : "Establishing secure real-time Live connection..."}
           </p>
 
           {!profile?.isPro && isConnected && (
@@ -3088,7 +3246,7 @@ function CallingView({
 
         {/* Error / System feedback alerts */}
         {errorMsg && (
-          <div className="mt-5 bg-red-500/10 px-5 py-3 rounded-2xl border border-red-500/30 text-center max-w-[280px] animate-in fade-in zoom-in-95 relative z-20">
+          <div className="mt-3 bg-red-500/10 px-5 py-2.5 rounded-2xl border border-red-500/30 text-center max-w-[280px] animate-in fade-in zoom-in-95 relative z-20">
             <p className="text-red-400 text-xs font-bold leading-snug">
               {errorMsg}
             </p>
@@ -3097,12 +3255,17 @@ function CallingView({
       </div>
 
       {/* Interactive Controls & Bottom Wave Visualizer Block */}
-      <div className="flex flex-col items-center gap-8 relative z-20 w-full max-w-sm">
-        {/* Spectrum Wave Visualization bars */}
+      <div className="flex flex-col items-center gap-6 relative z-20 w-full max-w-sm">
+        {/* Dual-Color Spectrum Wave Visualization (User Mic vs Emi AI) */}
         <div className="w-full">
           <SpectrumVisualizer
-            analyser={analyserNode}
+            userAnalyser={userAnalyserNode}
+            emiAnalyser={emiAnalyserNode}
             isConnected={isConnected}
+            isMuted={isMuted}
+            isEmiSpeaking={isEmiSpeaking}
+            isUserSpeaking={isUserSpeaking}
+            theme={theme}
           />
         </div>
 
@@ -3110,13 +3273,13 @@ function CallingView({
         <div className="flex items-center justify-between gap-6 w-full px-8">
           {/* Microphone Mute Button */}
           <button
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={() => setIsMuted((prev) => !prev)}
             className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border cursor-pointer ${
               isMuted
-                ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/30"
+                ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/30 ring-4 ring-red-500/20"
                 : theme === "dark"
-                  ? "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
-                  : "bg-white border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  ? "bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
+                  : "bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
             title={isMuted ? "Unmute microphone" : "Mute microphone"}
             id="live-mute-btn"
@@ -3201,25 +3364,23 @@ function CallingView({
                 <button
                   key={opt.name}
                   onClick={() => handleVoiceChange(opt.name)}
-                  className={`w-full p-4.5 rounded-3xl flex items-center justify-between border cursor-pointer transition-all duration-300 ${
+                  className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-98 cursor-pointer ${
                     voiceName === opt.name
-                      ? "bg-gradient-to-r from-indigo-600 to-[#4f46e5] border-indigo-500 text-white shadow-lg shadow-indigo-600/20"
+                      ? "bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-sm"
                       : theme === "dark"
-                        ? "bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:text-white"
-                        : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        ? "bg-white/5 border-white/5 text-gray-300 hover:bg-white/10 hover:border-white/10"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                   }`}
                   id={`voice-opt-${opt.name.toLowerCase()}`}
                 >
-                  <div className="text-left">
-                    <h4 className="font-extrabold text-sm tracking-wide">
-                      {opt.name}
-                    </h4>
-                    <p className="text-[9px] opacity-80 font-bold uppercase tracking-wider mt-0.5">
-                      {opt.desc}
-                    </p>
+                  <div className="flex flex-col text-left">
+                    <span className="font-extrabold text-sm">{opt.name}</span>
+                    <span className="text-xs opacity-70 mt-0.5">{opt.desc}</span>
                   </div>
                   {voiceName === opt.name && (
-                    <CheckCircle size={18} strokeWidth={3} />
+                    <div className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shadow-md shadow-indigo-500/30">
+                      ✓
+                    </div>
                   )}
                 </button>
               ))}
@@ -3232,34 +3393,67 @@ function CallingView({
 }
 
 function SpectrumVisualizer({
-  analyser,
+  userAnalyser,
+  emiAnalyser,
   isConnected,
+  isMuted,
+  isEmiSpeaking,
+  isUserSpeaking,
+  theme,
 }: {
-  analyser: AnalyserNode | null;
+  userAnalyser: AnalyserNode | null;
+  emiAnalyser: AnalyserNode | null;
   isConnected: boolean;
+  isMuted: boolean;
+  isEmiSpeaking: boolean;
+  isUserSpeaking: boolean;
+  theme: "light" | "dark";
 }) {
-  const [data, setData] = useState<number[]>(new Array(24).fill(0));
+  const [userData, setUserData] = useState<number[]>(new Array(12).fill(0));
+  const [emiData, setEmiData] = useState<number[]>(new Array(12).fill(0));
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!analyser || !isConnected) {
-      setData(new Array(24).fill(0));
+    if (!isConnected) {
+      setUserData(new Array(12).fill(0));
+      setEmiData(new Array(12).fill(0));
       return;
     }
 
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const userBufferLength = userAnalyser?.frequencyBinCount || 128;
+    const emiBufferLength = emiAnalyser?.frequencyBinCount || 128;
+    const userArray = new Uint8Array(userBufferLength);
+    const emiArray = new Uint8Array(emiBufferLength);
 
     const update = () => {
-      analyser.getByteFrequencyData(dataArray);
-      // Sample and normalize
-      const sampled: number[] = [];
-      const step = Math.floor(bufferLength / 24);
-      for (let i = 0; i < 24; i++) {
-        const val = dataArray[i * step];
-        sampled.push(val / 255);
+      // 1. Process User mic audio (Green)
+      if (userAnalyser && !isMuted) {
+        userAnalyser.getByteFrequencyData(userArray);
+        const sampledUser: number[] = [];
+        const step = Math.max(1, Math.floor(userBufferLength / 12));
+        for (let i = 0; i < 12; i++) {
+          const val = userArray[i * step] || 0;
+          sampledUser.push(val / 255);
+        }
+        setUserData(sampledUser);
+      } else {
+        setUserData(new Array(12).fill(0));
       }
-      setData(sampled);
+
+      // 2. Process Emi output audio (Indigo/Purple)
+      if (emiAnalyser) {
+        emiAnalyser.getByteFrequencyData(emiArray);
+        const sampledEmi: number[] = [];
+        const step = Math.max(1, Math.floor(emiBufferLength / 12));
+        for (let i = 0; i < 12; i++) {
+          const val = emiArray[i * step] || 0;
+          sampledEmi.push(val / 255);
+        }
+        setEmiData(sampledEmi);
+      } else {
+        setEmiData(new Array(12).fill(0));
+      }
+
       rafRef.current = requestAnimationFrame(update);
     };
 
@@ -3267,20 +3461,107 @@ function SpectrumVisualizer({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [analyser, isConnected]);
+  }, [userAnalyser, emiAnalyser, isConnected, isMuted]);
 
   return (
-    <div className="flex items-end justify-center gap-1.5 h-20 w-full mb-4">
-      {data.map((val, i) => (
-        <div
-          key={i}
-          className="w-1.5 rounded-full bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all duration-75 shadow-[0_0_15px_rgba(99,102,241,0.3)]"
-          style={{
-            height: isConnected ? `${20 + val * 100}%` : "10%",
-            opacity: isConnected ? 0.3 + val * 0.7 : 0.1,
-          }}
-        ></div>
-      ))}
+    <div
+      className={`w-full rounded-2xl p-3 border backdrop-blur-md transition-all duration-300 ${
+        theme === "dark"
+          ? "bg-slate-900/40 border-slate-800"
+          : "bg-white/70 border-slate-200 shadow-sm"
+      }`}
+    >
+      {/* Dual Channel Header Indicators */}
+      <div className="flex items-center justify-between px-2 mb-2">
+        {/* User Voice Indicator */}
+        <div className="flex items-center gap-1.5">
+          <div
+            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+              isMuted
+                ? "bg-red-500"
+                : isUserSpeaking
+                  ? "bg-emerald-400 animate-ping"
+                  : "bg-emerald-500/70"
+            }`}
+          ></div>
+          <span
+            className={`text-[9px] font-black uppercase tracking-wider ${
+              isMuted
+                ? "text-red-400"
+                : isUserSpeaking
+                  ? "text-emerald-400 font-extrabold"
+                  : theme === "dark"
+                    ? "text-slate-400"
+                    : "text-slate-600"
+            }`}
+          >
+            {isMuted ? "You (Muted)" : isUserSpeaking ? "You (Speaking)" : "Your Mic (Green)"}
+          </span>
+        </div>
+
+        {/* Emi Voice Indicator */}
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`text-[9px] font-black uppercase tracking-wider ${
+              isEmiSpeaking
+                ? "text-indigo-400 font-extrabold"
+                : theme === "dark"
+                  ? "text-slate-400"
+                  : "text-slate-600"
+            }`}
+          >
+            {isEmiSpeaking ? "Emi (Speaking)" : "Emi Voice (Purple)"}
+          </span>
+          <div
+            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+              isEmiSpeaking
+                ? "bg-indigo-400 animate-ping"
+                : "bg-indigo-500/70"
+            }`}
+          ></div>
+        </div>
+      </div>
+
+      {/* Waveform Split Visualization Bars */}
+      <div className="flex items-end justify-center gap-1 h-14 w-full px-1">
+        {/* User Channel (12 Emerald Green Bars) */}
+        <div className="flex-1 flex items-end justify-end gap-1 h-full pr-1.5 border-r border-slate-700/30">
+          {userData.map((val, i) => (
+            <div
+              key={`user-${i}`}
+              className={`flex-1 max-w-[6px] rounded-full transition-all duration-75 ${
+                isMuted
+                  ? "bg-red-500/40"
+                  : "bg-gradient-to-t from-emerald-600 via-teal-400 to-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.35)]"
+              }`}
+              style={{
+                height: isConnected
+                  ? isMuted
+                    ? "6%"
+                    : `${Math.max(10, Math.min(100, val * 120))}%`
+                  : "8%",
+                opacity: isConnected ? (isMuted ? 0.3 : 0.35 + val * 0.65) : 0.15,
+              }}
+            ></div>
+          ))}
+        </div>
+
+        {/* Emi Channel (12 Indigo/Purple Bars) */}
+        <div className="flex-1 flex items-end justify-start gap-1 h-full pl-1.5">
+          {emiData.map((val, i) => (
+            <div
+              key={`emi-${i}`}
+              className="flex-1 max-w-[6px] rounded-full bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-300 transition-all duration-75 shadow-[0_0_8px_rgba(99,102,241,0.35)]"
+              style={{
+                height: isConnected
+                  ? `${Math.max(10, Math.min(100, val * 120))}%`
+                  : "8%",
+                opacity: isConnected ? 0.35 + val * 0.65 : 0.15,
+              }}
+            ></div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
