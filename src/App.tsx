@@ -2554,26 +2554,33 @@ function CallingView({
 }) {
   const [seconds, setSeconds] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
+  const [isEmiSpeaking, setIsEmiSpeaking] = useState(false);
   const [voiceName, setVoiceName] = useState<string>(
-    localStorage.getItem("emi_voice") || "Aoede",
+    localStorage.getItem("emi_voice") || "Kore",
   );
   const [isMuted, setIsMuted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState<string>("");
+  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
 
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const inputAudioCtxRef = useRef<AudioContext | null>(null);
+  const outputAudioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const sessionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const isMutedRef = useRef(false);
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const voiceOptions = [
-    { name: "Aoede", desc: "Clear & Natural" },
-    { name: "Kore", desc: "Friendly & Warm" },
-    { name: "Puck", desc: "Light & Energetic" },
+    { name: "Kore", desc: "Warm & Friendly" },
+    { name: "Zephyr", desc: "Clear & Natural" },
+    { name: "Puck", desc: "Energetic & Bright" },
     { name: "Charon", desc: "Deep & Calm" },
-    { name: "Fenrir", desc: "Bold & Direct" },
+    { name: "Fenrir", desc: "Bold & Articulate" },
+    { name: "Aoede", desc: "Gentle & Expressive" },
   ];
 
   useEffect(() => {
@@ -2595,6 +2602,74 @@ function CallingView({
       onEnd();
     }
   }, [seconds, profile?.isPro, onEnd]);
+
+  const stopAllAudio = () => {
+    activeSourcesRef.current.forEach((src) => {
+      try {
+        src.stop();
+      } catch (e) {}
+    });
+    activeSourcesRef.current = [];
+    if (outputAudioCtxRef.current) {
+      nextPlayTimeRef.current = outputAudioCtxRef.current.currentTime;
+    }
+    setIsEmiSpeaking(false);
+  };
+
+  const playAudioChunk = (base64Data: string) => {
+    try {
+      const ctx = outputAudioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+
+      const binaryString = atob(base64Data);
+      const len = binaryString.length;
+      const alignedLen = len - (len % 2);
+      const bytes = new Uint8Array(alignedLen);
+      for (let i = 0; i < alignedLen; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const pcm16 = new Int16Array(bytes.buffer);
+      if (pcm16.length === 0) return;
+
+      const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000);
+      const channelData = audioBuffer.getChannelData(0);
+      for (let i = 0; i < pcm16.length; i++) {
+        channelData[i] = pcm16[i] / 32768.0;
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+
+      if (analyserRef.current) {
+        source.connect(analyserRef.current);
+        analyserRef.current.connect(ctx.destination);
+      } else {
+        source.connect(ctx.destination);
+      }
+
+      const startTime = Math.max(nextPlayTimeRef.current, ctx.currentTime);
+      source.start(startTime);
+      nextPlayTimeRef.current = startTime + audioBuffer.duration;
+
+      setIsEmiSpeaking(true);
+      if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+      speakingTimeoutRef.current = setTimeout(() => {
+        if (ctx.currentTime >= nextPlayTimeRef.current - 0.1) {
+          setIsEmiSpeaking(false);
+        }
+      }, (audioBuffer.duration + 0.3) * 1000);
+
+      activeSourcesRef.current.push(source);
+      source.onended = () => {
+        activeSourcesRef.current = activeSourcesRef.current.filter((s) => s !== source);
+      };
+    } catch (err) {
+      console.error("Audio playback error:", err);
+    }
+  };
 
   useEffect(() => {
     // Check call limits
@@ -2628,178 +2703,210 @@ function CallingView({
 
     let active = true;
 
-    const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-      let binary = "";
-      const bytes = new Uint8Array(buffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      return btoa(binary);
-    };
-
-    const initConnection = async () => {
+    const initLiveConnection = async () => {
       try {
+        setErrorMsg(null);
+
+        // 1. Get microphone stream
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
-        if (!active) return;
+        if (!active) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         streamRef.current = stream;
 
-        // Fetch token from our backend to connect directly
+        // 2. Fetch API token from backend
         const tokenRes = await fetch("/api/gemini/token");
         const tokenData = await tokenRes.json();
         const apiKey = tokenData.token;
-        if (!apiKey) throw new Error("Gemini API key not found on server.");
+        if (!apiKey) {
+          throw new Error("Gemini API key is not configured.");
+        }
 
-        const ai = new GoogleGenAI({ apiKey });
-        
-        const voiceMapping: Record<string, string> = {
-          'Aoede': 'Zephyr',
-          'Kore': 'Kore',
-          'Puck': 'Puck',
-          'Charon': 'Charon',
-          'Fenrir': 'Fenrir'
-        };
-        const targetVoice = voiceMapping[voiceName] || 'Zephyr';
+        // 3. Setup Output AudioContext (24kHz for Gemini Live audio) & Analyser
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
+        const outputCtx = new AudioContextClass({ sampleRate: 24000 });
+        outputAudioCtxRef.current = outputCtx;
+        nextPlayTimeRef.current = outputCtx.currentTime;
+        outputCtx.resume().catch(() => {});
+
+        const analyser = outputCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyserRef.current = analyser;
+        setAnalyserNode(analyser);
+
+        // 4. Initialize GoogleGenAI with Live API
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: { apiVersion: "v1alpha" },
+        });
+
+        const chosenVoice = voiceName || "Kore";
 
         const session = await ai.live.connect({
           model: "gemini-3.1-flash-live-preview",
-          callbacks: {
-            onmessage: (message: any) => {
-              if (!active) return;
-              
-              // Audio
-              const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-              if (base64Audio && audioContextRef.current) {
-                const ctx = audioContextRef.current;
-                const binaryString = atob(base64Audio);
-                const len = binaryString.length;
-                const alignedLen = len - (len % 2);
-                const bytes = new Uint8Array(alignedLen);
-                for (let i = 0; i < alignedLen; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-                }
-                const pcm16 = new Int16Array(bytes.buffer);
-                const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000);
-                const channelData = audioBuffer.getChannelData(0);
-                for (let i = 0; i < pcm16.length; i++) {
-                  channelData[i] = pcm16[i] / 32768.0;
-                }
-                const trackSource = ctx.createBufferSource();
-                trackSource.buffer = audioBuffer;
-                trackSource.connect(ctx.destination);
-
-                const schedTime = Math.max(
-                  nextPlayTimeRef.current,
-                  ctx.currentTime,
-                );
-                trackSource.start(schedTime);
-                nextPlayTimeRef.current = schedTime + audioBuffer.duration;
-              }
-              
-              // Interruption
-              if (message.serverContent?.interrupted) {
-                 nextPlayTimeRef.current = 0;
-              }
-              
-              // Error
-              if (message.error) {
-                 console.error("Gemini Live Error:", message.error);
-                 setErrorMsg("Emi is having trouble speaking. Please try again.");
-              }
-            }
-          },
           config: {
-            responseModalities: ["AUDIO"],
+            responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: {
-                  voiceName: targetVoice
+                  voiceName: chosenVoice,
+                },
+              },
+            },
+            systemInstruction: `You are Emi AI, a friendly, patient, and knowledgeable Malawi secondary school study tutor from Educate Malawi (Educate MW - MW stands for Malawi). You specialize in the MANEB curriculum for JCE and MSCE students. You know all Educate Malawi features (Study Notes Library, Video Lessons, Dictionary, Quizzes, University Points Calculator). Keep your vocal answers conversational, encouraging, direct, and under 2-3 sentences so the conversation flows naturally.`,
+          },
+          callbacks: {
+            onopen: () => {
+              if (!active) return;
+              setIsConnected(true);
+              setErrorMsg(null);
+            },
+            onmessage: (message: any) => {
+              if (!active) return;
+
+              // Transcription/subtitles
+              const outText =
+                message.text ||
+                message.serverContent?.outputTranscription?.text ||
+                message.serverContent?.modelTurn?.parts?.find(
+                  (p: any) => p.text,
+                )?.text;
+              if (outText) {
+                setLiveTranscript(outText);
+              }
+
+              // Audio response chunks
+              const parts = message.serverContent?.modelTurn?.parts || [];
+              for (const part of parts) {
+                if (part.inlineData?.data) {
+                  playAudioChunk(part.inlineData.data);
                 }
               }
+
+              // Handle interruption
+              if (message.serverContent?.interrupted) {
+                stopAllAudio();
+              }
             },
-            systemInstruction: `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher. Help the student with their JCE/MSCE studies. You are the built-in AI tutor of Educate MW, Malawi's premier digital learning platform. Educate MW provides a comprehensive Library of study notes, Video Lessons, a Dictionary, Interactive Quizzes, and a University Points Calculator. You fully understand these app features and can guide students on how to use them.`
-          }
+            onerror: (err: any) => {
+              console.warn("Live API Notice:", err);
+            },
+            onclose: (e: any) => {
+              if (!active) return;
+              console.log("Live session closed:", e);
+              setIsConnected(false);
+            },
+          },
         });
-        
-        setIsConnected(true);
 
-        const AudioContextClass =
-          window.AudioContext || (window as any).webkitAudioContext;
-        const audioContext = new AudioContextClass({ sampleRate: 16000 });
-        audioContextRef.current = audioContext;
-        nextPlayTimeRef.current = audioContext.currentTime;
+        if (!active) {
+          try {
+            session.close();
+          } catch (e) {}
+          return;
+        }
+        sessionRef.current = session;
 
-        // Safe resume gesture bypass for suspended state
-        audioContext
-          .resume()
-          .catch((e) => console.log("AudioContext resume failed:", e));
-
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-
-        // Send initial greeting prompt
+        // 5. Initial greeting from Emi
         session.sendClientContent({
-           turns: "Hi Emi. Briefly introduce yourself and ask me how you can help with my MSCE/JCE studies today."
+          turns: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: "Hello Emi! Introduce yourself briefly in one short sentence and ask how you can help me with my MSCE or JCE studies today.",
+                },
+              ],
+            },
+          ],
+          turnComplete: true,
         });
 
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
+        // 6. Setup Input AudioContext (16kHz for mic capture)
+        const inputCtx = new AudioContextClass({ sampleRate: 16000 });
+        inputAudioCtxRef.current = inputCtx;
+        inputCtx.resume().catch(() => {});
 
-        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        const source = inputCtx.createMediaStreamSource(stream);
+        const processor = inputCtx.createScriptProcessor(4096, 1, 1);
 
         processor.onaudioprocess = (e) => {
-          if (isMutedRef.current) return;
+          if (isMutedRef.current || !active) return;
           const inputData = e.inputBuffer.getChannelData(0);
           const pcm16 = new Int16Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
             pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
           }
-          const base64Data = arrayBufferToBase64(pcm16.buffer);
 
-          if (active && session) {
-            session.sendRealtimeInput({
-               media: {
-                 mimeType: "audio/pcm;rate=16000",
-                 data: base64Data
-               }
-            });
+          let binary = "";
+          const bytes = new Uint8Array(pcm16.buffer);
+          const len = bytes.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          const base64Data = btoa(binary);
+
+          if (sessionRef.current) {
+            try {
+              sessionRef.current.sendRealtimeInput({
+                audio: {
+                  mimeType: "audio/pcm;rate=16000",
+                  data: base64Data,
+                },
+              });
+            } catch (err) {}
           }
         };
-        
-        source.connect(processor);
-        processor.connect(audioContext.destination);
 
-        sessionRef.current = session;
+        source.connect(processor);
+        processor.connect(inputCtx.destination);
       } catch (err: any) {
-        console.error("Connection error:", err);
-        setErrorMsg(
-          err.message ||
-            "Failed to connect to Emi. Please ensure you have internet access and microphone permissions.",
-        );
+        console.error("Live connection error:", err);
+        if (active) {
+          setErrorMsg(
+            err.message ||
+              "Could not start Live Voice session. Please grant microphone permission.",
+          );
+          setIsConnected(false);
+        }
       }
     };
-    initConnection();
+
+    initLiveConnection();
 
     return () => {
       active = false;
+      stopAllAudio();
+      if (speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
+      if (inputAudioCtxRef.current) {
+        inputAudioCtxRef.current.close().catch(() => {});
+      }
+      if (outputAudioCtxRef.current) {
+        outputAudioCtxRef.current.close().catch(() => {});
       }
       if (sessionRef.current) {
         try {
-          // If it's a promise (legacy), handle it, otherwise it's the real session
-          if (typeof sessionRef.current.then === 'function') {
+          if (typeof sessionRef.current.then === "function") {
             sessionRef.current.then((s: any) => s.close?.()).catch(() => {});
           } else {
             sessionRef.current.close?.();
           }
-        } catch(e) {}
+        } catch (e) {}
       }
     };
   }, [voiceName]);
@@ -2940,21 +3047,37 @@ function CallingView({
             theme === "dark"
               ? "bg-slate-900/60 border-slate-800 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
               : "bg-white border-slate-200/80 shadow-[0_8px_32px_rgba(99,102,241,0.05)]"
-          } min-w-[160px] transform hover:scale-105 transition-all duration-300`}
+          } min-w-[240px] max-w-[340px] my-3 transition-all duration-300`}
         >
+          <div className="flex items-center gap-2 mb-1">
+            <div
+              className={`w-2 h-2 rounded-full ${isEmiSpeaking ? "bg-indigo-500 animate-ping" : isConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`}
+            ></div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">
+              {isEmiSpeaking
+                ? "Emi Speaking..."
+                : isConnected
+                  ? "Listening to you..."
+                  : "Connecting..."}
+            </span>
+            <span className="text-[11px] font-mono font-black ml-2 text-slate-500">
+              {formatTime(seconds)}
+            </span>
+          </div>
+
           <p
-            className={`text-[14px] font-mono font-black tracking-widest ${isConnected ? "text-emerald-500" : "text-slate-500"}`}
+            className={`text-xs text-center font-medium mt-1 leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
           >
-            {!isConnected
-              ? errorMsg
-                ? "Connection Failed"
-                : "Connecting..."
-              : formatTime(seconds)}
+            {liveTranscript
+              ? `"${liveTranscript}"`
+              : isConnected
+                ? "Speak naturally with Emi to discuss any MSCE/JCE topic..."
+                : "Establishing secure real-time Live connection..."}
           </p>
 
           {!profile?.isPro && isConnected && (
             <span
-              className={`text-[9px] font-extrabold mt-1 uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}
+              className={`text-[9px] font-extrabold mt-2 uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}
             >
               {300 - seconds > 0
                 ? `Free Call: ${formatTime(300 - seconds)} left`
@@ -2978,7 +3101,7 @@ function CallingView({
         {/* Spectrum Wave Visualization bars */}
         <div className="w-full">
           <SpectrumVisualizer
-            analyser={analyserRef.current}
+            analyser={analyserNode}
             isConnected={isConnected}
           />
         </div>
