@@ -104,22 +104,38 @@ export function getCloudinaryDownloadUrl(url: string, filename?: string): string
 
 /**
  * Triggers an explicit client-side browser download of any file link,
- * including PDF notes, bypassing standard browser behaviors (e.g. view-mode in iframe).
+ * including PDF notes and Cloudinary uploaded videos, bypassing standard browser view modes.
  * 
  * @param url The web content link / Cloudinary URL
  * @param filename The desired filename with extension
+ * @param fileType Optional override ('pdf' | 'video')
  */
-export async function triggerExplicitDownload(url: string, filename: string): Promise<boolean> {
+export async function triggerExplicitDownload(
+  url: string, 
+  filename: string,
+  fileType?: 'pdf' | 'video'
+): Promise<boolean> {
+  if (!url) return false;
+
+  // Determine file extension
+  let cleanName = filename.trim().replace(/[/\\?%*:|"<>]/g, '-');
+  const isVideo = fileType === 'video' || /\.(mp4|mov|avi|mkv|webm)$/i.test(url) || url.includes('/video/upload/');
+  const targetExt = isVideo ? '.mp4' : '.pdf';
+
+  if (!cleanName.toLowerCase().endsWith('.pdf') && !cleanName.toLowerCase().endsWith('.mp4') && !cleanName.toLowerCase().endsWith('.mov') && !cleanName.toLowerCase().endsWith('.webm')) {
+    cleanName = `${cleanName}${targetExt}`;
+  }
+
   try {
-    const finalUrl = getCloudinaryDownloadUrl(url, filename);
+    const finalUrl = getCloudinaryDownloadUrl(url, cleanName);
     
-    // For direct binary downloading guarantee (avoids browser opening PDFs inside the page in many cases)
+    // For direct binary downloading guarantee
     const res = await fetch(finalUrl);
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
     const forceLink = document.createElement('a');
     forceLink.href = blobUrl;
-    forceLink.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+    forceLink.download = cleanName;
     document.body.appendChild(forceLink);
     forceLink.click();
     document.body.removeChild(forceLink);
@@ -129,10 +145,10 @@ export async function triggerExplicitDownload(url: string, filename: string): Pr
   } catch (err) {
     console.error('Trigger download failed, using fallback:', err);
     try {
-      const fallbackUrl = getCloudinaryDownloadUrl(url, filename);
+      const fallbackUrl = getCloudinaryDownloadUrl(url, cleanName);
       const link = document.createElement('a');
       link.href = fallbackUrl;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', cleanName);
       link.target = '_blank';
       document.body.appendChild(link);
       link.click();
@@ -143,3 +159,4 @@ export async function triggerExplicitDownload(url: string, filename: string): Pr
     }
   }
 }
+

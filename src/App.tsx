@@ -3754,6 +3754,14 @@ function LibraryView({
     }
   };
 
+  const libraryMaterials = useMemo(
+    () =>
+      (materials || []).filter(
+        (item) => item.type !== "blog" && item.type !== "video",
+      ),
+    [materials],
+  );
+
   const standardSubjects = [
     "All Subjects",
     "Biology",
@@ -3771,7 +3779,7 @@ function LibraryView({
   ];
 
   const dynamicSubjects = Array.from(
-    new Set((materials || []).map((m) => m.subject).filter(Boolean)),
+    new Set(libraryMaterials.map((m) => m.subject).filter(Boolean)),
   ) as string[];
 
   const allSubjectsList = Array.from(
@@ -3784,12 +3792,11 @@ function LibraryView({
       "Form 2",
       "Form 3",
       "Form 4",
-      ...(materials || []).map((m) => m.level).filter(Boolean),
+      ...libraryMaterials.map((m) => m.level).filter(Boolean),
     ]),
   ) as string[];
 
-  const visibleItems = (materials || [])
-    .filter((item) => item.type !== "blog")
+  const visibleItems = libraryMaterials
     .filter((item) =>
       filter === "offline" ? (downloadedIds || []).includes(item.id) : true,
     )
@@ -8681,6 +8688,18 @@ function LegalPageView({
   );
 }
 
+const ALLOWED_DEFAULT_VIDEO_TITLES = [
+  "Chemistry: Periodic Trends & Electronic Configuration",
+  "Explanation of the process of photosynthesis in an animated video",
+  "MSCE Biology: Photosynthesis & Light Reactions",
+];
+
+const DEPRECATED_OLD_VIDEO_TITLES = [
+  "Mathematics: Solving Quadratic Equations Step-by-Step",
+  "Physics: Ohm's Law, Voltage & Current",
+  "English: Essay Writing Masterclass & Sentence Variety",
+];
+
 function getYouTubeId(url: string) {
   if (!url) return null;
   const regExp =
@@ -8698,10 +8717,28 @@ function VideosView({
 }) {
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadedVideoIds, setDownloadedVideoIds] = useState<string[]>(() => {
+    try {
+      const cached = localStorage.getItem("mw_downloaded_videos");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [videos, setVideos] = useState<any[]>(() => {
     try {
-      const cached = localStorage.getItem("mw_videos_cache");
-      return cached ? JSON.parse(cached) : DEFAULT_VIDEOS;
+      const cached = localStorage.getItem("mw_videos_cache_v2");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(
+            (v) => !DEPRECATED_OLD_VIDEO_TITLES.includes(v.title),
+          );
+        }
+      }
+      return DEFAULT_VIDEOS;
     } catch {
       return DEFAULT_VIDEOS;
     }
@@ -8728,18 +8765,29 @@ function VideosView({
         if (!isMounted) return;
         clearTimeout(safetyTimeout);
         if (!snapshot.empty) {
-          const liveVideos: any[] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          // Merge with DEFAULT_VIDEOS to ensure a rich collection
+          const liveVideos: any[] = snapshot.docs
+            .map((doc) => ({ id: doc.id, ...(doc.data() as any) }))
+            .filter((v: any) => !DEPRECATED_OLD_VIDEO_TITLES.includes(v.title));
+
+          // Merge with DEFAULT_VIDEOS (which contains only the 3 permitted videos)
           const merged = [
             ...liveVideos,
-            ...DEFAULT_VIDEOS.filter(dv => !liveVideos.some((lv: any) => lv.title === dv.title)),
+            ...DEFAULT_VIDEOS.filter(
+              (dv) => !liveVideos.some((lv: any) => lv.title === dv.title),
+            ),
           ];
           setVideos(merged);
           try {
-            localStorage.setItem("mw_videos_cache", JSON.stringify(merged));
+            localStorage.setItem("mw_videos_cache_v2", JSON.stringify(merged));
           } catch {}
-        } else if (videos.length === 0) {
+        } else {
           setVideos(DEFAULT_VIDEOS);
+          try {
+            localStorage.setItem(
+              "mw_videos_cache_v2",
+              JSON.stringify(DEFAULT_VIDEOS),
+            );
+          } catch {}
         }
         setLoading(false);
       },
@@ -8754,7 +8802,7 @@ function VideosView({
           }
           setLoading(false);
         }
-      }
+      },
     );
 
     return () => {
@@ -8764,11 +8812,39 @@ function VideosView({
     };
   }, []);
 
+  const handleDownloadCloudinaryVideo = async (video: any, rawUrl: string) => {
+    if (!rawUrl) return;
+    setDownloadingId(video.id);
+    try {
+      const success = await triggerExplicitDownload(
+        rawUrl,
+        video.title || "Study Video",
+        "video",
+      );
+      if (success) {
+        setDownloadedVideoIds((prev) => {
+          const updated = [...new Set([...prev, video.id])];
+          try {
+            localStorage.setItem(
+              "mw_downloaded_videos",
+              JSON.stringify(updated),
+            );
+          } catch {}
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error("Video download error:", err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const VIDEO_SUBJECTS = [
     "All",
     "Biology",
-    "Physics",
     "Chemistry",
+    "Physics",
     "Mathematics",
     "English",
     "Geography",
@@ -8850,8 +8926,8 @@ function VideosView({
                 isSelected
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                   : theme === "dark"
-                  ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                    ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
               }`}
             >
               {subject}
@@ -8892,14 +8968,32 @@ function VideosView({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredVideos.map((video) => {
-            const videoId = getYouTubeId(video.url || video.content || "");
+            const rawUrl = (video.url || video.content || "").trim();
+            const videoId = getYouTubeId(rawUrl);
+            const isYouTube = Boolean(
+              videoId ||
+                rawUrl.includes("youtube.com") ||
+                rawUrl.includes("youtu.be"),
+            );
+            const isCloudinary = Boolean(
+              rawUrl.includes("cloudinary.com") ||
+                rawUrl.includes("res.cloudinary.com") ||
+                (!isYouTube &&
+                  (rawUrl.endsWith(".mp4") ||
+                    rawUrl.endsWith(".mov") ||
+                    rawUrl.endsWith(".webm") ||
+                    rawUrl.includes("/video/upload/"))),
+            );
+            const isDownloaded = downloadedVideoIds.includes(video.id);
+            const isDownloading = downloadingId === video.id;
+
             return (
               <div
                 key={video.id}
                 className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-3xl overflow-hidden border shadow-md flex flex-col justify-between group hover:border-indigo-500/50 transition-all`}
               >
-                <div className="aspect-video bg-black relative">
-                  {videoId ? (
+                <div className="aspect-video bg-black relative overflow-hidden">
+                  {isYouTube && videoId ? (
                     <iframe
                       width="100%"
                       height="100%"
@@ -8911,17 +9005,27 @@ function VideosView({
                       allowFullScreen
                       className="absolute inset-0 w-full h-full"
                     ></iframe>
+                  ) : isCloudinary && rawUrl ? (
+                    <video
+                      controls
+                      playsInline
+                      preload="metadata"
+                      src={rawUrl}
+                      className="absolute inset-0 w-full h-full object-cover bg-black"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-500 flex-col">
                       <Video size={32} className="mb-2 opacity-50" />
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        Video Preview
+                        Video Lesson
                       </span>
                     </div>
                   )}
                 </div>
+
                 <div className="p-5 flex-1 flex flex-col justify-between">
                   <div>
+                    {/* Source & Subject Badges */}
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {video.subject && (
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
@@ -8933,7 +9037,17 @@ function VideosView({
                           {video.level}
                         </span>
                       )}
+                      {isCloudinary ? (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1">
+                          <Download size={10} /> Cloudinary • Downloadable
+                        </span>
+                      ) : isYouTube ? (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center gap-1">
+                          <Play size={10} /> YouTube • Online Stream
+                        </span>
+                      ) : null}
                     </div>
+
                     <h3
                       className={`font-black text-base leading-snug ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1.5`}
                     >
@@ -8945,6 +9059,50 @@ function VideosView({
                       >
                         {video.desc}
                       </p>
+                    )}
+                  </div>
+
+                  {/* Actions / Download Control */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between gap-2">
+                    {isCloudinary ? (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          Offline Available
+                        </span>
+                        <button
+                          onClick={() =>
+                            handleDownloadCloudinaryVideo(video, rawUrl)
+                          }
+                          disabled={isDownloading}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md ${
+                            isDownloaded
+                              ? "bg-emerald-600 text-white shadow-emerald-600/20"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                          }`}
+                        >
+                          {isDownloading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-1" />
+                          ) : isDownloaded ? (
+                            <CheckCheck size={14} strokeWidth={3} />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          {isDownloading
+                            ? "Downloading..."
+                            : isDownloaded
+                              ? "Downloaded"
+                              : "Download Video"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          Online Stream Only
+                        </span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium italic">
+                          (YouTube URL • No Download)
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
