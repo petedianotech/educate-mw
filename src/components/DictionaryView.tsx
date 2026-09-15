@@ -326,22 +326,22 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
   return (
     <div
       className={`absolute inset-0 z-50 flex flex-col ${
-        theme === 'dark' ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-900'
+        theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
       } animate-in slide-in-from-right duration-300 select-text`}
     >
       {/* Top Header */}
       <header
         className={`${
-          theme === 'dark' ? 'bg-gray-900/90 border-gray-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'
-        } backdrop-blur-xl pt-4 pb-3 px-4 sm:px-6 flex items-center justify-between shrink-0 z-20 border-b shadow-sm`}
+          theme === 'dark' ? 'bg-slate-950/95 border-slate-800 text-white' : 'bg-white/95 border-slate-200 text-slate-900'
+        } backdrop-blur-md pt-3.5 pb-2.5 px-4 sm:px-6 flex items-center justify-between shrink-0 z-20 border-b shadow-sm`}
       >
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
             aria-label="Back to previous screen"
             className={`w-10 h-10 ${
-              theme === 'dark' ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            } rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-transform`}
+              theme === 'dark' ? 'bg-slate-900 text-slate-200 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+            } rounded-xl border flex items-center justify-center shrink-0 active:scale-95 transition-transform shadow-sm`}
           >
             <ChevronLeft size={22} strokeWidth={2.5} />
           </button>
@@ -361,13 +361,13 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
         </div>
 
         {/* Quick Tabs Pill Menu */}
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800/80 p-1 rounded-2xl border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">
           <button
             onClick={() => setActiveTab('search')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'search'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white'
             }`}
           >
             <Search size={14} />
@@ -379,7 +379,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'saved'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white'
             }`}
           >
             <Star size={14} className={savedWords.length > 0 ? 'fill-amber-400 text-amber-400' : ''} />
@@ -396,7 +396,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'recent'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white'
             }`}
           >
             <History size={14} />
@@ -408,7 +408,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'curriculum'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white'
             }`}
           >
             <Layers size={14} />
@@ -418,17 +418,17 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pt-5 pb-20 max-w-4xl mx-auto w-full space-y-6">
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pt-5 pb-20 max-w-4xl mx-auto w-full space-y-5">
         {/* Persistent Search Input */}
         <form
           onSubmit={handleSearchSubmit}
           className={`${
-            theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
-          } rounded-[2rem] px-4 sm:px-5 py-2.5 sm:py-3 flex items-center border transition-all focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 group`}
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+          } rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 flex items-center border transition-all focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 group`}
         >
           <Search
-            className="text-gray-400 mr-2.5 sm:mr-3 group-focus-within:text-indigo-500 transition-colors shrink-0"
-            size={20}
+            className="text-slate-400 mr-2.5 sm:mr-3 group-focus-within:text-indigo-500 transition-colors shrink-0"
+            size={18}
             strokeWidth={2.5}
           />
           <input
@@ -436,7 +436,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             placeholder="Search any English or academic word (e.g. Osmosis, Mitosis, Entropy)..."
             className={`bg-transparent outline-none flex-1 ${
               theme === 'dark' ? 'text-white' : 'text-slate-900'
-            } text-sm sm:text-base font-medium placeholder-gray-400`}
+            } text-sm sm:text-base font-medium placeholder-slate-400`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoCapitalize="none"
@@ -449,7 +449,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
               onClick={() => {
                 setQuery('');
               }}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold mr-2 px-2 py-1 rounded-lg"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold mr-2 px-2 py-1 rounded-lg"
             >
               Clear
             </button>
@@ -458,37 +458,37 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             type="submit"
             disabled={!query.trim() || loading}
             aria-label="Search dictionary"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform disabled:opacity-30 shrink-0"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-sm active:scale-95 transition-transform disabled:opacity-30 shrink-0"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <ArrowRight size={18} strokeWidth={3} />
+              <ArrowRight size={18} strokeWidth={2.5} />
             )}
           </button>
         </form>
 
         {/* TAB 1: SEARCH & RESULT VIEW */}
         {activeTab === 'search' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="space-y-5 animate-in fade-in duration-200">
             {/* Loading Skeleton */}
             {loading && (
               <div
                 className={`${
-                  theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
-                } rounded-[28px] p-6 sm:p-8 border space-y-6 animate-pulse`}
+                  theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+                } rounded-2xl p-6 sm:p-8 border space-y-6 animate-pulse`}
               >
                 <div className="flex justify-between items-start">
                   <div className="space-y-3">
-                    <div className="h-8 w-48 bg-gray-300 dark:bg-gray-800 rounded-xl" />
-                    <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800/60 rounded-md" />
+                    <div className="h-8 w-48 bg-slate-300 dark:bg-slate-800 rounded-xl" />
+                    <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800/60 rounded-md" />
                   </div>
-                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-2xl" />
+                  <div className="w-12 h-12 bg-slate-200 dark:bg-slate-800 rounded-xl" />
                 </div>
                 <div className="space-y-3 pt-4">
-                  <div className="h-4 w-full bg-gray-200 dark:bg-gray-800/80 rounded-md" />
-                  <div className="h-4 w-5/6 bg-gray-200 dark:bg-gray-800/60 rounded-md" />
-                  <div className="h-4 w-4/6 bg-gray-200 dark:bg-gray-800/40 rounded-md" />
+                  <div className="h-4 w-full bg-slate-200 dark:bg-slate-800/80 rounded-md" />
+                  <div className="h-4 w-5/6 bg-slate-200 dark:bg-slate-800/60 rounded-md" />
+                  <div className="h-4 w-4/6 bg-slate-200 dark:bg-slate-800/40 rounded-md" />
                 </div>
               </div>
             )}
@@ -496,16 +496,16 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             {/* Error Message & Friendly Offline Guidance */}
             {error && !loading && (
               <div
-                className={`p-5 rounded-3xl border flex items-start gap-3.5 ${
+                className={`p-4 sm:p-5 rounded-2xl border flex items-start gap-3.5 ${
                   error.includes('offline')
                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
                     : 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
                 }`}
               >
                 {error.includes('offline') ? (
-                  <WifiOff size={22} className="shrink-0 mt-0.5" />
+                  <WifiOff size={20} className="shrink-0 mt-0.5" />
                 ) : (
-                  <AlertCircle size={22} className="shrink-0 mt-0.5" />
+                  <AlertCircle size={20} className="shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1 space-y-1">
                   <h4 className="font-bold text-sm leading-snug">
@@ -537,15 +537,15 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
             {result && !loading && (
               <article
                 className={`${
-                  theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'
-                } rounded-[28px] p-6 sm:p-8 border space-y-6 transition-all`}
+                  theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+                } rounded-2xl p-5 sm:p-7 border space-y-5 transition-all`}
               >
                 {/* Result Header & Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h2
-                        className={`text-3xl sm:text-4xl font-black ${
+                        className={`text-2xl sm:text-3xl font-black ${
                           theme === 'dark' ? 'text-white' : 'text-slate-900'
                         } tracking-tight capitalize`}
                       >
@@ -553,13 +553,13 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                       </h2>
 
                       {result.subject && (
-                        <span className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                        <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
                           {result.subject}
                         </span>
                       )}
 
                       {result.isOfflineCached && (
-                        <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                           <Cloud size={10} /> Saved Offline
                         </span>
                       )}
@@ -579,13 +579,13 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                       onClick={handlePlayPronunciation}
                       title={isPlayingAudio ? 'Stop pronunciation' : 'Listen to pronunciation'}
                       aria-label="Listen to pronunciation"
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold transition-all active:scale-95 shadow-md ${
+                      className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl flex items-center justify-center font-bold transition-all active:scale-95 shadow-sm ${
                         isPlayingAudio
                           ? 'bg-emerald-600 text-white animate-pulse'
                           : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                       }`}
                     >
-                      {isPlayingAudio ? <VolumeX size={22} /> : <Volume2 size={22} />}
+                      {isPlayingAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
                     </button>
 
                     <button
@@ -593,15 +593,15 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                       onClick={handleToggleFavorite}
                       title={isSaved ? 'Remove from saved words' : 'Save word for offline'}
                       aria-label="Save word"
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold border transition-all active:scale-95 ${
+                      className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl flex items-center justify-center font-bold border transition-all active:scale-95 ${
                         isSaved
                           ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
                           : theme === 'dark'
-                          ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
                           : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Star size={22} className={isSaved ? 'fill-amber-500' : ''} />
+                      <Star size={20} className={isSaved ? 'fill-amber-500' : ''} />
                     </button>
 
                     <button
@@ -609,45 +609,45 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                       onClick={handleCopyDefinition}
                       title="Copy definition"
                       aria-label="Copy definition"
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold border transition-all active:scale-95 ${
+                      className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl flex items-center justify-center font-bold border transition-all active:scale-95 ${
                         copied
                           ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
                           : theme === 'dark'
-                          ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
                           : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      {copied ? <Check size={20} /> : <Copy size={20} />}
+                      {copied ? <Check size={18} /> : <Copy size={18} />}
                     </button>
                   </div>
                 </div>
 
                 {/* Meanings Section */}
-                <div className="space-y-6">
+                <div className="space-y-5">
                   {result.meanings.map((meaning, mIdx) => (
-                    <div key={mIdx} className="space-y-3.5">
+                    <div key={mIdx} className="space-y-3">
                       <div className="flex items-center gap-3">
-                        <span className="font-black text-indigo-600 dark:text-indigo-400 text-xs sm:text-sm uppercase tracking-wider font-mono px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs uppercase tracking-wider font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20">
                           {meaning.partOfSpeech}
                         </span>
                         <div
-                          className={`h-px ${theme === 'dark' ? 'bg-gray-800' : 'bg-slate-200'} flex-1`}
+                          className={`h-px ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'} flex-1`}
                         />
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {meaning.definitions.map((def, dIdx) => (
                           <div
                             key={dIdx}
-                            className={`p-4 rounded-2xl border-l-4 border-indigo-500 ${
+                            className={`p-3.5 sm:p-4 rounded-xl border-l-4 border-indigo-500 ${
                               theme === 'dark'
-                                ? 'bg-gray-800/40 border-y border-r border-gray-800'
-                                : 'bg-slate-50/80 border-y border-r border-slate-200'
+                                ? 'bg-slate-800/50 border-y border-r border-slate-800'
+                                : 'bg-slate-50 border-y border-r border-slate-200'
                             } space-y-2`}
                           >
                             <p
-                              className={`text-base sm:text-lg font-semibold leading-relaxed ${
-                                theme === 'dark' ? 'text-gray-100' : 'text-slate-900'
+                              className={`text-sm sm:text-base font-medium leading-relaxed ${
+                                theme === 'dark' ? 'text-slate-100' : 'text-slate-900'
                               }`}
                             >
                               {def.definition}
@@ -656,13 +656,13 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                             {/* Example Sentence */}
                             {def.example && (
                               <div
-                                className={`mt-2 p-3 rounded-xl text-xs sm:text-sm leading-relaxed border ${
+                                className={`mt-2 p-2.5 rounded-lg text-xs leading-relaxed border ${
                                   theme === 'dark'
                                     ? 'bg-indigo-950/40 text-indigo-200 border-indigo-900/40'
                                     : 'bg-indigo-50 text-indigo-900 border-indigo-100'
                                 }`}
                               >
-                                <span className="text-[10px] uppercase font-black tracking-wider text-indigo-500 block mb-0.5">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-500 block mb-0.5">
                                   Usage Example
                                 </span>
                                 &ldquo;{def.example}&rdquo;
@@ -671,8 +671,8 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
                             {/* Definition specific synonyms */}
                             {def.synonyms && def.synonyms.length > 0 && (
-                              <div className="pt-2 flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                              <div className="pt-1.5 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                   Similar:
                                 </span>
                                 {def.synonyms.slice(0, 4).map((s, idx) => (
@@ -680,7 +680,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                                     key={idx}
                                     type="button"
                                     onClick={() => handleChipClick(s)}
-                                    className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-colors"
+                                    className="px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-colors"
                                   >
                                     {s}
                                   </button>
@@ -695,19 +695,19 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
                   {/* Synonyms section */}
                   {result.synonyms && result.synonyms.length > 0 && (
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Synonyms & Related Concepts ({result.synonyms.length})
                       </h4>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {result.synonyms.map((syn, sIdx) => (
                           <button
                             key={sIdx}
                             type="button"
                             onClick={() => handleChipClick(syn)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                            className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
                               theme === 'dark'
-                                ? 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700 hover:text-white'
+                                ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-white'
                                 : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600'
                             }`}
                           >
@@ -720,17 +720,17 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
                   {/* Antonyms section */}
                   {result.antonyms && result.antonyms.length > 0 && (
-                    <div className="pt-3 space-y-2">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                    <div className="pt-2 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
                         Antonyms ({result.antonyms.length})
                       </h4>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {result.antonyms.map((ant, aIdx) => (
                           <button
                             key={aIdx}
                             type="button"
                             onClick={() => handleChipClick(ant)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-500/20 transition-all active:scale-95 ${
+                            className={`px-3 py-1 rounded-xl text-xs font-bold border border-rose-500/20 transition-all active:scale-95 ${
                               theme === 'dark'
                                 ? 'bg-rose-950/30 text-rose-300 hover:bg-rose-900/40'
                                 : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
@@ -745,24 +745,22 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                 </div>
 
                 {/* Footer Attribution */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between text-[11px] text-gray-400">
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                   <span>Definition source: Free Dictionary API & MSCE Lexicon</span>
                   <span className="capitalize">Source: {result.source.replace(/-/g, ' ')}</span>
                 </div>
               </article>
             )}
-
-
           </div>
         )}
 
         {/* TAB 2: SAVED / FAVORITE WORDS */}
         {activeTab === 'saved' && (
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="font-black text-xl leading-tight">Saved & Bookmarked Words</h3>
-                <p className="text-xs text-gray-400">
+                <h2 className="font-bold text-lg leading-tight">Saved & Bookmarked Words</h2>
+                <p className="text-xs text-slate-400">
                   {savedWords.length} words saved for instant offline access.
                 </p>
               </div>
@@ -774,10 +772,10 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                     placeholder="Filter saved words..."
                     value={savedSearchQuery}
                     onChange={(e) => setSavedSearchQuery(e.target.value)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs outline-none border ${
+                    className={`px-3 py-1.5 rounded-xl text-xs outline-none border ${
                       theme === 'dark'
-                        ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500'
-                        : 'bg-white border-slate-200 text-slate-900 placeholder-gray-400'
+                        ? 'bg-slate-900 border-slate-800 text-white placeholder-slate-500'
+                        : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
@@ -786,37 +784,37 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
             {savedWords.length === 0 ? (
               <div
-                className={`text-center py-16 rounded-3xl border border-dashed ${
-                  theme === 'dark' ? 'border-gray-800 bg-gray-900/40' : 'border-slate-300 bg-white'
-                } p-8 space-y-3`}
+                className={`text-center py-12 rounded-2xl border border-dashed ${
+                  theme === 'dark' ? 'border-slate-800 bg-slate-900/40' : 'border-slate-300 bg-white'
+                } p-6 space-y-3`}
               >
-                <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
-                  <Star size={32} />
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                  <Star size={24} />
                 </div>
-                <h4 className="font-bold text-base">No saved words yet</h4>
-                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                <h3 className="font-bold text-base">No saved words yet</h3>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
                   Star important terms during your studies to review them anytime, even without an internet connection.
                 </p>
                 <button
                   type="button"
                   onClick={() => setActiveTab('search')}
-                  className="px-4 py-2 rounded-2xl bg-indigo-600 text-white text-xs font-bold shadow-md hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-sm hover:bg-indigo-700 transition-colors"
                 >
                   Explore Dictionary
                 </button>
               </div>
             ) : filteredSavedWords.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 text-xs">
+              <div className="text-center py-10 text-slate-400 text-xs">
                 No saved words matching &ldquo;{savedSearchQuery}&rdquo;.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {filteredSavedWords.map((item) => (
                   <div
                     key={item.normalizedWord}
-                    className={`p-4 rounded-2xl border transition-all ${
+                    className={`p-3.5 rounded-2xl border transition-all ${
                       theme === 'dark'
-                        ? 'bg-gray-900 border-gray-800 hover:border-gray-700'
+                        ? 'bg-slate-900 border-slate-800 hover:border-slate-700'
                         : 'bg-white border-slate-200 hover:border-indigo-300 shadow-sm'
                     } flex flex-col justify-between gap-3`}
                   >
@@ -824,7 +822,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                       <div className="flex items-center justify-between">
                         <h4
                           onClick={() => performSearch(item.word)}
-                          className="font-black text-lg hover:text-indigo-600 cursor-pointer capitalize"
+                          className="font-bold text-base hover:text-indigo-600 cursor-pointer capitalize"
                         >
                           {item.word}
                         </h4>
@@ -839,18 +837,18 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                         <p className="text-xs font-mono text-indigo-500 font-semibold">{item.phonetic}</p>
                       )}
 
-                      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
                         {item.meanings[0]?.definitions[0]?.definition || item.definitions?.[0]}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
                       <button
                         type="button"
                         onClick={() => performSearch(item.word)}
                         className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                       >
-                        View Full Definition <ArrowRight size={12} />
+                        View Definition <ArrowRight size={12} />
                       </button>
 
                       <button
@@ -863,7 +861,7 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                             setIsSaved(false);
                           }
                         }}
-                        className="text-gray-400 hover:text-rose-500 p-1"
+                        className="text-slate-400 hover:text-rose-500 p-1"
                         title="Remove from saved"
                       >
                         <Trash2 size={14} />
@@ -878,11 +876,11 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
         {/* TAB 3: RECENT SEARCHES */}
         {activeTab === 'recent' && (
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-black text-xl leading-tight">Recent Searches</h3>
-                <p className="text-xs text-gray-400">Your recent search query history stored locally.</p>
+                <h2 className="font-bold text-lg leading-tight">Recent Searches</h2>
+                <p className="text-xs text-slate-400">Your recent search query history stored locally.</p>
               </div>
 
               {recentSearches.length > 0 && (
@@ -898,13 +896,13 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
             {recentSearches.length === 0 ? (
               <div
-                className={`text-center py-16 rounded-3xl border border-dashed ${
-                  theme === 'dark' ? 'border-gray-800 bg-gray-900/40' : 'border-slate-300 bg-white'
-                } p-8 space-y-2`}
+                className={`text-center py-12 rounded-2xl border border-dashed ${
+                  theme === 'dark' ? 'border-slate-800 bg-slate-900/40' : 'border-slate-300 bg-white'
+                } p-6 space-y-2`}
               >
-                <History size={36} className="text-gray-400 mx-auto" />
-                <h4 className="font-bold text-base">No search history yet</h4>
-                <p className="text-xs text-gray-400">Words you search will appear here for quick access.</p>
+                <History size={32} className="text-slate-400 mx-auto" />
+                <h3 className="font-bold text-base">No search history yet</h3>
+                <p className="text-xs text-slate-400">Words you search will appear here for quick access.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -914,15 +912,15 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                     onClick={() => performSearch(term)}
                     className={`px-4 py-3 rounded-2xl border cursor-pointer flex items-center justify-between transition-all active:scale-[0.99] ${
                       theme === 'dark'
-                        ? 'bg-gray-900 border-gray-800 hover:border-gray-700 hover:bg-gray-800/50'
+                        ? 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50'
                         : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Search size={16} className="text-gray-400" />
+                      <Search size={16} className="text-slate-400" />
                       <span className="font-bold text-sm capitalize">{term}</span>
                     </div>
-                    <ArrowRight size={14} className="text-gray-400" />
+                    <ArrowRight size={14} className="text-slate-400" />
                   </div>
                 ))}
               </div>
@@ -932,10 +930,10 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
 
         {/* TAB 4: CURRICULUM TOPICS LEXICON */}
         {activeTab === 'curriculum' && (
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <div>
-              <h3 className="font-black text-xl leading-tight">Curriculum Categories</h3>
-              <p className="text-xs text-gray-400">Browse core syllabus vocabulary by subject.</p>
+              <h2 className="font-bold text-lg leading-tight">Curriculum Categories</h2>
+              <p className="text-xs text-slate-400">Browse core syllabus vocabulary by subject.</p>
             </div>
 
             {/* Subject Filter Pills */}
@@ -951,8 +949,8 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : theme === 'dark'
-                        ? 'bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600'
+                        ? 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800 hover:text-white'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
                     {subject}
@@ -970,10 +968,10 @@ export function DictionaryView({ onBack, theme }: DictionaryViewProps) {
                   onClick={() => performSearch(word)}
                   className={`p-3 rounded-2xl text-left border transition-all active:scale-95 ${
                     result && result.normalizedWord === normalizeSearchWord(word)
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                       : theme === 'dark'
-                      ? 'bg-gray-900 text-gray-200 border-gray-800 hover:border-gray-700'
-                      : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300 shadow-sm'
+                      ? 'bg-slate-900 text-slate-200 border-slate-800 hover:border-slate-700'
+                      : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300 shadow-sm'
                   }`}
                 >
                   <span className="block font-bold text-xs capitalize truncate">{word}</span>

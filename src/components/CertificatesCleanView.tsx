@@ -626,10 +626,10 @@ export function CertificatesCleanView({
             </div>
 
             {/* Price Info Banner & Free Developer Bypass */}
-            <div className={`p-6 rounded-[32px] border relative overflow-hidden ${
+            <div className={`p-5 rounded-2xl border relative overflow-hidden ${
               theme === 'dark' 
-                ? 'bg-gradient-to-br from-indigo-950/40 to-indigo-900/10 border-indigo-500/20' 
-                : 'bg-gradient-to-br from-indigo-50 to-indigo-100/50 border-indigo-200 shadow-sm'
+                ? 'bg-gray-900 border-indigo-500/20' 
+                : 'bg-indigo-50 border-indigo-200 shadow-sm'
             }`}>
               <div className="relative z-10">
                 <div className="flex items-center gap-2 text-indigo-500 mb-3">
@@ -1018,11 +1018,11 @@ export function CertificatesCleanView({
 
             {verificationResult.status === 'verified' && verificationResult.cert && (
               <div className="border-t border-dashed dark:border-gray-800 pt-6 animate-in fade-in duration-300">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 text-center">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 text-center">
                   
                   {/* Verified banner stamp with App Logo */}
-                  <div className="flex items-center gap-2 mb-4 justify-center bg-emerald-500/20 w-fit mx-auto px-4 py-2 rounded-2xl border border-emerald-500/30">
-                    <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center text-white shrink-0">
+                  <div className="flex items-center gap-2 mb-4 justify-center bg-emerald-500/20 w-fit mx-auto px-4 py-2 rounded-xl border border-emerald-500/30">
+                    <div className="w-6 h-6 rounded-md bg-emerald-600 flex items-center justify-center text-white shrink-0">
                       <GraduationCap size={13} strokeWidth={2.5} />
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">

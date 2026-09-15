@@ -942,11 +942,12 @@ export default function App() {
             <div
               className={`absolute bottom-0 w-full left-0 right-0 z-[60] ${theme === "dark" ? "bg-gray-950 border-gray-900" : "bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"} border-t pb-safe pt-2 px-1`}
             >
-              <div className="flex justify-around items-center w-full max-w-2xl mx-auto">
+              <div className="flex justify-around items-center w-full max-w-lg mx-auto">
                 <NavItem
                   icon={
                     <Home
-                      size={26}
+                      size={22}
+                      strokeWidth={currentView === "home" ? 2.5 : 2}
                       fill={currentView === "home" ? "currentColor" : "none"}
                     />
                   }
@@ -958,7 +959,8 @@ export default function App() {
                 <NavItem
                   icon={
                     <Book
-                      size={26}
+                      size={22}
+                      strokeWidth={currentView === "library" ? 2.5 : 2}
                       fill={currentView === "library" ? "currentColor" : "none"}
                     />
                   }
@@ -968,32 +970,49 @@ export default function App() {
                   theme={theme}
                 />
 
-                <div
-                  className="flex flex-col items-center justify-center w-14 cursor-pointer pt-1 transition-all active:scale-95 group"
+                <button
+                  type="button"
+                  className="flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 cursor-pointer transition-all active:scale-95 group focus:outline-none"
                   onClick={() => navigateTo("emi")}
+                  aria-label="Emi AI"
                 >
                   <div
-                    className={`mb-0.5 p-0.5 rounded-full border-2 ${currentView === "emi" ? (theme === "dark" ? "border-white" : "border-indigo-600") : "border-transparent"}`}
+                    className={`mb-1 p-0.5 rounded-full border-2 transition-all ${
+                      currentView === "emi"
+                        ? theme === "dark"
+                          ? "border-indigo-400 scale-105"
+                          : "border-indigo-600 scale-105"
+                        : "border-transparent opacity-85 group-hover:opacity-100"
+                    }`}
                   >
-                    <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm bg-indigo-500/10">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-indigo-500/10 flex items-center justify-center">
                       <img
                         src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
                         alt="Emi"
-                        className="w-full h-full object-contain p-1"
+                        className="w-full h-full object-contain p-0.5"
                       />
                     </div>
                   </div>
                   <span
-                    className={`text-[8px] font-black tracking-widest uppercase transition-colors duration-200 ${currentView === "emi" ? (theme === "dark" ? "text-white" : "text-indigo-600") : "text-gray-500 group-hover:text-gray-300"}`}
+                    className={`text-[10px] font-bold tracking-wider uppercase transition-colors duration-200 ${
+                      currentView === "emi"
+                        ? theme === "dark"
+                          ? "text-indigo-400 font-black"
+                          : "text-indigo-600 font-black"
+                        : theme === "dark"
+                          ? "text-slate-400 group-hover:text-slate-200"
+                          : "text-slate-500 group-hover:text-slate-900"
+                    }`}
                   >
                     Emi AI
                   </span>
-                </div>
+                </button>
 
                 <NavItem
                   icon={
                     <CheckSquare
-                      size={26}
+                      size={22}
+                      strokeWidth={currentView === "quizzes" ? 2.5 : 2}
                       fill={currentView === "quizzes" ? "currentColor" : "none"}
                     />
                   }
@@ -1005,7 +1024,8 @@ export default function App() {
                 <NavItem
                   icon={
                     <User
-                      size={26}
+                      size={22}
+                      strokeWidth={currentView === "profile" ? 2.5 : 2}
                       fill={currentView === "profile" ? "currentColor" : "none"}
                     />
                   }
@@ -1300,66 +1320,75 @@ function HomeView({
 
   return (
     <div
-      className={`flex flex-col h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} overflow-hidden relative`}
+      className={`flex flex-col h-full ${theme === "dark" ? "bg-slate-950" : "bg-slate-50"} overflow-hidden relative`}
     >
       {/* Fixed Sticky Header */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 ${theme === "dark" ? "bg-gray-950/90" : "bg-white/90"} backdrop-blur-2xl border-b ${theme === "dark" ? "border-white/5" : "border-slate-200"}`}
+        className={`fixed top-0 left-0 right-0 z-50 ${theme === "dark" ? "bg-slate-950/95 border-slate-800" : "bg-white/95 border-slate-200"} backdrop-blur-md border-b shadow-sm`}
       >
-        <div className="pt-3.5 pb-2 px-3 sm:px-5 max-w-7xl mx-auto">
+        <div className="py-2.5 px-4 sm:px-6 max-w-5xl mx-auto">
           <div className="flex justify-between items-center w-full relative">
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-3">
               <button
                 onClick={onMenuClick}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400 hover:text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border`}
+                aria-label="Open menu"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-300 hover:text-white" : "bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border`}
               >
-                <Menu size={19} strokeWidth={2.5} />
+                <Menu size={20} strokeWidth={2.2} />
               </button>
 
               <div 
                 onClick={() => onNavigate("home")} 
-                className="flex items-center gap-2 sm:gap-2.5 cursor-pointer logo-container group select-none"
+                className="flex items-center gap-2.5 cursor-pointer logo-container group select-none"
               >
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-sm shadow-blue-600/20 border border-blue-500/30 bg-blue-600 p-0.5 flex items-center justify-center transition-transform group-hover:scale-105 active:scale-95">
+                <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm border border-blue-500/30 bg-blue-600 p-0.5 flex items-center justify-center transition-transform group-hover:scale-105 active:scale-95">
                   <img
                     src="/app-icon.jpg"
                     alt="Educate MW"
-                    className="w-full h-full object-cover rounded-[9px]"
+                    className="w-full h-full object-cover rounded-[10px]"
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <span
-                  className={`font-black text-base sm:text-lg tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
-                >
-                  Educate
-                  <span className="text-blue-600 font-bold opacity-90 pl-0.5">
-                    MW
+                <div className="flex flex-col">
+                  <span
+                    className={`font-black text-base sm:text-lg tracking-tight leading-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+                  >
+                    Educate
+                    <span className="text-blue-600 font-bold pl-0.5">
+                      MW
+                    </span>
                   </span>
-                </span>
+                  <span className="text-[10px] font-semibold text-slate-400 leading-none">
+                    E-Learning Platform
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={onThemeToggle}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-yellow-400 hover:text-yellow-300" : "bg-slate-50 border-slate-200 text-indigo-600 hover:text-indigo-700"} active:scale-95 transition-all shadow-sm border`}
+                aria-label="Toggle theme"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${theme === "dark" ? "bg-slate-900 border-slate-800 text-amber-400 hover:text-amber-300" : "bg-slate-100 border-slate-200 text-indigo-600 hover:text-indigo-700"} active:scale-95 transition-all shadow-sm border`}
               >
                 {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               <button
                 onClick={onShowNotifications}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400 hover:text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border relative`}
+                aria-label="View notifications"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-300 hover:text-white" : "bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900"} active:scale-95 transition-all shadow-sm border relative`}
               >
                 <Bell size={18} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-pink-500 rounded-full border border-white dark:border-gray-950 animate-pulse"></span>
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-pink-500 rounded-full border border-white dark:border-slate-950"></span>
               </button>
               <button
                 onClick={() => onNavigate("profile")}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] p-0.5 ${theme === "dark" ? "bg-gray-800 hover:bg-blue-600" : "bg-slate-200 hover:bg-blue-500"} active:scale-95 transition-all`}
+                aria-label="Open profile"
+                className={`w-10 h-10 rounded-xl p-0.5 ${theme === "dark" ? "bg-slate-800 hover:bg-blue-600" : "bg-slate-200 hover:bg-blue-500"} active:scale-95 transition-all`}
               >
                 <Avatar
                   user={profile}
-                  className={`w-full h-full text-[11px] rounded-[11px] border-2 ${theme === "dark" ? "border-gray-950" : "border-white"} shadow-inner`}
+                  className={`w-full h-full text-[11px] rounded-[10px] border-2 ${theme === "dark" ? "border-slate-950" : "border-white"}`}
                 />
               </button>
             </div>
@@ -1368,152 +1397,124 @@ function HomeView({
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto px-5 pt-24 pb-24 hide-scrollbar">
-        <div className="w-full max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 lg:gap-10">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-20 sm:pt-22 pb-28 sm:pb-32 hide-scrollbar">
+        <div className="w-full max-w-5xl mx-auto flex flex-col lg:flex-row gap-5 lg:gap-8">
           {/* Left Column (Search + Hero) */}
-          <div className="flex-1 w-full max-w-lg mx-auto lg:max-w-none lg:mx-0 flex flex-col">
-            {/* Search */}
-            <div className="mb-6 animate-in fade-in slide-in-from-top-6 duration-600">
+          <div className="flex-1 w-full max-w-lg mx-auto lg:max-w-none lg:mx-0 flex flex-col gap-4">
+            {/* Search Input */}
+            <div>
               <form
                 onSubmit={handleSearch}
-                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-2xl px-5 py-3.5 flex items-center border group focus-within:border-indigo-500/50 transition-all shadow-sm`}
+                className={`${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"} rounded-2xl px-4 py-3 flex items-center border group focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all`}
               >
                 <Search
-                  className="text-gray-500 mr-3 group-focus-within:text-indigo-500 transition-colors"
+                  className="text-slate-400 mr-3 group-focus-within:text-indigo-500 transition-colors shrink-0"
                   size={18}
-                  strokeWidth={3}
+                  strokeWidth={2.5}
                 />
                 <input
                   type="text"
-                  placeholder="Search topics, notes, tutors..."
+                  placeholder="Search topics, past papers, notes..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-slate-400`}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded"
+                  >
+                    Clear
+                  </button>
+                )}
               </form>
             </div>
 
-            {/* Hero Banner */}
-            <div className="w-full flex-1 max-h-[140px] bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl p-4 sm:p-5 text-white relative overflow-hidden mb-6 lg:mb-0 shadow-lg shadow-indigo-900/30 flex flex-col justify-center">
-              {/* Animated bg elements */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 animate-pulse"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/10 rounded-full blur-2xl -ml-12 -mb-12"></div>
-
-              <div className="z-10 relative">
-                <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-md px-1.5 py-0.5 rounded flex-row mb-1.5 border border-white/10 shadow-sm">
+            {/* Emi AI Hero Banner - Clean solid background without gradients */}
+            <div className="w-full bg-indigo-600 rounded-2xl p-4 sm:p-5 text-white relative overflow-hidden border border-indigo-500/30 shadow-sm flex flex-col justify-center min-h-[140px]">
+              <div className="z-10 relative max-w-[65%] sm:max-w-[70%]">
+                <div className="inline-flex items-center gap-1.5 bg-white/15 px-2 py-0.5 rounded-md mb-2 border border-white/20">
                   <Sparkles
-                    size={8}
-                    className="text-indigo-200"
+                    size={11}
+                    className="text-indigo-100"
                     fill="currentColor"
                   />
-                  <span className="text-[8px] font-black uppercase tracking-widest leading-none">
-                    Powered by AI
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white">
+                    AI Tutor
                   </span>
                 </div>
-                <h3 className="font-black text-lg sm:text-xl mb-0.5 flex items-center gap-2 tracking-tight">
+                <h3 className="font-bold text-lg sm:text-xl text-white mb-1 tracking-tight leading-snug">
                   Learn with Emi AI
                 </h3>
-                <p className="text-indigo-100/90 text-[10px] sm:text-[11px] font-medium leading-relaxed max-w-[160px] sm:max-w-[180px] mb-3 leading-tight">
-                  Your personal MSCE tutor for instant expert explanations.
+                <p className="text-indigo-100 text-xs sm:text-[13px] font-normal leading-relaxed mb-3">
+                  Instant MSCE curriculum answers, explanations & exam coaching.
                 </p>
                 <button
                   onClick={() => onNavigate("emi")}
-                  className="bg-white text-indigo-700 font-bold text-[10px] sm:text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 shadow-md shadow-indigo-950/20 active:scale-95 transition-all w-fit group"
+                  className="bg-white hover:bg-slate-100 text-indigo-700 font-bold text-xs sm:text-[13px] py-2 px-3.5 rounded-xl inline-flex items-center gap-2 shadow-sm active:scale-95 transition-all"
                 >
-                  Chat with Emi
+                  <span>Chat with Emi</span>
                   <ArrowRight
-                    size={12}
-                    className="group-hover:translate-x-1 transition-transform"
+                    size={14}
                     strokeWidth={2.5}
                   />
                 </button>
               </div>
 
-              {/* Avatar Composition with Blending */}
-              <div className="absolute -right-4 -bottom-4 w-40 h-40 z-0 pointer-events-none hidden sm:block md:w-48 md:h-48">
-                <div className="relative w-full h-full">
-                  <img
-                    src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
-                    alt="Emi AI"
-                    className="w-full h-full object-contain"
-                  />
-                  {/* Gradient masks to blend square edges */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
-                </div>
-              </div>
-              <div className="absolute -right-2 -bottom-2 w-32 h-32 z-0 pointer-events-none sm:hidden">
-                <div className="relative w-full h-full">
-                  <img
-                    src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
-                    alt="Emi AI"
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-purple-800/80 via-transparent to-transparent"></div>
-                </div>
+              {/* Mascot Graphic on the Right */}
+              <div className="absolute -right-2 -bottom-2 w-32 h-32 sm:w-40 sm:h-40 z-0 pointer-events-none flex items-end justify-end">
+                <img
+                  src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
+                  alt="Emi AI"
+                  className="w-full h-full object-contain drop-shadow-md"
+                />
               </div>
             </div>
           </div>
 
-          {/* Right Column (Grid Menu) */}
-          <div className="flex-[0.8] w-full max-w-lg mx-auto lg:max-w-none lg:mx-0 pt-0 lg:pt-2">
-            {/* Grid Menu */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 content-start shrink-0 mb-8">
+          {/* Right Column (Feature Grid Menu) */}
+          <div className="flex-1 w-full max-w-lg mx-auto lg:max-w-none lg:mx-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <FeatureCard
                 theme={theme}
-                icon={
-                  <BookOpen size={20} fill="white" className="text-blue-50" />
-                }
-                bgColor="bg-blue-500"
+                icon={<BookOpen size={20} className="text-white" />}
+                bgColor="bg-blue-600"
                 title="Library"
                 onClick={() => onNavigate("library")}
               />
               <FeatureCard
                 theme={theme}
-                icon={
-                  <CheckSquare
-                    size={20}
-                    fill="white"
-                    className="text-emerald-50"
-                  />
-                }
-                bgColor="bg-emerald-500"
+                icon={<CheckSquare size={20} className="text-white" />}
+                bgColor="bg-emerald-600"
                 title="Quizzes"
                 onClick={() => onNavigate("quizzes")}
               />
               <FeatureCard
                 theme={theme}
-                icon={
-                  <Layers
-                    size={20}
-                    fill="white"
-                    className="text-orange-50"
-                    strokeWidth={1}
-                  />
-                }
-                bgColor="bg-orange-500"
+                icon={<Layers size={20} className="text-white" />}
+                bgColor="bg-amber-600"
                 title="Flashcards"
                 onClick={() => onNavigate("flashcards")}
               />
               <FeatureCard
                 theme={theme}
-                icon={<Users size={20} fill="white" className="text-teal-50" />}
-                bgColor="bg-teal-500"
+                icon={<Users size={20} className="text-white" />}
+                bgColor="bg-indigo-600"
                 title="Community"
                 onClick={() => onNavigate("community")}
               />
               <FeatureCard
                 theme={theme}
-                icon={
-                  <BookA size={20} fill="white" className="text-purple-50" />
-                }
-                bgColor="bg-purple-500"
+                icon={<BookA size={20} className="text-white" />}
+                bgColor="bg-purple-600"
                 title="Dictionary"
                 onClick={() => onNavigate("dictionary")}
               />
               <FeatureCard
                 theme={theme}
-                icon={<Video size={20} fill="white" className="text-blue-50" />}
-                bgColor="bg-blue-600"
+                icon={<Video size={20} className="text-white" />}
+                bgColor="bg-sky-600"
                 title="Videos"
                 onClick={() => onNavigate("videos")}
               />
@@ -3691,18 +3692,24 @@ function FeatureCard({
   return (
     <button
       onClick={onClick}
-      className={`${theme === "dark" ? "bg-gray-900 border-gray-800 hover:bg-gray-800" : "bg-white border-slate-200 hover:bg-slate-50"} rounded-[18px] flex flex-col items-center justify-center py-3.5 px-2 text-center shadow-sm border ${onClick ? "cursor-pointer active:scale-95 transition-all duration-200" : ""}`}
+      className={`${
+        theme === "dark"
+          ? "bg-slate-900 border-slate-800 hover:bg-slate-850 hover:border-slate-700 text-white"
+          : "bg-white border-slate-200 hover:bg-slate-50 text-slate-900 shadow-sm"
+      } rounded-2xl flex flex-col items-center justify-center p-3.5 sm:p-4 text-center border min-h-[104px] sm:min-h-[112px] active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 group`}
     >
       <div
-        className={`w-10 h-10 rounded-[12px] flex items-center justify-center mb-2 shadow-inner shrink-0 ${bgColor}`}
+        className={`w-11 h-11 rounded-xl flex items-center justify-center mb-2.5 shrink-0 ${bgColor} shadow-sm group-hover:scale-105 transition-transform`}
       >
         {icon}
       </div>
-      <h4
-        className={`font-bold ${theme === "dark" ? "text-gray-100" : "text-slate-800"} text-[11px] leading-tight px-1 w-full truncate`}
+      <span
+        className={`font-bold text-xs sm:text-sm leading-tight text-center truncate w-full px-1 ${
+          theme === "dark" ? "text-slate-100" : "text-slate-900"
+        }`}
       >
         {title}
-      </h4>
+      </span>
     </button>
   );
 }
@@ -3721,21 +3728,39 @@ function NavItem({
   theme: "light" | "dark";
 }) {
   return (
-    <div
-      className="flex flex-col items-center justify-center w-14 cursor-pointer pt-1 transition-all active:scale-95 group"
+    <button
+      type="button"
+      className="flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 cursor-pointer transition-all active:scale-95 group focus:outline-none"
       onClick={onClick}
+      aria-label={label}
     >
       <div
-        className={`mb-1 transition-colors duration-200 ${active ? (theme === "dark" ? "text-white" : "text-indigo-600") : "text-gray-500 group-hover:text-gray-300"}`}
+        className={`mb-1 transition-colors duration-200 ${
+          active
+            ? theme === "dark"
+              ? "text-white"
+              : "text-indigo-600"
+            : theme === "dark"
+            ? "text-slate-400 group-hover:text-slate-200"
+            : "text-slate-500 group-hover:text-slate-900"
+        }`}
       >
         {icon}
       </div>
       <span
-        className={`text-[9px] font-black tracking-widest uppercase transition-colors duration-200 ${active ? (theme === "dark" ? "text-white" : "text-indigo-600") : "text-gray-500 group-hover:text-gray-300"}`}
+        className={`text-[10px] font-bold tracking-wider transition-colors duration-200 ${
+          active
+            ? theme === "dark"
+              ? "text-white font-black"
+              : "text-indigo-600 font-black"
+            : theme === "dark"
+            ? "text-slate-400 group-hover:text-slate-200"
+            : "text-slate-500 group-hover:text-slate-900"
+        }`}
       >
         {label}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -3924,87 +3949,97 @@ function LibraryView({
 
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} animate-in slide-in-from-right duration-300`}
+      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-slate-950" : "bg-slate-50"} animate-in slide-in-from-right duration-300`}
     >
       {/* Fixed Header */}
-      <div
-        className={`${theme === "dark" ? "bg-gray-900/90 border-gray-800" : "bg-white/90 border-slate-200"} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}
+      <header
+        className={`${theme === "dark" ? "bg-slate-950/95 border-slate-800 text-white" : "bg-white/95 border-slate-200 text-slate-900"} backdrop-blur-md pt-3.5 pb-2.5 px-4 sm:px-6 flex items-center justify-between shrink-0 z-20 border-b shadow-sm`}
       >
-        <button
-          onClick={onBack}
-          className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-700"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
-        >
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <div className="ml-4">
-          <h2
-            className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            aria-label="Back to previous screen"
+            className={`w-10 h-10 ${theme === "dark" ? "bg-slate-900 text-slate-200 border-slate-800 hover:bg-slate-800" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"} rounded-xl border flex items-center justify-center shrink-0 active:scale-95 transition-transform shadow-sm`}
           >
-            Study Library
-          </h2>
-          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-            MSCE & JCE Syllabus Vault
-          </p>
+            <ChevronLeft size={22} strokeWidth={2.5} />
+          </button>
+          <div>
+            <h1
+              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg sm:text-xl leading-tight uppercase tracking-tight`}
+            >
+              Study Library
+            </h1>
+            <p className="text-[11px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider mt-0.5">
+              MSCE & JCE Syllabus Vault
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-6 hide-scrollbar max-w-4xl mx-auto w-full">
+        <div className="flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20">
+            {visibleItems.length} {visibleItems.length === 1 ? "Item" : "Items"}
+          </span>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 pt-5 pb-32 space-y-5 hide-scrollbar max-w-4xl mx-auto w-full">
         {/* Search */}
         <div
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[22px] px-4 py-3 flex items-center border focus-within:border-indigo-500/50 transition-colors`}
+          className={`${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"} rounded-2xl px-4 py-3 flex items-center border focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all`}
         >
-          <Search className="text-gray-500 mr-2.5" size={18} strokeWidth={3} />
+          <Search className="text-slate-400 mr-3 shrink-0" size={18} strokeWidth={2.5} />
           <input
             type="text"
             placeholder="Search topics, past papers, notes & books..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-bold placeholder-gray-500`}
+            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-slate-400`}
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery("")}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold px-2 py-1"
+              className="text-slate-400 hover:text-slate-200 text-xs font-bold px-2 py-1"
             >
               Clear
             </button>
           )}
         </div>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs (All vs Offline) */}
         <div
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-1.5 rounded-2xl border flex`}
+          className={`${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"} p-1 rounded-2xl border flex gap-1`}
         >
           <button
             onClick={() => setFilter("all")}
-            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${filter === "all" ? "bg-indigo-600 text-white shadow-lg" : "text-gray-500"}`}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${filter === "all" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"}`}
           >
-            ALL MATERIALS
+            All Materials
           </button>
           <button
             onClick={() => setFilter("offline")}
-            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all flex items-center justify-center gap-2 ${filter === "offline" ? "bg-indigo-600 text-white shadow-lg" : "text-gray-500"}`}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 ${filter === "offline" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"}`}
           >
-            <Download size={14} /> OFFLINE NOTES ({downloadedIds.length})
+            <Download size={14} /> Offline Notes ({downloadedIds.length})
           </button>
         </div>
 
         {/* Quick Subject Filter Pill Bar */}
-        <div>
-          <div className="flex items-center justify-between mb-2.5 px-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Filter by Subject
             </span>
             {(filterSubject || filterLevel || searchQuery) && (
               <button
                 onClick={clearFilters}
-                className="text-[10px] font-bold text-indigo-500 hover:underline"
+                className="text-xs font-bold text-indigo-500 hover:underline"
               >
-                Reset All Filters
+                Reset Filters
               </button>
             )}
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+          <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar scroll-smooth">
             {standardSubjects.map((sub) => {
               const isSelected =
                 (!filterSubject && sub === "All Subjects") ||
@@ -4015,12 +4050,12 @@ function LibraryView({
                   onClick={() =>
                     setFilterSubject(sub === "All Subjects" ? "" : sub)
                   }
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
                     isSelected
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                       : theme === "dark"
-                      ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                      ? "bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800 hover:text-white"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
                   {sub}
@@ -4031,13 +4066,13 @@ function LibraryView({
         </div>
 
         {/* Level Select & Detailed Dropdowns */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2.5">
           <select
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
-            className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none`}
+            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none focus:border-indigo-500`}
           >
-            <option value="">All Subjects (Dropdown)</option>
+            <option value="">All Subjects</option>
             {allSubjectsList.map((sub) => (
               <option key={sub} value={sub}>
                 {sub}
@@ -4048,7 +4083,7 @@ function LibraryView({
           <select
             value={filterLevel}
             onChange={(e) => setFilterLevel(e.target.value)}
-            className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none`}
+            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none focus:border-indigo-500`}
           >
             <option value="">All Levels (Forms 1-4)</option>
             {uniqueLevels.map((lvl) => (
@@ -4060,20 +4095,17 @@ function LibraryView({
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h3
-              className={`font-black text-sm uppercase tracking-wider ${theme === "dark" ? "text-gray-200" : "text-slate-800"}`}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2
+              className={`font-bold text-sm uppercase tracking-wider ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}
             >
               {filter === "all" ? "Available Study Packs" : "Downloaded Offline Notes"}
-            </h3>
-            <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-1 rounded-full uppercase tracking-widest font-black">
-              {visibleItems.length} {visibleItems.length === 1 ? "Item" : "Items"}
-            </span>
+            </h2>
           </div>
 
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {loading ? (
-              <div className="py-10 flex justify-center">
+              <div className="py-12 flex justify-center">
                 <EmiSpinner size="md" theme={theme} />
               </div>
             ) : visibleItems.length > 0 ? (
@@ -4097,12 +4129,12 @@ function LibraryView({
                       }
                       color={
                         item.type === "pdf"
-                          ? "bg-red-500/20 text-red-500"
+                          ? "bg-red-500/15 text-red-500 border border-red-500/25"
                           : item.type === "video"
-                            ? "bg-blue-500/20 text-blue-500"
+                            ? "bg-blue-500/15 text-blue-500 border border-blue-500/25"
                             : item.type === "book"
-                              ? "bg-purple-500/20 text-purple-500"
-                              : "bg-emerald-500/20 text-emerald-500"
+                              ? "bg-purple-500/15 text-purple-500 border border-purple-500/25"
+                              : "bg-emerald-500/15 text-emerald-500 border border-emerald-500/25"
                       }
                       isDownloaded={downloadedIds.includes(item.id)}
                       onDownload={() => handleDownload(item)}
@@ -4116,23 +4148,25 @@ function LibraryView({
                 );
               })
             ) : (
-              <div className="text-center py-12 px-4 rounded-3xl border border-dashed border-gray-500/20">
+              <div className={`text-center py-12 px-4 rounded-2xl border border-dashed ${theme === "dark" ? "border-slate-800 bg-slate-900/40" : "border-slate-300 bg-white"} space-y-3`}>
                 <div
-                  className={`w-16 h-16 ${theme === "dark" ? "bg-gray-900" : "bg-slate-100"} rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-500`}
+                  className={`w-14 h-14 ${theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"} rounded-2xl flex items-center justify-center mx-auto`}
                 >
-                  <Download size={32} strokeWidth={1.5} />
+                  <BookOpen size={28} strokeWidth={1.8} />
                 </div>
-                <p
-                  className={`text-sm font-black ${theme === "dark" ? "text-gray-300" : "text-slate-700"}`}
-                >
-                  No materials match your current filter.
-                </p>
-                <p className="text-[11px] text-gray-500 max-w-[260px] mx-auto mt-1 leading-relaxed">
-                  Try selecting a different subject or reset your filters to view all syllabus notes.
-                </p>
+                <div>
+                  <h3
+                    className={`text-base font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}
+                  >
+                    No materials found
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 leading-relaxed">
+                    Try selecting a different subject or reset your search filters to explore all MSCE resources.
+                  </p>
+                </div>
                 <button
                   onClick={clearFilters}
-                  className="mt-4 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition-transform"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all inline-flex items-center gap-1.5"
                 >
                   Reset All Filters
                 </button>
@@ -4140,7 +4174,7 @@ function LibraryView({
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -4173,11 +4207,11 @@ function LibraryItem({
   return (
     <div
       onClick={onClick}
-      className={`${theme === "dark" ? "bg-gray-900 border-gray-800 active:bg-gray-800/50" : "bg-white border-slate-200 active:bg-slate-50 shadow-sm"} rounded-[24px] p-4 flex flex-col sm:flex-row sm:items-center border gap-4 transition-all cursor-pointer group`}
+      className={`${theme === "dark" ? "bg-slate-900 border-slate-800 hover:border-slate-700 active:bg-slate-850" : "bg-white border-slate-200 hover:border-slate-300 active:bg-slate-50 shadow-sm"} rounded-2xl p-3.5 sm:p-4 flex items-center justify-between border gap-3.5 transition-all cursor-pointer group`}
     >
-      <div className="flex items-center gap-4 flex-1">
+      <div className="flex items-center gap-3.5 flex-1 min-w-0">
         {previewUrl ? (
-          <div className="w-14 h-14 rounded-2xl shrink-0 overflow-hidden bg-gray-100 flex items-center justify-center border shadow-inner">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl shrink-0 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
             <img
               src={previewUrl}
               alt={title}
@@ -4186,7 +4220,7 @@ function LibraryItem({
           </div>
         ) : (
           <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${color} shadow-inner`}
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center shrink-0 ${color} shadow-sm`}
           >
             {type === "pdf" && <ScrollText size={22} />}
             {type === "video" && <Video size={22} />}
@@ -4196,46 +4230,50 @@ function LibraryItem({
             {type === "doc" && <Bookmark size={22} />}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <h4
-            className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-[14px] mb-1 truncate leading-tight`}
+        <div className="flex-1 min-w-0 space-y-1">
+          <h3
+            className={`font-bold ${theme === "dark" ? "text-slate-100" : "text-slate-900"} text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-indigo-500 transition-colors`}
           >
             {title}
-          </h4>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+          </h3>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
               {type}
             </span>
             {subject && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-gray-700"></span>
-                <span className="text-[10px] font-bold text-indigo-400">
-                  {subject}
-                </span>
-              </>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20">
+                {subject}
+              </span>
             )}
             {level && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-gray-700"></span>
-                <span className="text-[10px] font-bold text-amber-500">
-                  {level}
-                </span>
-              </>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                {level}
+              </span>
             )}
-            <span className="w-1 h-1 rounded-full bg-gray-700"></span>
-            <span className="text-[10px] font-bold text-gray-500">{date}</span>
+            <span className="text-[11px] text-slate-400 font-medium pl-1">
+              {date}
+            </span>
           </div>
         </div>
       </div>
+
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           onDownload?.();
         }}
-        className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${isDownloaded ? "bg-indigo-600 text-white border-indigo-500 shadow-lg" : theme === "dark" ? "bg-gray-950 text-gray-600 border-gray-800 hover:text-indigo-400 hover:border-indigo-500" : "bg-slate-50 text-slate-400 border-slate-200 hover:text-indigo-600 hover:border-indigo-300"}`}
+        aria-label={isDownloaded ? "Saved offline" : "Save offline"}
+        className={`shrink-0 min-h-[44px] min-w-[44px] px-3 py-2 rounded-xl flex items-center justify-center border transition-all ${
+          isDownloaded
+            ? "bg-emerald-600 text-white border-emerald-500 shadow-sm"
+            : theme === "dark"
+            ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+        } active:scale-95`}
       >
         {isDownloaded ? (
-          <CheckCheck size={18} strokeWidth={3} />
+          <CheckCheck size={18} strokeWidth={2.5} />
         ) : (
           <Download size={18} />
         )}
@@ -4254,6 +4292,10 @@ function QuizzesView({
   onStartQuiz: (questions: any[], topic: string) => void;
 }) {
   const [topic, setTopic] = useState("");
+  const [generatorSubject, setGeneratorSubject] = useState("Mathematics");
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("All");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [showGenerator, setShowGenerator] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [numQuestions, setNumQuestions] = useState(5);
   const [publicQuizzes, setPublicQuizzes] = useState<any[]>(() => {
@@ -4264,6 +4306,17 @@ function QuizzesView({
       return DEFAULT_QUIZZES;
     }
   });
+
+  const QUIZ_SUBJECTS = [
+    "All",
+    "Mathematics",
+    "Biology",
+    "Physics",
+    "English",
+    "Chemistry",
+    "Agriculture",
+    "Geography",
+  ];
 
   useEffect(() => {
     let isMounted = true;
@@ -4316,18 +4369,12 @@ function QuizzesView({
     }
   });
 
-  const SUGGESTED_TOPICS = [
-    "Biology: Genetics & Heredity",
-    "Math: Quadratic Equations",
-    "Chemistry: Acids & Bases",
-    "Physics: Forces & Newton's Laws",
-    "English: Grammar & Figure of Speech",
-    "Geography: Weather & ITCZ",
-    "Agriculture: Soil Fertility",
-  ];
-
   const generateAIQuiz = async () => {
-    if (!topic.trim()) return;
+    const fullTopic = generatorSubject !== "All" && !topic.toLowerCase().includes(generatorSubject.toLowerCase())
+      ? `${generatorSubject}: ${topic.trim()}`
+      : topic.trim();
+
+    if (!fullTopic) return;
 
     if (!navigator.onLine) {
       alert(
@@ -4345,7 +4392,7 @@ function QuizzesView({
       const response = await fetch("/api/gemini/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, numQuestions }),
+        body: JSON.stringify({ topic: fullTopic, numQuestions }),
         signal: controller.signal,
       });
 
@@ -4362,9 +4409,9 @@ function QuizzesView({
       if (questions.length > 0) {
         try {
           const updatedCache = [
-            { topic, questions, date: new Date().toLocaleDateString() },
+            { topic: fullTopic, questions, date: new Date().toLocaleDateString() },
             ...quizHistory.filter(
-              (q: any) => q.topic.toLowerCase() !== topic.toLowerCase(),
+              (q: any) => q.topic.toLowerCase() !== fullTopic.toLowerCase(),
             ),
           ].slice(0, 10);
           setQuizHistory(updatedCache);
@@ -4374,14 +4421,14 @@ function QuizzesView({
           );
 
           await addDoc(collection(db, "quizzes"), {
-            topic,
+            topic: fullTopic,
             questions,
             createdAt: serverTimestamp(),
           });
         } catch (e) {
           console.error("Quiz cache/db save error:", e);
         }
-        onStartQuiz(questions, topic);
+        onStartQuiz(questions, fullTopic);
       } else {
         throw new Error("Invalid output from AI");
       }
@@ -4410,147 +4457,369 @@ function QuizzesView({
     onStartQuiz(fallbackQuiz.questions, fallbackQuiz.topic);
   };
 
+  // Filtered quizzes for display at the top
+  const filteredQuizzes = useMemo(() => {
+    return publicQuizzes.filter((quiz) => {
+      const matchSubject =
+        selectedSubjectFilter === "All" ||
+        (quiz.category && quiz.category.toLowerCase() === selectedSubjectFilter.toLowerCase()) ||
+        quiz.topic.toLowerCase().includes(selectedSubjectFilter.toLowerCase());
+
+      const matchSearch =
+        !searchFilter.trim() ||
+        quiz.topic.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        (quiz.category && quiz.category.toLowerCase().includes(searchFilter.toLowerCase()));
+
+      return matchSubject && matchSearch;
+    });
+  }, [publicQuizzes, selectedSubjectFilter, searchFilter]);
+
   return (
     <div
       className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} animate-in slide-in-from-right duration-300`}
     >
       {/* Fixed Header */}
       <div
-        className={`${theme === "dark" ? "bg-gray-900/90 border-gray-800 text-white" : "bg-white/90 border-slate-200 text-slate-900"} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}
+        className={`${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} pt-4 pb-3 px-5 flex items-center justify-between shrink-0 z-10 border-b shadow-sm`}
       >
-        <button
-          onClick={onBack}
-          className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-700"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
-        >
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <div className="ml-4">
-          <h2
-            className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
+        <div className="flex items-center">
+          <button
+            onClick={onBack}
+            className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-700"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
+            aria-label="Back"
           >
-            Quiz Center
-          </h2>
-          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-            Test Your Knowledge
-          </p>
+            <ChevronLeft size={24} strokeWidth={3} />
+          </button>
+          <div className="ml-3">
+            <h2
+              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
+            >
+              Quiz Center
+            </h2>
+            <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest mt-0.5">
+              MSCE & JCE Practice Quizzes
+            </p>
+          </div>
         </div>
+
+        {/* Toggle AI Generator Button */}
+        <button
+          onClick={() => setShowGenerator(prev => !prev)}
+          className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 border ${
+            showGenerator
+              ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+              : theme === "dark"
+              ? "bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700"
+              : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+          }`}
+        >
+          <Sparkles size={14} className={showGenerator ? "text-white" : "text-indigo-500"} />
+          <span>{showGenerator ? "Hide AI Generator" : "Generate Quiz"}</span>
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-7 hide-scrollbar max-w-4xl mx-auto w-full">
-        {/* AI Generation Card */}
-        <div
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-6 rounded-[32px] border relative overflow-hidden group`}
-        >
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none group-hover:scale-150 transition-transform duration-500"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                <Bot size={22} />
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-5 pb-32 space-y-6 hide-scrollbar max-w-4xl mx-auto w-full">
+        {/* Compact, Streamlined AI Generator Card (Expandable / Toggleable) */}
+        {showGenerator && (
+          <div
+            className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-4 sm:p-5 rounded-2xl border transition-all animate-in fade-in slide-in-from-top duration-200`}
+          >
+            <div className="flex items-center justify-between gap-3 mb-3 pb-2.5 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shrink-0">
+                  <Bot size={18} />
+                </div>
+                <div>
+                  <h3 className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"} leading-tight`}>
+                    AI Quiz Generator
+                  </h3>
+                  <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">
+                    Instant custom questions for any topic
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3
-                  className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} leading-tight`}
-                >
-                  AI Quiz Generator
-                </h3>
-                <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
-                  Custom Examinations & Instant Quizzes
-                </p>
-              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setShowGenerator(false)}
+                className="text-gray-400 hover:text-gray-200 p-1"
+                aria-label="Close generator"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <div
-                className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-100 shadow-inner"} rounded-2xl p-4 flex items-center border`}
-              >
-                <Sparkles className="text-gray-500 mr-3 shrink-0" size={18} />
-                <input
-                  type="text"
-                  placeholder="Enter topic (e.g. MSCE Biology Genetics)"
-                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-bold placeholder-gray-600 h-6`}
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                />
-              </div>
+            {/* Generator Controls in clean 2-row layout */}
+            <div className="space-y-3">
+              {/* Separate Subject Picker & Question Count */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    Select Subject
+                  </label>
+                  <select
+                    value={generatorSubject}
+                    onChange={(e) => setGeneratorSubject(e.target.value)}
+                    className={`w-full py-2 px-3 rounded-xl border text-xs font-bold outline-none ${
+                      theme === "dark"
+                        ? "bg-gray-950 border-gray-800 text-white"
+                        : "bg-slate-50 border-slate-200 text-slate-800"
+                    }`}
+                  >
+                    {QUIZ_SUBJECTS.filter(s => s !== "All").map(subj => (
+                      <option key={subj} value={subj}>
+                        {subj}
+                      </option>
+                    ))}
+                    <option value="General Studies">Other / General</option>
+                  </select>
+                </div>
 
-              {/* Quick Topic Pills */}
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-2">
-                  Quick Topic Recommendations:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {SUGGESTED_TOPICS.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTopic(t)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
-                        topic === t
-                          ? "bg-indigo-600 text-white border-indigo-600"
-                          : theme === "dark"
-                          ? "bg-gray-950 text-gray-400 border-gray-800 hover:text-white"
-                          : "bg-slate-100 text-slate-700 border-slate-200 hover:text-indigo-600"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    Questions Count
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[5, 10].map(count => (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => setNumQuestions(count)}
+                        className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                          numQuestions === count
+                            ? "bg-indigo-600 text-white border-indigo-600"
+                            : theme === "dark"
+                            ? "bg-gray-950 text-gray-400 border-gray-800 hover:text-white"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {count} Questions
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4 pt-2">
-                <div className="flex-1 flex flex-col gap-1">
-                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">
-                    Questions: {numQuestions}
-                  </span>
+              {/* Topic Input and Generate Action */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <div
+                  className={`flex-1 ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl px-3 py-2 flex items-center border`}
+                >
+                  <Sparkles className="text-gray-400 mr-2 shrink-0" size={16} />
                   <input
-                    type="range"
-                    min="5"
-                    max="10"
-                    step="1"
-                    value={numQuestions}
-                    onChange={(e) => setNumQuestions(parseInt(e.target.value))}
-                    className="w-full accent-indigo-600 h-1.5 rounded-full bg-gray-800"
+                    type="text"
+                    placeholder={`Enter topic (e.g. ${generatorSubject === "Biology" ? "Genetics & Cells" : generatorSubject === "Mathematics" ? "Algebra & Quadratics" : "Key concepts"})`}
+                    className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-xs font-bold placeholder-gray-500`}
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && topic.trim() && !isGenerating) {
+                        generateAIQuiz();
+                      }
+                    }}
                   />
                 </div>
+
                 <button
                   onClick={generateAIQuiz}
                   disabled={!topic.trim() || isGenerating}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-3.5 px-6 rounded-2xl active:scale-95 transition-all shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50 tracking-widest uppercase"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-2.5 px-5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 tracking-wider uppercase shrink-0 shadow-sm"
                 >
                   {isGenerating ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    "Generate"
+                    <>
+                      <Sparkles size={14} />
+                      <span>Generate</span>
+                    </>
                   )}
                 </button>
               </div>
             </div>
           </div>
+        )}
+
+        {/* TOP SECTION: Subject Filters & Search */}
+        <div className="space-y-3">
+          {/* Subject Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
+            {QUIZ_SUBJECTS.map((subj) => (
+              <button
+                key={subj}
+                onClick={() => setSelectedSubjectFilter(subj)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border ${
+                  selectedSubjectFilter === subj
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                    : theme === "dark"
+                    ? "bg-gray-900 text-gray-400 border-gray-800 hover:bg-gray-800 hover:text-white"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                {subj}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Bar for Quizzes */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-gray-400">
+              <Search size={16} />
+            </div>
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search quizzes by title or topic..."
+              className={`w-full py-2.5 pl-10 pr-4 rounded-xl border text-xs font-semibold outline-none transition-all ${
+                theme === "dark"
+                  ? "bg-gray-900 border-gray-800 text-white placeholder-gray-500 focus:border-indigo-500"
+                  : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500 shadow-sm"
+              }`}
+            />
+            {searchFilter && (
+              <button
+                onClick={() => setSearchFilter("")}
+                className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-gray-400 hover:text-gray-200"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* PRIMARY SECTION: Quiz List (Appearing ON TOP!) */}
+        <div>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-2">
+              <BrainCircuit size={16} className="text-indigo-500" />
+              <h3
+                className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-xs uppercase tracking-wider`}
+              >
+                {selectedSubjectFilter === "All" ? "Syllabus & Community Quizzes" : `${selectedSubjectFilter} Quizzes`}
+              </h3>
+            </div>
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+              {filteredQuizzes.length} {filteredQuizzes.length === 1 ? "Quiz" : "Quizzes"} Available
+            </span>
+          </div>
+
+          {filteredQuizzes.length === 0 ? (
+            <div className={`p-8 text-center rounded-2xl border ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-400" : "bg-white border-slate-200 text-slate-600"}`}>
+              <BrainCircuit size={32} className="mx-auto mb-2 text-indigo-500 opacity-60" />
+              <h4 className="text-sm font-bold mb-1">No quizzes found</h4>
+              <p className="text-xs text-gray-400 mb-3">
+                No quizzes match "{selectedSubjectFilter}". Generate one with AI in seconds!
+              </p>
+              <button
+                onClick={() => {
+                  setGeneratorSubject(selectedSubjectFilter === "All" ? "Mathematics" : selectedSubjectFilter);
+                  setShowGenerator(true);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl active:scale-95"
+              >
+                Generate Quiz for {selectedSubjectFilter}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {filteredQuizzes.map((quiz) => (
+                <div
+                  key={quiz.id}
+                  className={`${theme === "dark" ? "bg-gray-900 border-gray-800 hover:border-gray-700" : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"} rounded-2xl p-4 border flex flex-col justify-between transition-all`}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div
+                      className={`w-10 h-10 ${theme === "dark" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border-indigo-100"} rounded-xl flex items-center justify-center border shrink-0`}
+                    >
+                      <BrainCircuit size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-md">
+                          {quiz.category || "MSCE"}
+                        </span>
+                        <span className="text-[9px] font-semibold text-gray-400">
+                          {quiz.questions?.length || 5} Questions
+                        </span>
+                      </div>
+                      <h4
+                        className={`font-black text-xs ${theme === "dark" ? "text-white" : "text-slate-900"} leading-snug line-clamp-2`}
+                      >
+                        {quiz.topic}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onStartQuiz(quiz.questions, quiz.topic)}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl active:scale-95 transition-all text-[10px] tracking-wider uppercase shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <span>Begin Quiz</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Daily Challenge Card (Clean Solid Background, No Gradient) */}
+        <div className={`${theme === "dark" ? "bg-gray-900 border-indigo-500/30" : "bg-indigo-700 border-indigo-600 text-white"} p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm`}>
+          <div className="flex items-start gap-3.5">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme === "dark" ? "bg-indigo-500/20 text-indigo-400" : "bg-white/15 text-white"}`}>
+              <Target size={22} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${theme === "dark" ? "bg-indigo-500/15 text-indigo-400" : "bg-white/20 text-white"}`}>
+                  Today's Challenge
+                </span>
+                <span className={`text-[10px] font-bold ${theme === "dark" ? "text-emerald-400" : "text-emerald-200"}`}>
+                  +500 MSCE XP
+                </span>
+              </div>
+              <h3 className={`text-sm font-black leading-tight ${theme === "dark" ? "text-white" : "text-white"}`}>
+                Daily Challenge: Mathematics
+              </h3>
+              <p className={`text-xs mt-0.5 ${theme === "dark" ? "text-gray-400" : "text-indigo-100"}`}>
+                Test your mastery of equations and algebra.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => startPredefinedQuiz("Mathematics")}
+            className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shrink-0 active:scale-95 transition-all ${
+              theme === "dark"
+                ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
+                : "bg-white text-indigo-700 hover:bg-indigo-50 shadow-sm"
+            }`}
+          >
+            Start Challenge
+          </button>
         </div>
 
         {/* Cached / Offline Practiced Quizzes */}
         {quizHistory.length > 0 && (
-          <div className="animate-in fade-in slide-in-from-bottom duration-300">
+          <div className="pt-2">
             <div className="flex items-center justify-between mb-3 px-1">
               <h3
-                className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm uppercase tracking-wider`}
+                className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-xs uppercase tracking-wider`}
               >
                 Practiced Offline Quizzes
               </h3>
-              <span className="text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase tracking-widest font-black">
+              <span className="text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-md uppercase tracking-widest font-black">
                 Ready Offline
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {quizHistory.map((q, idx) => (
                 <div
                   key={idx}
-                  className={`${theme === "dark" ? "bg-gray-900/60 border-gray-800/80 hover:bg-gray-900" : "bg-white border-slate-200 shadow-sm hover:bg-slate-50"} rounded-2xl p-4 border flex items-center justify-between transition-all group`}
+                  className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-xl p-3.5 border flex items-center justify-between transition-all`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center shrink-0">
-                      <CheckCheck size={16} />
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                    <div className="w-7 h-7 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                      <CheckCheck size={14} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4
@@ -4558,14 +4827,14 @@ function QuizzesView({
                       >
                         {q.topic}
                       </h4>
-                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">
-                        {q.questions.length} Questions • Saved {q.date}
+                      <p className="text-[9px] text-gray-400 font-medium">
+                        {q.questions.length} Questions • {q.date}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => onStartQuiz(q.questions, q.topic)}
-                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] uppercase tracking-widest font-black rounded-lg active:scale-95 transition-transform shrink-0"
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] uppercase tracking-wider font-black rounded-lg active:scale-95 transition-transform shrink-0"
                   >
                     Start
                   </button>
@@ -4574,77 +4843,6 @@ function QuizzesView({
             </div>
           </div>
         )}
-
-        {/* Daily Challenge Banner */}
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-7 rounded-[32px] text-white shadow-2xl relative overflow-hidden">
-          <div className="relative z-10">
-            <h3 className="text-xl font-black mb-1.5 leading-tight">
-              Daily Challenge: Mathematics
-            </h3>
-            <p className="text-indigo-100 text-xs font-bold leading-relaxed mb-5 max-w-[240px]">
-              Complete today's challenge to earn 500 bonus MSCE knowledge points.
-            </p>
-            <button
-              onClick={() => startPredefinedQuiz("Mathematics")}
-              className="bg-white text-indigo-700 font-black text-xs py-2.5 px-5 rounded-xl active:scale-95 transition-all shadow-md uppercase tracking-wider"
-            >
-              Start Challenge
-            </button>
-          </div>
-          <Target
-            className="absolute top-1/2 right-[-15px] -translate-y-1/2 text-white/10 w-40 h-40"
-            strokeWidth={1}
-          />
-        </div>
-
-        {/* Community & Syllabus Quizzes Grid */}
-        <div>
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h3
-              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm uppercase tracking-wider`}
-            >
-              Syllabus & Community Quizzes
-            </h3>
-            <span className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
-              {publicQuizzes.length} Quizzes Ready
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {publicQuizzes.map((quiz) => (
-              <div
-                key={quiz.id}
-                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[28px] p-5 border flex flex-col justify-between group relative overflow-hidden`}
-              >
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
-                <div className="flex items-start gap-3.5 mb-4">
-                  <div
-                    className={`w-12 h-12 ${theme === "dark" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border-indigo-100"} rounded-2xl flex items-center justify-center border shrink-0`}
-                  >
-                    <BrainCircuit size={24} strokeWidth={2.5} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4
-                      className={`font-black text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1 leading-snug line-clamp-2`}
-                    >
-                      {quiz.topic}
-                    </h4>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                      {quiz.questions?.length || 5} Questions • {quiz.level || "MSCE & JCE"}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => onStartQuiz(quiz.questions, quiz.topic)}
-                  className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"} font-black py-3 rounded-xl border active:scale-95 transition-all text-[10px] tracking-widest uppercase`}
-                >
-                  Begin Quiz
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -5240,42 +5438,44 @@ function ProfileView({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-10 pb-32 space-y-10 scroll-smooth">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-4 pb-28 space-y-4 scroll-smooth max-w-lg mx-auto w-full">
         {/* User Card */}
-        <div className="flex flex-col items-center">
-          <div className="relative mb-6 group">
+        <div className={`p-4 rounded-2xl border flex flex-col items-center text-center ${theme === "dark" ? "bg-gray-900/50 border-gray-800" : "bg-white border-slate-200 shadow-sm"}`}>
+          <div className="relative mb-3 group">
             <div
-              className={`w-32 h-32 rounded-[40px] ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} border-2 p-1.5 shadow-2xl shadow-indigo-600/20`}
+              className={`w-20 h-20 rounded-2xl ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-100 border-slate-200"} border-2 p-1`}
             >
               <div
-                className={`w-full h-full rounded-[32px] overflow-hidden border ${theme === "dark" ? "border-gray-800 bg-gray-950" : "border-slate-200 bg-slate-50"} relative`}
+                className={`w-full h-full rounded-xl overflow-hidden border ${theme === "dark" ? "border-gray-800 bg-gray-950" : "border-slate-200 bg-slate-50"} relative`}
               >
                 <Avatar
                   user={profile}
-                  className="w-full h-full text-5xl rounded-none"
+                  className="w-full h-full text-3xl rounded-none"
                 />
                 <button
                   onClick={() => setShowAvatarPicker(true)}
                   className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                  title="Change avatar"
                 >
-                  <Camera size={24} className="text-white" />
+                  <Camera size={20} className="text-white" />
                 </button>
               </div>
             </div>
             <button
               onClick={() => setShowAvatarPicker(true)}
-              className={`absolute -bottom-2 -right-2 w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center border-4 ${theme === "dark" ? "border-gray-950" : "border-slate-50"} shadow-xl active:scale-90 transition-transform`}
+              className={`absolute -bottom-1 -right-1 w-7 h-7 bg-indigo-600 text-white rounded-xl flex items-center justify-center border-2 ${theme === "dark" ? "border-gray-950" : "border-white"} shadow-md active:scale-90 transition-transform`}
+              title="Change avatar"
             >
-              <Plus size={18} strokeWidth={3} />
+              <Plus size={14} strokeWidth={3} />
             </button>
           </div>
 
-          <div className="text-center">
+          <div>
             {isEditingName ? (
-              <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-2">
                 <input
                   autoFocus
-                  className={`bg-transparent border-b-2 border-indigo-500 text-2xl font-black text-center outline-none w-48 py-1 ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+                  className={`bg-transparent border-b-2 border-indigo-500 text-xl font-black text-center outline-none w-48 py-1 ${theme === "dark" ? "text-white" : "text-slate-900"}`}
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
                   onBlur={() => {
@@ -5286,44 +5486,45 @@ function ProfileView({
                     e.key === "Enter" && (e.target as HTMLInputElement).blur()
                   }
                 />
-                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
-                  Tap out to save
+                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">
+                  Tap outside to save
                 </span>
               </div>
             ) : (
               <div className="flex flex-col items-center">
                 <h3
-                  className={`text-3xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} flex items-center gap-2 tracking-tight`}
+                  className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} flex items-center gap-1.5 tracking-tight cursor-pointer`}
                   onClick={() => setIsEditingName(true)}
+                  title="Click to edit name"
                 >
-                  {profile.name}{" "}
+                  <span className="truncate max-w-[220px]">{profile.name}</span>
                   {profile.isPro && (
                     <Crown
-                      size={22}
-                      className="text-yellow-400 drop-shadow-md"
+                      size={18}
+                      className="text-amber-400 shrink-0"
                     />
-                  )}{" "}
-                  <Smile size={20} className="text-indigo-400 opacity-60" />
+                  )}
+                  <Smile size={16} className="text-indigo-400 opacity-60 shrink-0" />
                 </h3>
                 {profile.isPro && (
-                  <div className="mt-1 px-3 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded-full">
-                    <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">
+                  <div className="mt-1 px-2.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full inline-flex items-center gap-1">
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider">
                       Pro Student
                     </span>
                   </div>
                 )}
                 <button
                   onClick={() => setShowLevelPicker(true)}
-                  className={`mt-3 inline-flex items-center gap-2 ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} px-4 py-1.5 rounded-full border active:scale-95 transition-all group shadow-sm`}
+                  className={`mt-2 inline-flex items-center gap-1.5 ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} px-3 py-1 rounded-full border active:scale-95 transition-all shadow-sm`}
                 >
                   <span
-                    className={`text-[10px] font-black ${theme === "dark" ? "text-gray-400" : "text-slate-500"} uppercase tracking-widest leading-none`}
+                    className={`text-[11px] font-bold ${theme === "dark" ? "text-gray-300" : "text-slate-600"} uppercase tracking-wider leading-none`}
                   >
                     {profile.level || "Form 4"} Student
                   </span>
                   <ChevronDown
                     size={12}
-                    className="text-indigo-500 group-hover:translate-y-0.5 transition-transform"
+                    className="text-indigo-500"
                   />
                 </button>
               </div>
@@ -5331,62 +5532,68 @@ function ProfileView({
           </div>
         </div>
 
-        <div className="flex gap-3">
+        {/* Equal Sized XP & Streak Cards */}
+        <div className="grid grid-cols-2 gap-3">
           <div
-            className={`flex-1 ${theme === "dark" ? "bg-gray-900/50 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-3 rounded-2xl border flex flex-col items-center group`}
+            className={`p-3.5 rounded-2xl border flex items-center gap-3 ${theme === "dark" ? "bg-gray-900/50 border-gray-800" : "bg-white border-slate-200 shadow-sm"}`}
           >
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-              <Target size={14} />
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+              <Target size={18} />
             </div>
-            <div
-              className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}
-            >
-              {profile.points}
-            </div>
-            <div className="text-[7px] uppercase font-black text-gray-500 tracking-[0.2em] mt-0.5">
-              Total XP
+            <div className="min-w-0">
+              <div
+                className={`text-base font-black truncate leading-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+              >
+                {profile.points?.toLocaleString() || 0}
+              </div>
+              <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                Total XP
+              </div>
             </div>
           </div>
           <div
-            className={`flex-1 ${theme === "dark" ? "bg-gray-900/50 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-3 rounded-2xl border flex flex-col items-center group`}
+            className={`p-3.5 rounded-2xl border flex items-center gap-3 ${theme === "dark" ? "bg-gray-900/50 border-gray-800" : "bg-white border-slate-200 shadow-sm"}`}
           >
-            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-              <Flame size={14} fill="currentColor" />
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <Flame size={18} fill="currentColor" />
             </div>
-            <div
-              className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}
-            >
-              {profile.streak || 1}
-            </div>
-            <div className="text-[7px] uppercase font-black text-gray-500 tracking-[0.2em] mt-0.5">
-              Day Streak
+            <div className="min-w-0">
+              <div
+                className={`text-base font-black truncate leading-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+              >
+                {profile.streak || 1} Days
+              </div>
+              <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                Day Streak
+              </div>
             </div>
           </div>
         </div>
 
         {/* Earned Badges Row */}
         {earnedAchievementIds.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex justify-between items-center px-1">
-              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}>
+              <span className={`text-[11px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}>
                 Badge Showcase
               </span>
               <button 
                 onClick={() => onNavigate("achievements")}
-                className="text-[10px] font-black uppercase tracking-widest text-indigo-500"
+                className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 hover:underline"
               >
                 View All
               </button>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+            <div className="flex gap-2.5 overflow-x-auto pb-1 hide-scrollbar">
               {ACHIEVEMENTS.filter(a => earnedAchievementIds.includes(a.id)).map((achievement) => (
                 <div 
                   key={achievement.id}
                   onClick={() => onNavigate("achievements")}
-                  className={`flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br ${achievement.color} p-0.5 shadow-lg active:scale-95 transition-transform cursor-pointer`}
+                  className={`shrink-0 w-12 h-12 rounded-xl p-0.5 border ${theme === "dark" ? "border-gray-800 bg-gray-900" : "border-slate-200 bg-white"} shadow-sm active:scale-95 transition-transform cursor-pointer flex items-center justify-center`}
+                  title={achievement.title}
                 >
-                  <div className={`${theme === "dark" ? "bg-gray-900 text-white" : "bg-white"} w-full h-full rounded-[14px] flex items-center justify-center`}>
-                    <achievement.icon size={28} />
+                  <div className="w-full h-full rounded-lg flex items-center justify-center text-indigo-500">
+                    <achievement.icon size={20} />
                   </div>
                 </div>
               ))}
@@ -5394,135 +5601,151 @@ function ProfileView({
           </div>
         )}
 
-        {/* Referral Card */}
-        <div className="bg-indigo-600/10 border-2 border-indigo-500/20 p-8 rounded-[40px] relative overflow-hidden group">
-          <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl transition-transform group-hover:scale-110"></div>
-          <div className="relative z-10">
-            <h4
-              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg mb-2 tracking-tight`}
-            >
-              Invite your Classmates
-            </h4>
-            <p
-              className={`text-xs ${theme === "dark" ? "text-indigo-200/70" : "text-slate-600"} font-semibold mb-6 leading-relaxed max-w-[220px]`}
-            >
-              Help friends join Educate MW and get an exclusive 500 XP and AI Tokens bonus.
-            </p>
-            
-            <div className="flex items-center gap-4 mb-6">
-              <a 
-                href={`https://wa.me/?text=${encodeURIComponent("🔥 *Educate MW* is the #1 App for MSCE Students in Malawi! Get free 2024 Past Papers, Notes, Quizzes, and an AI Study Assistant called Emi to answer your questions.\n\n🎁 Click my link to join and get *500 free XP & AI Tokens* instantly!\n\n👉 Join now: " + referralLink)}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex-1 h-12 bg-[#25D366] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/20 hover:scale-105 active:scale-95 transition-all gap-2"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-                </svg>
-              </a>
-              <a 
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}&quote=${encodeURIComponent("🔥 Educate MW is the #1 App for MSCE Students in Malawi! Get free 2024 Past Papers, Notes, Quizzes, and an AI Study Assistant called Emi. Click my link to join and get 500 free XP & AI Tokens instantly! Join now: " + referralLink)}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex-1 h-12 bg-[#1877F2] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all gap-2"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              </a>
-              <button 
-                onClick={() => {
-                  handleCopyLink();
-                  alert("Referral link and powerful message copied! Open TikTok and paste it into your video comments or bio.");
-                  window.open("https://www.tiktok.com/", "_blank");
-                }}
-                className="flex-1 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-lg shadow-black/20 hover:scale-105 active:scale-95 transition-all gap-2"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                </svg>
-              </button>
+        {/* Referral Card - Compact, Clean Hierarchy */}
+        <div className={`p-4 md:p-5 rounded-2xl border ${theme === "dark" ? "bg-gray-900/50 border-gray-800" : "bg-white border-slate-200 shadow-sm"}`}>
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <Gift size={16} />
             </div>
-
-            <div
-              className={`${theme === "dark" ? "bg-gray-950/80 border-indigo-500/30" : "bg-white border-slate-200 shadow-xl"} backdrop-blur-md p-2 rounded-2xl border flex items-center justify-between`}
-            >
-              <span
-                className={`font-bold ${theme === "dark" ? "text-white" : "text-slate-900"} text-xs pl-4 truncate max-w-[200px]`}
-              >
-                {referralLink}
-              </span>
-              <button
-                onClick={handleCopyLink}
-                className={`${isCopied ? "bg-emerald-500" : "bg-indigo-600"} text-white p-3.5 rounded-xl shadow-lg active:scale-90 transition-all hover:opacity-90 shrink-0`}
-              >
-                {isCopied ? (
-                  <CheckCircle size={18} strokeWidth={3} />
-                ) : (
-                  <Share2 size={18} strokeWidth={2.5} />
-                )}
-              </button>
-            </div>
-            {isCopied && (
-              <p className="text-[10px] text-emerald-500 font-bold mt-2 animate-bounce">
-                Link copied successfully! ✅
+            <div>
+              <h4 className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight leading-tight`}>
+                Invite Classmates
+              </h4>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                Earn Emi AI Tokens & XP
               </p>
-            )}
+            </div>
           </div>
-          <Gift className="absolute bottom-[-15%] left-[-5%] w-32 h-32 text-indigo-500/5 -rotate-12 pointer-events-none" />
+
+          {/* Referral Benefits in one glance */}
+          <div className="grid grid-cols-2 gap-2 my-3">
+            <div className={`p-2.5 rounded-xl border text-left ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"}`}>
+              <span className="text-[10px] font-bold uppercase text-indigo-400 tracking-wider block">You get</span>
+              <span className={`text-xs font-black block mt-0.5 ${theme === "dark" ? "text-gray-200" : "text-slate-800"}`}>+10 Tokens & 500 XP</span>
+            </div>
+            <div className={`p-2.5 rounded-xl border text-left ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"}`}>
+              <span className="text-[10px] font-bold uppercase text-emerald-500 tracking-wider block">Friend gets</span>
+              <span className={`text-xs font-black block mt-0.5 ${theme === "dark" ? "text-gray-200" : "text-slate-800"}`}>10 Tokens + 500 XP</span>
+            </div>
+          </div>
+
+          {/* Social Share Buttons - Consistent sizing */}
+          <div className="flex items-center gap-2 mb-3">
+            <a 
+              href={`https://wa.me/?text=${encodeURIComponent("🔥 *Educate MW* is the #1 App for MSCE Students in Malawi! Get free 2024 Past Papers, Notes, Quizzes, and an AI Study Assistant called Emi to answer your questions.\n\n🎁 Click my link to join and get *500 free XP & AI Tokens* instantly!\n\n👉 Join now: " + referralLink)}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex-1 h-10 bg-[#25D366] text-white rounded-xl flex items-center justify-center font-bold text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all gap-1.5"
+              title="Share via WhatsApp"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+              </svg>
+              <span>WhatsApp</span>
+            </a>
+            <a 
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}&quote=${encodeURIComponent("🔥 Educate MW is the #1 App for MSCE Students in Malawi! Get free 2024 Past Papers, Notes, Quizzes, and an AI Study Assistant called Emi. Click my link to join and get 500 free XP & AI Tokens instantly! Join now: " + referralLink)}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex-1 h-10 bg-[#1877F2] text-white rounded-xl flex items-center justify-center font-bold text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all gap-1.5"
+              title="Share via Facebook"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              <span>Facebook</span>
+            </a>
+            <button 
+              onClick={() => {
+                handleCopyLink();
+                window.open("https://www.tiktok.com/", "_blank");
+              }}
+              className="flex-1 h-10 bg-black text-white rounded-xl flex items-center justify-center font-bold text-xs shadow-sm hover:opacity-90 active:scale-95 transition-all gap-1.5"
+              title="Copy & share on TikTok"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+              </svg>
+              <span>TikTok</span>
+            </button>
+          </div>
+
+          {/* Referral Link & Copy */}
+          <div
+            className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} p-1.5 rounded-xl border flex items-center justify-between gap-2`}
+          >
+            <span
+              className={`font-mono text-xs pl-3 truncate ${theme === "dark" ? "text-gray-300" : "text-slate-700"}`}
+            >
+              {referralLink}
+            </span>
+            <button
+              onClick={handleCopyLink}
+              className={`${isCopied ? "bg-emerald-600" : "bg-indigo-600 hover:bg-indigo-700"} text-white px-3.5 h-9 rounded-lg font-bold text-xs active:scale-95 transition-all flex items-center gap-1 shrink-0`}
+            >
+              {isCopied ? (
+                <>
+                  <CheckCircle size={14} />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Share2 size={14} />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Daily Goals - Removed as per user request (already on Home tools) */}
-
-        {/* Suggested Features - Removed as per user request (already on Home grid) */}
-
-        {/* Menu Options */}
-        <div className="space-y-3 pb-10">
+        {/* Menu Options - Consistent Cards & Heights */}
+        <div className="space-y-2 pt-1">
           {menuItems.map((item, i) => (
             <button
               key={i}
               onClick={item.onClick}
-              className={`w-full ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} p-5 rounded-[2.5rem] border flex items-center justify-between group active:scale-95 transition-all`}
+              className={`w-full ${theme === "dark" ? "bg-gray-900/50 border-gray-800 hover:bg-gray-900/80" : "bg-white border-slate-200 hover:bg-slate-50 shadow-sm"} p-3.5 rounded-2xl border flex items-center justify-between group active:scale-[0.99] transition-all`}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className={`w-12 h-12 rounded-2xl ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-100"} flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform shadow-inner border shadow-sm`}
+                  className={`w-10 h-10 rounded-xl ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} flex items-center justify-center ${item.color} shrink-0 border`}
                 >
-                  <item.icon size={20} />
+                  <item.icon size={18} />
                 </div>
-                <span
-                  className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm tracking-tight`}
-                >
-                  {item.label}
-                </span>
+                <div className="text-left min-w-0">
+                  <span
+                    className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm tracking-tight block truncate`}
+                  >
+                    {item.label}
+                  </span>
+                  {item.activeLabel && (
+                    <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider block">
+                      {item.activeLabel}
+                    </span>
+                  )}
+                </div>
               </div>
-              {item.onClick ? (
-                <div
-                  className={`w-12 h-6 rounded-full relative transition-colors ${theme === "dark" ? "bg-indigo-600" : "bg-slate-300"}`}
-                >
-                  <div
-                    className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${theme === "dark" ? "left-7" : "left-1"}`}
-                  />
-                </div>
-              ) : (
-                <ChevronRight
-                  size={18}
-                  className="text-gray-700 group-hover:text-white transition-colors"
-                />
-              )}
+              <ChevronRight
+                size={18}
+                className="text-gray-400 group-hover:text-indigo-500 transition-colors shrink-0 ml-2"
+              />
             </button>
           ))}
 
           <button
             onClick={onLogout}
-            className="w-full bg-red-500/5 p-5 rounded-[2.5rem] border border-red-500/10 flex items-center justify-between group active:scale-95 transition-all mt-6"
+            className="w-full bg-red-500/5 hover:bg-red-500/10 p-3.5 rounded-2xl border border-red-500/20 flex items-center justify-between group active:scale-[0.99] transition-all mt-3"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner">
-                <LogOut size={20} />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                <LogOut size={18} />
               </div>
               <span className="font-black text-red-500 text-sm tracking-tight">
                 Log Out
               </span>
             </div>
+            <ChevronRight
+              size={18}
+              className="text-red-400 group-hover:text-red-500 transition-colors"
+            />
           </button>
         </div>
 
@@ -5968,272 +6191,217 @@ function SubscriptionView({
   };
 
   const handleOpenWhatsApp = (
-    planName: string = "Full Pro Access",
+    planName: string = "Educate MW Pro",
     price: string = "K7,000",
   ) => {
     const message = encodeURIComponent(
-      `Hi Mr. Lifa, I'm ${profile?.name || "a student"} (${profile?.email || ""}). I've sent ${price} via Airtel Money to 0999136433 for ${planName}. Here is my transaction screenshot.`,
+      `Hi Mr. Lifa, I'm ${profile?.name || "a student"} (${profile?.email || profile?.phone || ""}). I have paid ${price} via Airtel Money to 0999136433 for ${planName}. Please verify my account.`,
     );
     window.open(`https://wa.me/265999136433?text=${message}`, "_blank");
   };
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950 text-white" : "bg-slate-50 text-slate-900"} overflow-y-auto animate-in fade-in duration-300`}
+      className={`fixed inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"} overflow-y-auto animate-in fade-in duration-300`}
     >
-      {/* Header */}
+      {/* 1. Page Header */}
       <div
-        className={`p-5 flex items-center justify-between sticky top-0 z-20 ${theme === "dark" ? "bg-gray-950/80" : "bg-white/80"} backdrop-blur-xl border-b ${theme === "dark" ? "border-gray-800" : "border-slate-200"}`}
+        className={`px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 ${theme === "dark" ? "bg-slate-950/95 border-slate-800" : "bg-white/95 border-slate-200"} backdrop-blur-md border-b shadow-sm`}
       >
         <button
           onClick={onBack}
-          className={`w-10 h-10 rounded-full flex items-center justify-center border transition-colors ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white hover:bg-gray-800" : "bg-white border-slate-200 text-slate-800 hover:bg-slate-100"}`}
+          className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all active:scale-95 ${theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800" : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"}`}
+          aria-label="Go back"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={20} strokeWidth={2.5} />
         </button>
-        <div className="flex flex-col items-center">
-          <h2 className="text-sm font-black uppercase tracking-widest">
-            Upgrade to Pro
-          </h2>
-          <p
-            className={`text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-amber-400" : "text-amber-600"}`}
-          >
-            Single Fixed Price • Full Access
+        <div className="text-center">
+          <h1 className={`text-base font-black uppercase tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+            Educate MW Pro
+          </h1>
+          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+            One-Time Payment • Full Access
           </p>
         </div>
         <div className="w-10" />
       </div>
 
-      <div className="flex-1 p-5 pb-20 max-w-3xl mx-auto w-full space-y-6">
-        {/* Top Feature Card with Airtel money logo & copy widgets */}
+      <div className="flex-1 px-4 sm:px-6 py-6 pb-28 max-w-2xl mx-auto w-full space-y-5">
+        {/* 2 & 3. Value Proposition & Single Fixed Price Card */}
         <div
-          className={`${theme === "dark" ? "bg-indigo-950/20 border-indigo-500/30" : "bg-white border-indigo-100 shadow-md"} rounded-3xl p-6 border relative overflow-hidden`}
+          className={`${theme === "dark" ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-300 shadow-lg shadow-amber-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
+              Complete MSCE Package
+            </span>
+            <span className="text-[11px] font-bold text-slate-400">
+              No Recurring Fees
+            </span>
+          </div>
 
-          <h3 className="text-sm font-black uppercase tracking-widest text-red-500 mb-4 flex items-center gap-2">
-            <img
-              src="https://i.ibb.co/KxWc20jw/images-1.png"
-              alt="Airtel"
-              className="w-5 h-5 object-contain"
-              referrerPolicy="no-referrer"
-            />
-            Official Airtel Money Account
-          </h3>
-
-          <div className="relative z-10">
-            {/* Account: S. Lifa */}
-            <div
-              className={`p-5 rounded-2xl border ${theme === "dark" ? "bg-gray-900/80 border-gray-800" : "bg-slate-50 border-slate-200"} flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-black text-amber-500">SL</span>
-                </div>
-                <div className="text-left">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                    OFFICIAL RECEIVER
-                  </p>
-                  <h4 className="font-extrabold text-base tracking-tight">
-                    S. Lifa (Teacher)
-                  </h4>
-                  <p
-                    className={`text-sm font-bold ${theme === "dark" ? "text-gray-300" : "text-slate-700"}`}
-                  >
-                    0999136433 <span className="text-xs text-red-500 font-semibold">• Airtel Money</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <button
-                  onClick={handleCopyLifa}
-                  className={`py-3 px-5 rounded-xl border font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 ${
-                    copiedLifa
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                      : theme === "dark"
-                        ? "bg-gray-950 border-gray-800 text-white hover:bg-gray-800 shadow-sm"
-                        : "bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm"
-                  }`}
-                >
-                  {copiedLifa ? "Copied 0999136433!" : "Copy Number"}
-                </button>
-                <button
-                  onClick={() =>
-                    handleOpenWhatsApp("Educate MW Full Access", "K7,000")
-                  }
-                  className="py-3 px-5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all active:scale-95 shrink-0 bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-md shadow-[#25D366]/20 cursor-pointer"
-                >
-                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                    <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
-                  </svg>
-                  <span>Chat on WhatsApp</span>
-                </button>
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-3">
+            <div>
+              <h2 className={`text-xl sm:text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight`}>
+                Educate MW Pro
+              </h2>
+              <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"} font-medium mt-0.5`}>
+                Single lifetime investment for all secondary school levels (Form 1 - 4).
+              </p>
+            </div>
+            <div className="flex items-baseline gap-1.5 mt-2 sm:mt-0">
+              <span className="text-4xl sm:text-5xl font-black text-amber-500 tracking-tight">
+                K7,000
+              </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                / Once
+              </span>
             </div>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-dashed border-gray-200 dark:border-gray-800 flex flex-col gap-2.5 text-left text-xs font-semibold">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span>
-                <strong>Step 1:</strong> Dial *211# on your Airtel SIM Card and choose Send Money.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span>
-                <strong>Step 2:</strong> Send exactly <strong>K7,000</strong> to <strong>S. Lifa (0999136433)</strong>.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span>
-                <strong>Step 3:</strong> Save your confirmation SMS screenshot and click the button below to instantly verify on WhatsApp.
-              </span>
+          {/* 4. What Pro Unlocks */}
+          <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+            <h3 className={`text-xs font-black uppercase tracking-wider mb-3 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+              Everything Included in Pro:
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {[
+                "Unlimited Emi AI Questions & Solvers",
+                "Unlimited Live Voice Call Tutoring",
+                "All JCE & MSCE Past Papers & Keys",
+                "Full Syllabus Notes & Textbooks",
+                "Offline Downloads for Video Lessons",
+                "Official MANEB Marking Guides",
+              ].map((benefit, i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <CheckCircle2 size={16} className="text-amber-500 shrink-0" strokeWidth={2.5} />
+                  <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
+                    {benefit}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Single Fixed Price Plan Card */}
+        {/* 5. Airtel Money Payment Instructions (STEP 1, STEP 2, STEP 3) */}
         <div
-          className={`${theme === "dark" ? "bg-gray-900 border-amber-500/40 shadow-[0_20px_50px_rgba(245,158,11,0.1)]" : "bg-white border-amber-300 shadow-xl shadow-amber-600/10"} rounded-3xl p-8 border-2 relative overflow-hidden text-left`}
+          className={`${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-md"} rounded-3xl p-6 border`}
         >
-          <div className="absolute top-0 right-0 bg-amber-500 text-gray-950 text-[10px] font-black uppercase tracking-widest py-1.5 px-5 rounded-bl-2xl">
-            ONE FIXED PRICE
-          </div>
-
-          <div className="inline-flex items-center bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-4">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
-              FULL ACCESS UNLOCKED
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
+                <span className="text-xs font-black text-red-500">AM</span>
+              </div>
+              <div>
+                <h3 className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                  Airtel Money Payment
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Official School Account
+                </p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+              Verified
             </span>
           </div>
 
-          <h3 className="text-2xl font-black mb-1">
-            Educate MW Pro
-          </h3>
-          <p
-            className={`text-xs font-bold mb-6 ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
+          {/* Receiver Info Box */}
+          <div
+            className={`p-4 rounded-2xl border mb-5 ${theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"} flex flex-col sm:flex-row sm:items-center justify-between gap-3`}
           >
-            Access everything on Educate MW with a single payment of K7,000. No recurring fees or hidden charges.
-          </p>
-
-          <div className="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-baseline gap-2">
-            <span className="text-5xl font-black text-amber-500">
-              K7,000
-            </span>
-            <span
-              className={`text-xs font-bold uppercase tracking-wider ${theme === "dark" ? "text-gray-300" : "text-slate-600"}`}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Receiver Name & Number
+              </p>
+              <p className={`text-base font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                S. Lifa <span className="text-xs font-semibold text-slate-400">(Teacher / Administrator)</span>
+              </p>
+              <p className="text-sm font-black text-red-500">
+                0999136433
+              </p>
+            </div>
+            <button
+              onClick={handleCopyLifa}
+              className={`py-2.5 px-4 rounded-xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 ${
+                copiedLifa
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                  : theme === "dark"
+                    ? "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800"
+                    : "bg-white border-slate-300 text-slate-800 hover:bg-slate-100"
+              }`}
             >
-              / Full Access
-            </span>
+              {copiedLifa ? "Copied 0999136433" : "Copy Number"}
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2
-                size={18}
-                className="text-amber-500 mt-0.5 shrink-0"
-              />
-              <span className="text-xs font-bold">
-                Unlimited Emi AI Questions & Solvers
+          {/* 3 Clear Numbered Steps */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-lg bg-red-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+                1
               </span>
+              <div>
+                <p className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
+                  Dial <span className="text-red-500 font-black">*211#</span> on your Airtel SIM and select <span className="font-black">Send Money</span>.
+                </p>
+              </div>
             </div>
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2
-                size={18}
-                className="text-amber-500 mt-0.5 shrink-0"
-              />
-              <span className="text-xs font-bold">
-                Unlimited Live Voice Call Tutoring
+
+            <div className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-lg bg-red-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+                2
               </span>
+              <div>
+                <p className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
+                  Enter number <span className="font-black text-red-500">0999136433</span> and amount <span className="font-black">K7,000</span> (Receiver name will show as <span className="font-black">S. Lifa</span>).
+                </p>
+              </div>
             </div>
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2
-                size={18}
-                className="text-amber-500 mt-0.5 shrink-0"
-              />
-              <span className="text-xs font-bold">
-                Unlimited JCE & MSCE Past Papers
+
+            <div className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-lg bg-red-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+                3
               </span>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2
-                size={18}
-                className="text-amber-500 mt-0.5 shrink-0"
-              />
-              <span className="text-xs font-bold">
-                Unlimited Study Notes & eBooks
-              </span>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2
-                size={18}
-                className="text-amber-500 mt-0.5 shrink-0"
-              />
-              <span className="text-xs font-bold">
-                Official MANEB Solutions & Marking Keys
-              </span>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2
-                size={18}
-                className="text-amber-500 mt-0.5 shrink-0"
-              />
-              <span className="text-xs font-bold">
-                Verified Pro Student Badge
-              </span>
+              <div>
+                <p className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
+                  Save your SMS transaction screenshot and tap the button below to verify instantly.
+                </p>
+              </div>
             </div>
           </div>
+        </div>
 
+        {/* 6, 7 & 8. Verification & WhatsApp Action CTA */}
+        <div className="space-y-3">
           <button
-            onClick={() =>
-              handleOpenWhatsApp(
-                "Educate MW Full Access",
-                "K7,000",
-              )
-            }
-            className="w-full py-3.5 px-4 sm:px-6 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-black uppercase tracking-wider text-[11px] sm:text-xs rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer leading-tight"
+            onClick={() => handleOpenWhatsApp("Educate MW Pro", "K7,000")}
+            className="w-full py-4 px-6 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black uppercase tracking-wider text-xs sm:text-sm rounded-2xl shadow-lg shadow-[#25D366]/20 transition-all active:scale-95 flex items-center justify-center gap-3 cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-full bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-md">
-              <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
-                <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
-              </svg>
-            </div>
-            <span className="text-center">Verify Payment (K7,000 via WhatsApp)</span>
+            <svg className="w-5 h-5 fill-white shrink-0" viewBox="0 0 24 24">
+              <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
+            </svg>
+            <span>Verify Payment on WhatsApp (0999136433)</span>
           </button>
+
+          <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Verification is completed promptly upon receiving your payment reference.
+          </p>
         </div>
 
-        {/* Free Limits card for clarity */}
+        {/* Free Plan Limits Transparency Box */}
         <div
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-slate-100/60 border-slate-200"} rounded-3xl p-6 border text-left`}
+          className={`${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-slate-100/80 border-slate-200"} rounded-2xl p-4 border`}
         >
-          <h4 className="font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2 text-indigo-500">
-            <Shield size={14} /> Free Tier Status & Core Limits
-          </h4>
-          <div className="space-y-2 text-xs font-semibold">
-            <p
-              className={theme === "dark" ? "text-gray-400" : "text-slate-600"}
-            >
-              • <span className="font-extrabold text-indigo-400">4 Points</span>{" "}
-              / 2 Emi AI text questions per day limit.
-            </p>
-            <p
-              className={theme === "dark" ? "text-gray-400" : "text-slate-600"}
-            >
-              • <span className="font-extrabold text-indigo-400">2 Calls</span>{" "}
-              / 5 min limit each per day limit.
-            </p>
-            <p
-              className={theme === "dark" ? "text-gray-400" : "text-slate-600"}
-            >
-              • Daily limits reset globally at UTC 00:00.
-            </p>
+          <div className="flex items-center gap-2 mb-2">
+            <Shield size={14} className="text-indigo-500" />
+            <h4 className={`text-xs font-bold uppercase tracking-wider ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+              Free Tier Status & Daily Limits
+            </h4>
           </div>
-        </div>
-
-        <div className="text-center pt-2 opacity-60">
-          <p className="text-[10px] font-black uppercase tracking-widest">
-            Airtel money payments managed by S. Lifa. Support & Verification: 0999136433
+          <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"} leading-relaxed`}>
+            Free accounts receive 4 points (2 questions) and 2 calls daily. Upgrade to Pro to remove all limits permanently.
           </p>
         </div>
       </div>
@@ -8514,18 +8682,18 @@ function VideosView({
       </div>
 
       {/* Subject Filter Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-6 hide-scrollbar">
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-5 hide-scrollbar touch-pan-x">
         {VIDEO_SUBJECTS.map((subject) => {
           const isSelected = selectedSubject === subject;
           return (
             <button
               key={subject}
               onClick={() => setSelectedSubject(subject)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
                 isSelected
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                   : theme === "dark"
-                    ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
+                    ? "bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800 hover:text-white"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
               }`}
             >
@@ -8540,32 +8708,32 @@ function VideosView({
           <EmiSpinner size="md" theme={theme} />
         </div>
       ) : filteredVideos.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-[28px] border border-slate-200 dark:border-gray-800 p-8">
+        <div className={`text-center py-12 rounded-3xl border p-6 ${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
           <div
-            className={`w-16 h-16 ${theme === "dark" ? "bg-gray-800 text-gray-500" : "bg-slate-100 text-slate-400"} rounded-2xl flex items-center justify-center mx-auto mb-4`}
+            className={`w-12 h-12 ${theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"} rounded-2xl flex items-center justify-center mx-auto mb-3`}
           >
-            <Video size={32} strokeWidth={1.5} />
+            <Video size={24} strokeWidth={1.75} />
           </div>
           <p
-            className={`text-base font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-wider mb-1`}
+            className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-wider mb-1`}
           >
             No Videos Found
           </p>
-          <p className="text-xs text-gray-500 max-w-sm mx-auto font-medium">
-            Try adjusting your search query or select "All" from the subject categories above.
+          <p className="text-xs text-slate-500 max-w-xs mx-auto font-medium">
+            Try adjusting your search query or select another subject.
           </p>
           <button
             onClick={() => {
               setSelectedSubject("All");
               setSearchQuery("");
             }}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold active:scale-95"
+            className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold active:scale-95"
           >
             Reset Filters
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredVideos.map((video) => {
             const rawUrl = (video.url || video.content || "").trim();
             const videoId = getYouTubeId(rawUrl);
@@ -8589,9 +8757,10 @@ function VideosView({
             return (
               <div
                 key={video.id}
-                className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-3xl overflow-hidden border shadow-md flex flex-col justify-between group hover:border-indigo-500/50 transition-all`}
+                className={`${theme === "dark" ? "bg-slate-900 border-slate-800 hover:border-slate-700" : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"} rounded-2xl overflow-hidden border flex flex-col justify-between transition-all`}
               >
-                <div className="aspect-video bg-black relative overflow-hidden">
+                {/* 1. Thumbnail Container (Strict 16:9 Aspect Ratio) */}
+                <div className="aspect-video bg-black relative overflow-hidden shrink-0">
                   {isYouTube && videoId ? (
                     <iframe
                       width="100%"
@@ -8613,93 +8782,100 @@ function VideosView({
                       className="absolute inset-0 w-full h-full object-cover bg-black"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 flex-col">
-                      <Video size={32} className="mb-2 opacity-50" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">
+                    <div className="w-full h-full flex items-center justify-center text-slate-500 flex-col">
+                      <Video size={28} className="mb-1 opacity-60" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
                         Video Lesson
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className="p-5 flex-1 flex flex-col justify-between">
+                {/* 2, 3, 4 & 5. Content Hierarchy: Badges -> Title -> Desc -> Action */}
+                <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    {/* Source & Subject Badges */}
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {/* Subject & Level Badges */}
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                       {video.subject && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
                           {video.subject}
                         </span>
                       )}
                       {video.level && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
                           {video.level}
                         </span>
                       )}
                       {isCloudinary ? (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1">
-                          <Download size={10} /> Cloudinary • Downloadable
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1">
+                          <Download size={10} /> Downloadable
                         </span>
                       ) : isYouTube ? (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center gap-1">
-                          <Play size={10} /> YouTube • Online Stream
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center gap-1">
+                          <Play size={10} /> YouTube
                         </span>
                       ) : null}
                     </div>
 
+                    {/* Title (Clamped to 2 lines) */}
                     <h3
-                      className={`font-black text-base leading-snug ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1.5`}
+                      className={`font-bold text-sm leading-snug ${theme === "dark" ? "text-white" : "text-slate-900"} line-clamp-2 mb-1`}
+                      title={video.title}
                     >
                       {video.title}
                     </h3>
+
+                    {/* Short Description (Clamped to 1 line) */}
                     {video.desc && (
                       <p
-                        className={`text-xs ${theme === "dark" ? "text-gray-400" : "text-slate-600"} font-medium line-clamp-2 leading-relaxed`}
+                        className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"} line-clamp-1`}
                       >
                         {video.desc}
                       </p>
                     )}
                   </div>
 
-                  {/* Actions / Download Control */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between gap-2">
+                  {/* Compact Bottom Actions */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
                     {isCloudinary ? (
                       <div className="flex items-center justify-between w-full">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                          Offline Available
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Offline
                         </span>
                         <button
                           onClick={() =>
                             handleDownloadCloudinaryVideo(video, rawUrl)
                           }
                           disabled={isDownloading}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
                             isDownloaded
-                              ? "bg-emerald-600 text-white shadow-emerald-600/20"
-                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                              ? "bg-emerald-600 text-white shadow-sm"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                           }`}
                         >
                           {isDownloading ? (
-                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-1" />
+                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           ) : isDownloaded ? (
-                            <CheckCheck size={14} strokeWidth={3} />
+                            <CheckCheck size={13} strokeWidth={2.5} />
                           ) : (
-                            <Download size={14} />
+                            <Download size={13} />
                           )}
-                          {isDownloading
-                            ? "Downloading..."
-                            : isDownloaded
-                              ? "Downloaded"
-                              : "Download Video"}
+                          <span>
+                            {isDownloading
+                              ? "Saving..."
+                              : isDownloaded
+                                ? "Saved"
+                                : "Download"}
+                          </span>
                         </button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between w-full">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                          Online Stream Only
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Online Video
                         </span>
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium italic">
-                          (YouTube URL • No Download)
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                          YouTube Stream
                         </span>
                       </div>
                     )}

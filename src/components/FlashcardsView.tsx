@@ -541,7 +541,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
         {/* Progress Line */}
         <div className="w-full bg-white/5 h-1">
           <div 
-            className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-300"
+            className="h-full bg-indigo-500 transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -576,11 +576,11 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
                 >
                   {/* FRONT: QUESTION */}
                   <div
-                    className="absolute inset-0 rounded-[2.25rem] bg-gradient-to-br from-slate-900 via-gray-900 to-indigo-950/90 border-2 border-indigo-500/30 shadow-2xl p-6 sm:p-10 flex flex-col justify-between text-center"
+                    className="absolute inset-0 rounded-2xl bg-gray-900 border border-gray-800 shadow-xl p-6 sm:p-10 flex flex-col justify-between text-center"
                     style={{ backfaceVisibility: 'hidden' }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                      <span className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
                         <BrainCircuit size={22} />
                       </span>
                       <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
@@ -589,7 +589,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); speakText(currentCard.question); }}
-                        className="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                        className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
                         title="Read Question Aloud"
                       >
                         <Volume2 size={18} />
@@ -603,27 +603,27 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
                     </div>
 
                     <div className="pt-2 border-t border-white/10 flex items-center justify-center gap-2 text-indigo-300 text-xs font-black uppercase tracking-widest">
-                      <Sparkles size={14} className="animate-pulse" />
+                      <Sparkles size={14} />
                       <span>Tap to reveal solution</span>
                     </div>
                   </div>
 
                   {/* BACK: ANSWER */}
                   <div
-                    className="absolute inset-0 rounded-[2.25rem] bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 border-2 border-emerald-400/50 shadow-2xl p-6 sm:p-10 flex flex-col justify-between text-center text-white"
+                    className="absolute inset-0 rounded-2xl bg-indigo-950 border border-indigo-800 shadow-xl p-6 sm:p-10 flex flex-col justify-between text-center text-white"
                     style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30">
+                      <span className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30">
                         <CheckCircle size={22} />
                       </span>
                       <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/25 text-emerald-200 border border-emerald-500/30">
-                        Solution Correct
+                        Solution
                       </span>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); speakText(currentCard.answer); }}
-                        className="w-10 h-10 rounded-2xl bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all"
+                        className="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all"
                         title="Read Solution Aloud"
                       >
                         <Volume2 size={18} />
@@ -649,7 +649,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
                 <button
                   onClick={handlePrevious}
                   disabled={currentIndex === 0}
-                  className="h-14 px-5 rounded-2xl bg-white/10 hover:bg-white/20 disabled:opacity-20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all border border-white/10"
+                  className="h-12 px-5 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all border border-white/10"
                 >
                   <ChevronLeft size={20} strokeWidth={2.5} />
                   <span className="hidden sm:inline">Previous</span>
@@ -657,7 +657,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
 
                 <button
                   onClick={() => setFlipped(prev => !prev)}
-                  className="h-14 px-6 rounded-2xl bg-indigo-600/60 hover:bg-indigo-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 active:scale-95 transition-all border border-indigo-400/40 shadow-lg"
+                  className="h-12 px-6 rounded-xl bg-indigo-600/60 hover:bg-indigo-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 active:scale-95 transition-all border border-indigo-400/40 shadow-sm"
                 >
                   <RotateCcw size={16} />
                   <span>Flip Card</span>
@@ -665,7 +665,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
 
                 <button
                   onClick={handleNext}
-                  className="h-14 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 active:scale-95 transition-all shadow-xl shadow-indigo-600/30"
+                  className="h-12 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 active:scale-95 transition-all shadow-sm"
                 >
                   <span>{currentIndex >= activeSet.cards.length - 1 ? 'Finish' : 'Next'}</span>
                   <ChevronRight size={20} strokeWidth={2.5} />
@@ -682,29 +682,29 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-gradient-to-b from-gray-900 to-slate-950 border-2 border-indigo-500/30 rounded-[2.5rem] p-8 sm:p-12 text-center max-w-lg w-full shadow-2xl"
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-10 text-center max-w-lg w-full shadow-xl"
             >
-              <div className="w-20 h-20 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-6 border border-emerald-500/30">
-                <GraduationCap size={44} />
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                <GraduationCap size={36} />
               </div>
 
               <span className="text-xs font-black uppercase tracking-widest text-emerald-400 block mb-1">
                 Deck Completed
               </span>
-              <h3 className="text-2xl sm:text-3xl font-black text-white mb-3">
+              <h3 className="text-xl sm:text-2xl font-black text-white mb-2">
                 Outstanding Mastery!
               </h3>
-              <p className="text-sm text-gray-300 leading-relaxed mb-6">
+              <p className="text-xs text-gray-300 leading-relaxed mb-6">
                 You have reviewed all <span className="font-bold text-white">{activeSet.cards.length} cards</span> in <span className="font-bold text-indigo-400">{activeSet.name}</span>.
               </p>
 
-              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 mb-8 text-center">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-white/5 border border-white/10 mb-6 text-center">
                 <div>
-                  <span className="text-2xl font-black text-white block">{activeSet.cards.length}</span>
+                  <span className="text-xl font-black text-white block">{activeSet.cards.length}</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Cards</span>
                 </div>
                 <div>
-                  <span className="text-2xl font-black text-emerald-400 block">{masteredCards.size}</span>
+                  <span className="text-xl font-black text-emerald-400 block">{masteredCards.size}</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Marked Mastered</span>
                 </div>
               </div>
@@ -863,9 +863,9 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
                 onClick={() => startStudySession(set)}
-                className={`group relative rounded-[2rem] p-6 border text-left cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between ${
+                className={`group relative rounded-2xl p-5 border text-left cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-b from-gray-900 to-gray-950 border-gray-800 hover:border-indigo-500/50 shadow-lg'
+                    ? 'bg-gray-900 border-gray-800 hover:border-indigo-500/50 shadow-sm'
                     : 'bg-white border-slate-200 hover:border-indigo-400 shadow-sm'
                 }`}
               >
@@ -945,7 +945,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
-              className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 border shadow-2xl relative overflow-hidden`}
+              className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} w-full max-w-md rounded-2xl p-6 sm:p-7 border shadow-xl relative overflow-hidden`}
             >
               <div className="flex justify-between items-center mb-5">
                 <div className="flex items-center gap-3">
