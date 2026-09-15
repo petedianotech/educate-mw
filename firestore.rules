@@ -187,6 +187,19 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.uploaderId || isAdmin());
     }
 
+    // Group Requests & Approvals
+    match /group_requests/{requestId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if true;
+    }
+
+    // Class Levels
+    match /class_levels/{levelId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Real-time User Presence
     match /user_presence/{presenceId} {
       allow read: if true;

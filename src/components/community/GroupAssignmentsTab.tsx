@@ -236,8 +236,10 @@ export function GroupAssignmentsTab({
 
     setSubmittingWork(true);
     try {
+      const subDocId = `${selectedAssignment.id}_${currentUserId}`;
       const submissionData = {
         assignmentId: selectedAssignment.id,
+        assignmentTitle: selectedAssignment.title,
         groupId,
         studentId: currentUserId,
         studentName: currentUserName,
@@ -248,12 +250,25 @@ export function GroupAssignmentsTab({
         submittedAt: serverTimestamp()
       };
 
-      const docRef = doc(db, 'assignment_submissions', `${selectedAssignment.id}_${currentUserId}`);
+      const docRef = doc(db, 'assignment_submissions', subDocId);
       await setDoc(docRef, submissionData, { merge: true });
+
+      // Add starter student message to the interactive admin chat subcollection
+      try {
+        await addDoc(collection(db, `assignment_submissions/${subDocId}/messages`), {
+          senderId: currentUserId,
+          senderName: currentUserName,
+          role: 'student',
+          text: `📄 Submitted solution for "${selectedAssignment.title}":\n\n${submissionContent.trim()}`,
+          createdAt: serverTimestamp()
+        });
+      } catch (chatErr) {
+        console.warn("Could not add initial submission message:", chatErr);
+      }
 
       const localSub: AssignmentSubmission = {
         ...submissionData,
-        id: `${selectedAssignment.id}_${currentUserId}`,
+        id: subDocId,
         status: 'submitted',
         attachmentUrl: submissionData.attachmentUrl || undefined,
         fileName: submissionData.fileName || undefined,

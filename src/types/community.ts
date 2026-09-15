@@ -217,3 +217,84 @@ export interface GroupResource {
   createdAt?: any;
   timeText?: string;
 }
+
+export interface GroupRequest {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  classLevel?: string;
+  requesterId: string;
+  requesterName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  createdAt?: any;
+  timeText?: string;
+}
+
+export interface ClassLevel {
+  id: string;
+  name: string;
+  code: string;
+  order?: number;
+  description?: string;
+  createdAt?: any;
+}
+
+export interface FeedPostItem {
+  id: string;
+  text: string;
+  userId: string;
+  name: string;
+  userRole?: string;
+  initial?: string;
+  color?: string;
+  subject?: string;
+  groupId?: string;
+  groupName?: string;
+  classLevel?: string;
+  type?: 'post' | 'assignment' | 'announcement' | 'group_share';
+  assignmentId?: string;
+  announcementId?: string;
+  points?: number;
+  dueDate?: string;
+  likes?: number;
+  likedBy?: string[];
+  repliesCount?: number;
+  audioData?: string;
+  audioDuration?: number;
+  attachmentUrl?: string;
+  fileName?: string;
+  createdAt?: any;
+  timeText?: string;
+}
+
+export interface AdminSubmissionInboxItem {
+  id: string;
+  submissionId: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  groupId: string;
+  groupName?: string;
+  studentId: string;
+  studentName: string;
+  content: string;
+  attachmentUrl?: string;
+  fileName?: string;
+  status: 'submitted' | 'marked' | 'late' | 'returned';
+  score?: number;
+  maxPoints?: number;
+  feedback?: string;
+  adminChatMessages?: {
+    id: string;
+    senderId: string;
+    senderName: string;
+    role: 'admin' | 'student';
+    text: string;
+    createdAt?: any;
+  }[];
+  submittedAt?: any;
+  markedAt?: any;
+  timeText?: string;
+}
+

@@ -1,6 +1,6 @@
 {
   "name": "educate mw",
-  "description": "An educational app for students with daily goals, quizzes, and an AI assistant.",
+  "description": "An educational MSCE platform for Malawi students featuring real-time community study circles, universal feed, assignments, voice notes, and administrative publishing hubs.",
   "requestFramePermissions": [
     "microphone"
   ],

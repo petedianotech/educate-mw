@@ -48,11 +48,13 @@ const EMOJI_REACTIONS = ['👍', '❤️', '💡', '🔥', '😂', '👏', '💯
 export function GroupChat({ 
   group, 
   onBack, 
-  theme = 'dark' 
+  theme = 'dark',
+  initialTab = 'chat'
 }: { 
   group: { name: string; members: number; id?: string; desc?: string }; 
   onBack: () => void; 
   theme?: 'light' | 'dark';
+  initialTab?: string;
 }) {
   const groupId = group.id || group.name.toLowerCase().replace(/\s+/g, '-');
   const { groupOnlineCount, onlineUsers } = useOnlinePresence(groupId);
@@ -68,7 +70,7 @@ export function GroupChat({
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'announcements' | 'discussions' | 'assignments' | 'resources' | 'events'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'announcements' | 'discussions' | 'assignments' | 'resources' | 'events'>((initialTab as any) || 'chat');
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
   const [input, setInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -322,6 +324,29 @@ export function GroupChat({
       });
 
       setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, id: docRef.id } : m));
+
+      // Also publish to General Community Feed so all circle activity appears on the universal feed
+      try {
+        await addDoc(collection(db, 'feeds'), {
+          text: newMsg.text,
+          userId: newMsg.userId,
+          name: newMsg.user,
+          initial: newMsg.initial,
+          color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+          subject: group.name || 'Sciences',
+          groupId: newMsg.groupId,
+          groupName: group.name,
+          type: 'group_share',
+          audioData: newMsg.audioData || null,
+          audioDuration: newMsg.audioDuration || null,
+          likes: 0,
+          likedBy: [],
+          repliesCount: 0,
+          createdAt: serverTimestamp()
+        });
+      } catch (feedErr) {
+        console.warn("Could not mirror message to general feed:", feedErr);
+      }
     } catch (err) {
       console.warn("Could not save message to cloud:", err);
     }

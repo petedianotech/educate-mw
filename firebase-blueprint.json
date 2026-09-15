@@ -239,9 +239,47 @@
         "isOnline": { "type": "boolean" }
       },
       "required": ["userId", "userName", "isOnline"]
+    },
+    "GroupRequest": {
+      "title": "GroupRequest",
+      "description": "User requested study groups awaiting admin review and approval",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "classLevel": { "type": "string" },
+        "requesterId": { "type": "string" },
+        "requesterName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "rejectionReason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "requesterId", "requesterName", "status"]
+    },
+    "ClassLevel": {
+      "title": "ClassLevel",
+      "description": "Academic levels configured by administrators (e.g. Form 1, Form 2, Form 3, Form 4, Tertiary)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "order": { "type": "number" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "code"]
     }
   },
   "firestore": {
+    "/group_requests/{requestId}": {
+      "schema": "GroupRequest",
+      "description": "Student group requests and admin approval workflow"
+    },
+    "/class_levels/{levelId}": {
+      "schema": "ClassLevel",
+      "description": "Academic class levels"
+    },
     "/user_presence/{presenceId}": {
       "schema": "UserPresence",
       "description": "Real-time presence tracking for users in community"
