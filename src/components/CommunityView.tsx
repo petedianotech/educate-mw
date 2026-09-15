@@ -1,92 +1,197 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  ChevronLeft, MessageCircle, ThumbsUp, Share2, FlaskConical, BookOpen, BookA, GraduationCap, Send, Loader2
+  ChevronLeft, MessageCircle, Heart, Share2, FlaskConical, 
+  BookOpen, BookA, GraduationCap, Send, Loader2, Mic, Square, Play, Pause, 
+  Trash2, X, MessageSquare, Sparkles, Users, Radio
 } from 'lucide-react';
 import { GroupChat } from './GroupChat';
 import { db, auth } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { 
+  collection, query, orderBy, onSnapshot, addDoc, updateDoc, 
+  deleteDoc, doc, serverTimestamp
+} from 'firebase/firestore';
+import { useOnlinePresence, formatRealTime } from '../lib/presence';
 
-const DEFAULT_COMMUNITY_FEEDS = [
-  {
-    id: 'feed-1',
-    text: "Has anyone worked through the 2023 MSCE Biology Paper 1 questions on genetic crosses and monohybrid ratios? Let's discuss tips!",
-    userId: 'student1',
-    name: 'Tamanda Phiri',
-    initial: 'T',
+export interface FeedItem {
+  id: string;
+  text: string;
+  userId: string;
+  name: string;
+  initial?: string;
+  color?: string;
+  subject?: string;
+  likes?: number;
+  likedBy?: string[];
+  repliesCount?: number;
+  audioData?: string;
+  audioDuration?: number;
+  createdAt?: any;
+  timeText?: string;
+}
+
+export interface ReplyItem {
+  id: string;
+  text: string;
+  userId: string;
+  name: string;
+  initial?: string;
+  color?: string;
+  audioData?: string;
+  audioDuration?: number;
+  createdAt?: any;
+}
+
+export const COMMUNITY_GROUPS = [
+  { 
+    id: 'sciences', 
+    name: 'Sciences', 
+    desc: 'Biology, Physics, Chemistry & Agriculture', 
+    icon: FlaskConical, 
     color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    likes: 18,
-    replies: 7,
-    createdAt: null,
-    timeText: '15 minutes ago'
+    accent: 'from-indigo-600 to-indigo-800'
   },
-  {
-    id: 'feed-2',
-    text: "Quick physics reminder for Form 4s: Remember that Work Done = Force × Distance in the direction of force (Joules). Don't forget SI unit conversions!",
-    userId: 'student2',
-    name: 'Mr. Lifa (Teacher)',
-    initial: 'L',
+  { 
+    id: 'humanities', 
+    name: 'Humanities', 
+    desc: 'History, Geography, Social Studies & Bible Knowledge', 
+    icon: BookOpen, 
     color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    likes: 34,
-    replies: 12,
-    createdAt: null,
-    timeText: '1 hour ago'
+    accent: 'from-emerald-600 to-teal-800'
   },
-  {
-    id: 'feed-3',
-    text: "Studying Agriculture today: Focus on nitrogen cycle, compost manure preparation methods, and contour marker ridges for soil conservation.",
-    userId: 'student3',
-    name: 'Alinafe Mwale',
-    initial: 'A',
+  { 
+    id: 'languages', 
+    name: 'Languages', 
+    desc: 'Chichewa Grammar, English Essays & Comprehension', 
+    icon: BookA, 
     color: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    likes: 11,
-    replies: 4,
-    createdAt: null,
-    timeText: '3 hours ago'
+    accent: 'from-orange-600 to-amber-800'
+  },
+  { 
+    id: 'general', 
+    name: 'General Studies', 
+    desc: 'Past Papers, Exam Strategies & MSCE Hub', 
+    icon: GraduationCap, 
+    color: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    accent: 'from-purple-600 to-violet-800'
   }
 ];
 
+const SUBJECT_FILTERS = [
+  'All', 'Sciences', 'Humanities', 'Languages', 'Mathematics', 'Exam Tips'
+];
+
 export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
-  const [activeGroup, setActiveGroup] = useState<{name: string, members: number} | null>(null);
-  
-  const [feeds, setFeeds] = useState<any[]>(() => {
+  const [activeGroup, setActiveGroup] = useState<{name: string; members: number; id?: string; desc?: string} | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState('All');
+  const [feeds, setFeeds] = useState<FeedItem[]>(() => {
     try {
-      const cached = localStorage.getItem('mw_community_feeds_cache');
+      const cached = localStorage.getItem('mw_community_feeds_v3');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return DEFAULT_COMMUNITY_FEEDS;
+    return [];
   });
-  const [newPost, setNewPost] = useState('');
-  const [posting, setPosting] = useState(false);
-  const [loading, setLoading] = useState(false);
 
+  const [groupMessageCounts, setGroupMessageCounts] = useState<Record<string, number>>({});
+  const { globalOnlineCount } = useOnlinePresence('community');
+
+  const [newPostText, setNewPostText] = useState('');
+  const [newPostSubject, setNewPostSubject] = useState('Sciences');
+  const [posting, setPosting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Audio Recording for new feed post
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [recordedAudioBase64, setRecordedAudioBase64] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  // Global Audio Playback State
+  const [playingPostId, setPlayingPostId] = useState<string | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  // Discussion Drawer / Replies Modal
+  const [openPostReplies, setOpenPostReplies] = useState<FeedItem | null>(null);
+  const [replies, setReplies] = useState<ReplyItem[]>([]);
+  const [newReplyText, setNewReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+
+  // Toast Notification
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  const currentUserId = auth.currentUser?.uid || (typeof localStorage !== 'undefined' ? localStorage.getItem('mw_anonymous_uid') : null) || 'guest-user';
+  const currentUserName = auth.currentUser?.displayName || (typeof localStorage !== 'undefined' ? localStorage.getItem('mw_user_name') : null) || 'Student Scholar';
+
+  // Listen to group message counts in real time
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(collection(db, 'group_messages'), (snap) => {
+        const counts: Record<string, number> = {};
+        snap.docs.forEach(d => {
+          const gId = d.data().groupId || 'sciences';
+          counts[gId] = (counts[gId] || 0) + 1;
+        });
+        setGroupMessageCounts(counts);
+      }, (err) => {
+        console.warn("Group messages count snapshot notice:", err);
+      });
+      return () => unsub();
+    } catch (e) {}
+  }, []);
+
+  // Real-time Firestore sync for Community Feeds
   useEffect(() => {
     let isMounted = true;
     const safetyTimeout = setTimeout(() => {
       if (isMounted) setLoading(false);
-    }, 2500);
+    }, 3000);
 
     try {
       const q = query(collection(db, 'feeds'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        if (isMounted) {
-          clearTimeout(safetyTimeout);
-          if (!snapshot.empty) {
-            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setFeeds(list);
-            try {
-              localStorage.setItem('mw_community_feeds_cache', JSON.stringify(list));
-            } catch {}
-          }
-          setLoading(false);
-        }
+        if (!isMounted) return;
+        clearTimeout(safetyTimeout);
+        const list: FeedItem[] = snapshot.docs.map(doc => {
+          const data = doc.data();
+          const likedBy = Array.isArray(data.likedBy) ? data.likedBy : [];
+          return {
+            id: doc.id,
+            text: data.text || '',
+            userId: data.userId || 'student',
+            name: data.name || 'Student',
+            initial: data.initial || (data.name ? data.name[0] : 'S'),
+            color: data.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+            subject: data.subject || 'General',
+            likes: typeof data.likes === 'number' ? data.likes : likedBy.length,
+            likedBy: likedBy,
+            repliesCount: typeof data.repliesCount === 'number' ? data.repliesCount : 0,
+            audioData: data.audioData || undefined,
+            audioDuration: data.audioDuration || undefined,
+            createdAt: data.createdAt || null,
+            timeText: data.timeText || undefined
+          };
+        });
+        setFeeds(list);
+        try {
+          localStorage.setItem('mw_community_feeds_v3', JSON.stringify(list));
+        } catch {}
+        setLoading(false);
       }, (err) => {
         clearTimeout(safetyTimeout);
-        console.warn("Feeds live query error, using local feeds:", err);
+        console.warn("Feeds live query notice:", err);
         if (isMounted) setLoading(false);
       });
+
       return () => {
         isMounted = false;
         clearTimeout(safetyTimeout);
@@ -94,171 +199,865 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
       };
     } catch (e) {
       clearTimeout(safetyTimeout);
-      console.warn("Feeds listener init error:", e);
       setLoading(false);
     }
   }, []);
 
-  const handlePost = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if(!newPost.trim()) return;
-      setPosting(true);
-      const tempPost = {
-        id: 'local-' + Date.now(),
-        text: newPost.trim(),
-        userId: auth.currentUser?.uid || 'guest',
-        name: auth.currentUser?.displayName || 'Student',
-        initial: (auth.currentUser?.displayName || 'S')[0],
-        color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-        likes: 0,
-        replies: 0,
-        createdAt: null,
-        timeText: 'Just now'
-      };
-      
-      setFeeds(prev => [tempPost, ...prev]);
-      setNewPost('');
+  // Listen for replies when a post discussion is opened
+  useEffect(() => {
+    if (!openPostReplies) {
+      setReplies([]);
+      return;
+    }
 
-      try {
-         await addDoc(collection(db, 'feeds'), {
-             text: tempPost.text,
-             userId: tempPost.userId,
-             name: tempPost.name,
-             initial: tempPost.initial,
-             color: tempPost.color,
-             likes: 0,
-             replies: 0,
-             createdAt: serverTimestamp()
-         });
-      } catch (err) {
-         console.warn("Could not sync post to cloud:", err);
-      } finally {
-          setPosting(false);
+    setRepliesLoading(true);
+    let isMounted = true;
+
+    try {
+      const repliesCol = collection(db, 'feeds', openPostReplies.id, 'replies');
+      const q = query(repliesCol, orderBy('createdAt', 'asc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        if (!snapshot.empty) {
+          const list: ReplyItem[] = snapshot.docs.map(doc => {
+            const d = doc.data();
+            return {
+              id: doc.id,
+              text: d.text || '',
+              userId: d.userId || 'user',
+              name: d.name || 'Student',
+              initial: d.initial || (d.name ? d.name[0] : 'S'),
+              color: d.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+              audioData: d.audioData,
+              audioDuration: d.audioDuration,
+              createdAt: d.createdAt
+            };
+          });
+          setReplies(list);
+        } else {
+          setReplies([]);
+        }
+        setRepliesLoading(false);
+      }, (err) => {
+        console.warn("Replies listener error:", err);
+        if (isMounted) setRepliesLoading(false);
+      });
+
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
+    } catch (err) {
+      setRepliesLoading(false);
+    }
+  }, [openPostReplies]);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (audioPlayerRef.current) audioPlayerRef.current.pause();
+    };
+  }, []);
+
+  // Real Toggle Like handler
+  const handleToggleLike = async (post: FeedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const uid = currentUserId;
+    const currentLikedBy = Array.isArray(post.likedBy) ? post.likedBy : [];
+    const isAlreadyLiked = currentLikedBy.includes(uid);
+
+    let updatedLikedBy: string[];
+    let updatedLikesCount: number;
+
+    if (isAlreadyLiked) {
+      updatedLikedBy = currentLikedBy.filter(id => id !== uid);
+      updatedLikesCount = Math.max(0, (post.likes || 1) - 1);
+    } else {
+      updatedLikedBy = [...currentLikedBy, uid];
+      updatedLikesCount = (post.likes || 0) + 1;
+    }
+
+    // Optimistic UI update
+    setFeeds(prev => prev.map(p => {
+      if (p.id === post.id) {
+        return {
+          ...p,
+          likedBy: updatedLikedBy,
+          likes: updatedLikesCount
+        };
       }
+      return p;
+    }));
+
+    if (openPostReplies && openPostReplies.id === post.id) {
+      setOpenPostReplies(prev => prev ? { ...prev, likedBy: updatedLikedBy, likes: updatedLikesCount } : null);
+    }
+
+    // Sync to Firestore if not a purely seed item
+    if (!post.id.startsWith('seed-') && !post.id.startsWith('local-')) {
+      try {
+        await updateDoc(doc(db, 'feeds', post.id), {
+          likedBy: updatedLikedBy,
+          likes: updatedLikesCount
+        });
+      } catch (err) {
+        console.warn("Error updating like on Firestore:", err);
+      }
+    }
+  };
+
+  // Start voice recording for feed post
+  const startRecordingVoice = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const localUrl = URL.createObjectURL(audioBlob);
+        setRecordedAudioUrl(localUrl);
+
+        // Convert to Base64 for Firestore cloud persistence
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          setRecordedAudioBase64(reader.result as string);
+        };
+
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start(100);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds(sec => sec + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Microphone access error:", err);
+      showToast("Please allow microphone access to record voice notes.");
+    }
+  };
+
+  const stopRecordingVoice = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+  };
+
+  const cancelRecordedVoice = () => {
+    if (isRecording) stopRecordingVoice();
+    setRecordedAudioUrl(null);
+    setRecordedAudioBase64(null);
+    setRecordingSeconds(0);
+  };
+
+  // Create new Post
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostText.trim() && !recordedAudioBase64) return;
+    setPosting(true);
+
+    const colors = [
+      'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      'bg-orange-500/10 text-orange-400 border-orange-500/20',
+      'bg-purple-500/10 text-purple-400 border-purple-500/20'
+    ];
+    const assignedColor = colors[Math.floor(Math.random() * colors.length)];
+
+    const tempPost: FeedItem = {
+      id: 'local-' + Date.now(),
+      text: newPostText.trim() || '🎤 Shared a voice study note',
+      userId: currentUserId,
+      name: currentUserName,
+      initial: currentUserName[0]?.toUpperCase() || 'S',
+      color: assignedColor,
+      subject: newPostSubject,
+      likes: 0,
+      likedBy: [],
+      repliesCount: 0,
+      audioData: recordedAudioBase64 || undefined,
+      audioDuration: recordedAudioBase64 ? recordingSeconds : undefined,
+      timeText: 'Just now'
+    };
+
+    setFeeds(prev => [tempPost, ...prev]);
+    setNewPostText('');
+    cancelRecordedVoice();
+
+    try {
+      const docRef = await addDoc(collection(db, 'feeds'), {
+        text: tempPost.text,
+        userId: tempPost.userId,
+        name: tempPost.name,
+        initial: tempPost.initial,
+        color: tempPost.color,
+        subject: tempPost.subject,
+        likes: 0,
+        likedBy: [],
+        repliesCount: 0,
+        audioData: tempPost.audioData || null,
+        audioDuration: tempPost.audioDuration || null,
+        createdAt: serverTimestamp()
+      });
+
+      // Update the local placeholder with the real Firestore ID
+      setFeeds(prev => prev.map(p => p.id === tempPost.id ? { ...p, id: docRef.id } : p));
+      showToast("Post shared with community!");
+    } catch (err) {
+      console.warn("Could not sync post to cloud:", err);
+      showToast("Post saved locally.");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // Submit Reply to Post
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReplyText.trim() || !openPostReplies) return;
+    setReplying(true);
+
+    const tempReply: ReplyItem = {
+      id: 'temp-rep-' + Date.now(),
+      text: newReplyText.trim(),
+      userId: currentUserId,
+      name: currentUserName,
+      initial: currentUserName[0]?.toUpperCase() || 'S',
+      color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      createdAt: null
+    };
+
+    setReplies(prev => [...prev, tempReply]);
+    setNewReplyText('');
+
+    // Optimistically update replies count on parent feed
+    setFeeds(prev => prev.map(p => p.id === openPostReplies.id ? { ...p, repliesCount: (p.repliesCount || 0) + 1 } : p));
+    setOpenPostReplies(prev => prev ? { ...prev, repliesCount: (prev.repliesCount || 0) + 1 } : null);
+
+    try {
+      const repliesCol = collection(db, 'feeds', openPostReplies.id, 'replies');
+      await addDoc(repliesCol, {
+        text: tempReply.text,
+        userId: tempReply.userId,
+        name: tempReply.name,
+        initial: tempReply.initial,
+        color: tempReply.color,
+        createdAt: serverTimestamp()
+      });
+
+      // Update parent post repliesCount in Firestore
+      if (!openPostReplies.id.startsWith('seed-') && !openPostReplies.id.startsWith('local-')) {
+        await updateDoc(doc(db, 'feeds', openPostReplies.id), {
+          repliesCount: (openPostReplies.repliesCount || 0) + 1
+        });
+      }
+    } catch (err) {
+      console.warn("Error saving reply to cloud:", err);
+    } finally {
+      setReplying(false);
+    }
+  };
+
+  // Audio Playback
+  const togglePlayAudio = (id: string, audioUrlOrBase64?: string) => {
+    if (!audioUrlOrBase64) return;
+
+    if (playingPostId === id) {
+      audioPlayerRef.current?.pause();
+      setPlayingPostId(null);
+      return;
+    }
+
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+    }
+
+    const audio = new Audio(audioUrlOrBase64);
+    audioPlayerRef.current = audio;
+    audio.onended = () => setPlayingPostId(null);
+    audio.onerror = () => {
+      setPlayingPostId(null);
+      showToast("Cannot play audio file.");
+    };
+    audio.play().catch(e => {
+      console.warn("Audio play prevented:", e);
+      setPlayingPostId(null);
+    });
+    setPlayingPostId(id);
+  };
+
+  // Delete own post
+  const handleDeletePost = async (postId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this study post?")) return;
+
+    setFeeds(prev => prev.filter(p => p.id !== postId));
+    if (openPostReplies?.id === postId) setOpenPostReplies(null);
+
+    try {
+      if (!postId.startsWith('seed-') && !postId.startsWith('local-')) {
+        await deleteDoc(doc(db, 'feeds', postId));
+      }
+      showToast("Post deleted.");
+    } catch (err) {
+      console.warn("Could not delete post from cloud:", err);
+    }
+  };
+
+  // Share post text / copy
+  const handleSharePost = (post: FeedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareText = `Educate MW Study Tip (${post.subject || 'General'}): "${post.text}" - by ${post.name}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareText);
+      showToast("Study question copied to clipboard!");
+    } else {
+      showToast("Shared!");
+    }
   };
 
   const formatTime = (date: any, fallbackText?: string) => {
-      if (fallbackText) return fallbackText;
-      if(!date || !date.toDate) return 'Just now';
-      try {
-        const seconds = Math.floor((new Date().getTime() - date.toDate().getTime()) / 1000);
-        if(seconds < 60) return `${Math.max(1, seconds)} seconds ago`;
-        const interval = seconds / 31536000;
-        if (interval > 1) return Math.floor(interval) + " years ago";
-        if (interval > 2592000) return Math.floor(seconds / 2592000) + " months ago";
-        if (interval > 86400) return Math.floor(seconds / 86400) + " days ago";
-        if (interval > 3600) return Math.floor(seconds / 3600) + " hours ago";
-        if (interval > 60) return Math.floor(seconds / 60) + " minutes ago";
-      } catch {}
-      return "Recently";
+    if (fallbackText) return fallbackText;
+    if (!date) return 'Just now';
+    try {
+      const timeMs = typeof date.toMillis === 'function' ? date.toMillis() : (date.seconds ? date.seconds * 1000 : new Date(date).getTime());
+      const seconds = Math.floor((Date.now() - timeMs) / 1000);
+      if (seconds < 60) return `${Math.max(1, seconds)}s ago`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      return `${Math.floor(seconds / 86400)}d ago`;
+    } catch {}
+    return "Recently";
   };
 
+  // Filtered feeds list
+  const filteredFeeds = feeds.filter(post => {
+    if (selectedFilter === 'All') return true;
+    return post.subject?.toLowerCase() === selectedFilter.toLowerCase();
+  });
+
   if (activeGroup) {
-    return <GroupChat group={activeGroup} onBack={() => setActiveGroup(null)} theme={theme} />;
+    return (
+      <GroupChat 
+        group={activeGroup} 
+        onBack={() => setActiveGroup(null)} 
+        theme={theme} 
+      />
+    );
   }
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] bg-indigo-600 text-white text-xs font-black px-4 py-2 rounded-full shadow-2xl animate-in fade-in slide-in-from-top-2 flex items-center gap-2 border border-indigo-400/30">
+          <Sparkles size={14} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Fixed Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200 shadow-sm'} backdrop-blur-xl pt-4 pb-2 px-5 flex items-center shrink-0 z-10 border-b shadow-xl`}>
-        <button onClick={onBack} className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-slate-100 text-slate-600'} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}>
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <div className="ml-4">
-           <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight uppercase tracking-tight`}>Community</h2>
-           <p className={`text-[10px] ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-500'} font-bold uppercase tracking-widest mt-0.5`}>Study Together</p>
+      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200 shadow-sm'} backdrop-blur-xl pt-4 pb-3 px-5 flex items-center justify-between shrink-0 z-10 border-b shadow-md`}>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack} 
+            className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'} rounded-2xl flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-sm`}
+            id="community-back-btn"
+          >
+            <ChevronLeft size={22} strokeWidth={2.5} />
+          </button>
+          <div>
+            <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight uppercase tracking-tight`}>
+              Community Hub
+            </h2>
+            <p className={`text-[10px] ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'} font-bold uppercase tracking-wider`}>
+              Study Groups & Academic Feeds
+            </p>
+          </div>
+        </div>
+
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-700'}`}>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {globalOnlineCount} Online
+          </span>
         </div>
       </div>
+
       <div className="flex-1 overflow-y-auto hide-scrollbar pb-32">
-         {/* Online users */}
-         <div className="px-5 pt-8 pb-4">
-            <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg mb-6`}>Popular Circles</h3>
-            <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5">
-               {[
-                 { name: 'Sciences', members: 0, icon: FlaskConical, color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
-                 { name: 'Humanities', members: 0, icon: BookOpen, color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-                 { name: 'Languages', members: 0, icon: BookA, color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-                 { name: 'General Studies', members: 0, icon: GraduationCap, color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' }
-               ].map((group, i) => (
-                 <div key={i} onClick={() => setActiveGroup(group)} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} min-w-[145px] rounded-[32px] p-6 border flex flex-col items-start cursor-pointer transition-all active:scale-95 group hover:border-indigo-500/50 relative overflow-hidden`}>
-                    <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-                       {React.createElement(group.icon, { size: 48 })}
-                    </div>
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-5 border ${group.color} shadow-inner bg-opacity-10 backdrop-blur-sm group-hover:scale-110 transition-transform`}>
-                       {React.createElement(group.icon, { size: 24, strokeWidth: 2.5 })}
-                    </div>
-                    <span className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-[13px] mb-2 leading-tight truncate w-full`}>{group.name}</span>
-                    <div className={`flex items-center gap-1.5 px-3 py-1 ${theme === 'dark' ? 'bg-gray-950 border-gray-800' : 'bg-slate-50 border-slate-200'} rounded-full border`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-[9px] text-emerald-500 font-black uppercase tracking-wider">Active</span>
-                    </div>
-                 </div>
-               ))}
+        {/* Study Groups Banner */}
+        <div className="px-5 pt-6 pb-2">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-base tracking-tight`}>
+                Study Groups
+              </h3>
+              <p className={`text-[11px] font-bold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                Real-time voice and text academic groups with fellow students
+              </p>
             </div>
-         </div>
-         
-         <div className="px-5 pt-4">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg`}>Trending Feed</h3>
-                <MessageCircle size={18} className="text-gray-500" />
-            </div>
+          </div>
 
-            <form onSubmit={handlePost} className="mb-8">
-               <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} border rounded-[28px] p-4 flex gap-3 focus-within:border-indigo-500/50 transition-all`}>
-                   <input 
-                       type="text" 
-                       value={newPost}
-                       onChange={e => setNewPost(e.target.value)}
-                       placeholder="Share a study question or exam tip..." 
-                       className={`bg-transparent flex-1 outline-none text-[13px] ${theme === 'dark' ? 'text-gray-200' : 'text-slate-900'} placeholder-gray-500`}
-                   />
-                   <button type="submit" disabled={posting || !newPost.trim()} className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 disabled:opacity-50 shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform">
-                       {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={2.5} />}
-                   </button>
-               </div>
-            </form>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {COMMUNITY_GROUPS.map((group) => {
+              const IconComp = group.icon;
+              const msgCount = groupMessageCounts[group.id] || 0;
+              return (
+                <div 
+                  key={group.id} 
+                  onClick={() => setActiveGroup({ name: group.name, members: msgCount, id: group.id, desc: group.desc })} 
+                  className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 hover:border-indigo-500/50 shadow-xl' : 'bg-white border-slate-200 hover:border-indigo-400 shadow-md'} rounded-[26px] p-4 border flex flex-col justify-between cursor-pointer transition-all active:scale-95 group relative overflow-hidden`}
+                  id={`circle-${group.id}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${group.color} group-hover:scale-110 transition-transform`}>
+                      <IconComp size={20} strokeWidth={2.5} />
+                    </div>
+                    <span className="flex items-center gap-1 text-[9px] font-black text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {msgCount > 0 ? `${msgCount} msgs` : 'Open'}
+                    </span>
+                  </div>
 
-            <div className="space-y-4">
-               {loading ? (
-                   <div className="flex justify-center p-8"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>
-               ) : feeds.length === 0 ? (
-                   <div className="text-center p-8 opacity-50">
-                       <MessageCircle size={32} className="mx-auto mb-3 text-gray-500" />
-                       <p className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>No posts yet</p>
-                       <p className="text-gray-500 text-xs mt-1">Be the first to share something!</p>
-                   </div>
-               ) : (
-                   feeds.map((post, i) => (
-                     <div key={post.id || i} className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'} p-6 rounded-[32px] border transition-all hover:border-indigo-500/30 animate-in fade-in slide-in-from-bottom-4`} style={{animationDelay: `${Math.min(i, 5) * 80}ms`}}>
-                        <div className="flex items-center gap-3 mb-4">
-                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm border ${post.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
-                              {post.initial || 'S'}
-                           </div>
-                           <div>
-                              <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm leading-tight`}>{post.name}</h4>
-                              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest leading-none mt-1">{formatTime(post.createdAt, post.timeText)}</p>
-                           </div>
-                        </div>
-                        <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'} text-[14px] font-medium leading-relaxed mb-6`}>{post.text}</p>
-                        <div className="flex items-center gap-6">
-                           <button className="flex items-center gap-2 text-gray-500 hover:text-indigo-400 transition-colors active:scale-95">
-                              <ThumbsUp size={16} />
-                              <span className="text-[11px] font-black uppercase tracking-widest">{post.likes || 0}</span>
-                           </button>
-                           <button className="flex items-center gap-2 text-gray-500 hover:text-indigo-400 transition-colors active:scale-95">
-                              <MessageCircle size={16} />
-                              <span className="text-[11px] font-black uppercase tracking-widest">{post.replies || 0}</span>
-                           </button>
-                           <button className="ml-auto text-gray-500 hover:text-indigo-400 active:scale-95">
-                              <Share2 size={16} />
-                           </button>
-                        </div>
-                     </div>
-                   ))
-               )}
+                  <div>
+                    <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-[13px] leading-snug line-clamp-1 group-hover:text-indigo-400 transition-colors`}>
+                      {group.name}
+                    </h4>
+                    <p className={`text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'} line-clamp-1 mt-0.5`}>
+                      {group.desc}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Subject Filter Bar */}
+        <div className="px-5 pt-6 pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 hide-scrollbar">
+            {SUBJECT_FILTERS.map(filter => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap border ${
+                  selectedFilter === filter
+                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/30 scale-105'
+                    : theme === 'dark'
+                      ? 'bg-gray-900 border-gray-800 text-slate-400 hover:text-white hover:bg-gray-800'
+                      : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Post Creation Box */}
+        <div className="px-5 pt-2">
+          <form onSubmit={handleCreatePost} className="mb-6">
+            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 focus-within:border-indigo-500/50' : 'bg-white border-slate-200 shadow-sm focus-within:border-indigo-500'} border rounded-[26px] p-4 transition-all shadow-lg`}>
+              {/* Subject Tag Selector */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-800/40">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Topic:
+                  </span>
+                  <select
+                    value={newPostSubject}
+                    onChange={e => setNewPostSubject(e.target.value)}
+                    className={`text-xs font-bold px-2 py-1 rounded-xl outline-none border cursor-pointer ${
+                      theme === 'dark' ? 'bg-gray-800 border-gray-700 text-indigo-400' : 'bg-slate-100 border-slate-200 text-indigo-600'
+                    }`}
+                  >
+                    <option value="Sciences">Sciences (Bio, Chem, Phys)</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Humanities">Humanities (Hist, Geo, BK)</option>
+                    <option value="Languages">Languages (Eng, Chichewa)</option>
+                    <option value="Exam Tips">MSCE Exam Tips</option>
+                  </select>
+                </div>
+
+                <span className="text-[10px] font-bold text-slate-400">
+                  {currentUserName.split(' ')[0]}
+                </span>
+              </div>
+
+              {/* Text Input */}
+              <textarea
+                value={newPostText}
+                onChange={e => setNewPostText(e.target.value)}
+                placeholder="Ask a question, share an exam revision formula or study tip..."
+                rows={2}
+                className={`w-full bg-transparent outline-none text-[13px] font-medium resize-none ${theme === 'dark' ? 'text-gray-100' : 'text-slate-900'} placeholder-gray-500`}
+              />
+
+              {/* Voice Note Attachment Preview */}
+              {recordedAudioUrl && (
+                <div className={`mt-2 mb-3 p-3 rounded-2xl flex items-center justify-between border ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-800/40' : 'bg-indigo-50 border-indigo-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => togglePlayAudio('preview-audio', recordedAudioUrl)}
+                      className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md active:scale-95"
+                    >
+                      {playingPostId === 'preview-audio' ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+                    </button>
+                    <div>
+                      <p className={`text-xs font-extrabold ${theme === 'dark' ? 'text-indigo-300' : 'text-indigo-800'}`}>
+                        Voice Note Attached ({recordingSeconds}s)
+                      </p>
+                      <p className="text-[10px] text-slate-400">Ready to share</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelRecordedVoice}
+                    className="p-1.5 rounded-xl text-red-400 hover:bg-red-500/10 active:scale-95"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
+
+              {/* Recording Status Bar */}
+              {isRecording && (
+                <div className="mt-2 mb-3 p-3 rounded-2xl flex items-center justify-between bg-red-500/10 border border-red-500/30 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                    <span className="text-xs font-black text-red-400 uppercase tracking-wide">
+                      Recording Voice Note ({recordingSeconds}s)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={stopRecordingVoice}
+                    className="px-3 py-1 rounded-xl bg-red-500 text-white text-xs font-bold flex items-center gap-1 active:scale-95"
+                  >
+                    <Square size={12} fill="currentColor" /> Stop
+                  </button>
+                </div>
+              )}
+
+              {/* Bottom Actions Bar */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-800/30">
+                <div className="flex items-center gap-2">
+                  {!isRecording && !recordedAudioUrl && (
+                    <button
+                      type="button"
+                      onClick={startRecordingVoice}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                        theme === 'dark' 
+                          ? 'bg-gray-800 border-gray-700 text-slate-300 hover:text-white hover:bg-gray-700' 
+                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Mic size={14} className="text-indigo-400" />
+                      <span>Add Voice</span>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={posting || (!newPostText.trim() && !recordedAudioBase64)}
+                  className="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold flex items-center gap-2 disabled:opacity-40 shadow-lg shadow-indigo-600/30 active:scale-95 transition-all"
+                  id="submit-feed-post-btn"
+                >
+                  {posting ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <>
+                      <Send size={14} strokeWidth={2.5} />
+                      <span>Post</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-         </div>
+          </form>
+
+          {/* Feed Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-base flex items-center gap-2`}>
+              <MessageCircle size={18} className="text-indigo-500" />
+              <span>Trending Discussions ({filteredFeeds.length})</span>
+            </h3>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              {selectedFilter}
+            </span>
+          </div>
+
+          {/* Feeds List */}
+          <div className="space-y-4">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center p-12">
+                <Loader2 size={32} className="animate-spin text-indigo-500 mb-2" />
+                <p className="text-xs font-bold text-slate-500">Loading community discussions...</p>
+              </div>
+            ) : filteredFeeds.length === 0 ? (
+              <div className="text-center p-10 border border-dashed border-gray-800 rounded-3xl opacity-70">
+                <MessageCircle size={36} className="mx-auto mb-3 text-slate-500" />
+                <h4 className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  No questions in {selectedFilter} yet
+                </h4>
+                <p className="text-slate-500 text-xs mt-1">Be the first to post a study tip or question above!</p>
+              </div>
+            ) : (
+              filteredFeeds.map((post, idx) => {
+                const isLiked = Array.isArray(post.likedBy) && post.likedBy.includes(currentUserId);
+                const isMyPost = post.userId === currentUserId;
+
+                return (
+                  <div 
+                    key={post.id || idx} 
+                    className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 hover:border-indigo-500/40' : 'bg-white border-slate-200 hover:border-indigo-400 shadow-md'} p-5 rounded-[28px] border transition-all duration-200 animate-in fade-in slide-in-from-bottom-3`}
+                    style={{ animationDelay: `${Math.min(idx, 6) * 60}ms` }}
+                  >
+                    {/* Header with Avatar, Subject & Delete */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm border shadow-inner ${post.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
+                          {post.initial || post.name[0] || 'S'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm leading-tight`}>
+                              {post.name}
+                            </h4>
+                            {post.subject && (
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                                theme === 'dark' ? 'bg-indigo-950/60 border-indigo-800 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                              }`}>
+                                {post.subject}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                            {formatTime(post.createdAt, post.timeText)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isMyPost && (
+                        <button
+                          onClick={(e) => handleDeletePost(post.id, e)}
+                          className="p-1.5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          title="Delete post"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Post Text */}
+                    <p className={`${theme === 'dark' ? 'text-gray-200' : 'text-slate-800'} text-[13.5px] font-medium leading-relaxed mb-4 select-text whitespace-pre-wrap`}>
+                      {post.text}
+                    </p>
+
+                    {/* Audio Note Bar (If attached) */}
+                    {post.audioData && (
+                      <div className={`mb-4 p-3 rounded-2xl flex items-center gap-3 border ${
+                        theme === 'dark' ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-100 border-slate-200'
+                      }`}>
+                        <button
+                          onClick={() => togglePlayAudio(post.id, post.audioData)}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform active:scale-90 shadow-md ${
+                            playingPostId === post.id 
+                              ? 'bg-indigo-600 text-white animate-pulse' 
+                              : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white'
+                          }`}
+                        >
+                          {playingPostId === post.id ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+                        </button>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1 h-3 mb-1">
+                            {Array.from({ length: 18 }).map((_, bi) => (
+                              <div 
+                                key={bi} 
+                                className={`flex-1 rounded-full transition-all duration-300 ${
+                                  playingPostId === post.id 
+                                    ? 'bg-indigo-500 animate-pulse' 
+                                    : theme === 'dark' ? 'bg-slate-700' : 'bg-slate-300'
+                                }`}
+                                style={{ height: `${20 + ((bi * 17) % 80)}%` }}
+                              ></div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                            <span>{playingPostId === post.id ? 'Playing Voice Tip...' : 'Voice Study Note'}</span>
+                            <span>{post.audioDuration ? `${post.audioDuration}s` : 'Audio'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Interaction Buttons Row (REAL LIKES, REPLIES, SHARE) */}
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-800/30">
+                      {/* Real Like Button */}
+                      <button 
+                        onClick={(e) => handleToggleLike(post, e)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-xs transition-all active:scale-95 cursor-pointer ${
+                          isLiked 
+                            ? 'bg-rose-500/15 text-rose-500 border border-rose-500/30 scale-105' 
+                            : theme === 'dark' 
+                              ? 'text-slate-400 hover:text-rose-400 hover:bg-white/5' 
+                              : 'text-slate-600 hover:text-rose-500 hover:bg-slate-100'
+                        }`}
+                        id={`like-btn-${post.id}`}
+                      >
+                        <Heart 
+                          size={16} 
+                          className={isLiked ? "fill-rose-500 stroke-rose-500" : ""} 
+                        />
+                        <span>{post.likes || 0}</span>
+                      </button>
+
+                      {/* Replies Button */}
+                      <button 
+                        onClick={() => setOpenPostReplies(post)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-xs transition-all active:scale-95 cursor-pointer ${
+                          theme === 'dark' 
+                            ? 'text-slate-400 hover:text-indigo-400 hover:bg-white/5' 
+                            : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
+                        }`}
+                        id={`replies-btn-${post.id}`}
+                      >
+                        <MessageSquare size={16} />
+                        <span>{post.repliesCount || 0} Replies</span>
+                      </button>
+
+                      {/* Share Button */}
+                      <button 
+                        onClick={(e) => handleSharePost(post, e)}
+                        className={`p-2 rounded-full transition-all active:scale-95 cursor-pointer ${
+                          theme === 'dark' ? 'text-slate-400 hover:text-indigo-400 hover:bg-white/5' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
+                        }`}
+                        title="Copy / Share study post"
+                      >
+                        <Share2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Discussion & Replies Drawer / Modal */}
+      {openPostReplies && (
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md flex flex-col justify-end animate-in fade-in duration-200">
+          <div 
+            className={`w-full max-h-[85vh] rounded-t-[36px] flex flex-col border-t shadow-2xl animate-in slide-in-from-bottom duration-300 ${
+              theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            {/* Header */}
+            <div className="p-5 border-b border-gray-800/40 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-black text-base leading-tight">
+                  Thread & Discussion
+                </h3>
+                <p className="text-[11px] font-bold text-indigo-400 mt-0.5">
+                  Replying to {openPostReplies.name}
+                </p>
+              </div>
+              <button 
+                onClick={() => setOpenPostReplies(null)}
+                className="w-8 h-8 rounded-full bg-gray-800 text-slate-300 hover:text-white flex items-center justify-center active:scale-95"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Original Post Context Bubble */}
+            <div className="p-4 bg-indigo-500/5 border-b border-gray-800/40 shrink-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-black text-indigo-400">{openPostReplies.name}</span>
+                <span className="text-[9px] text-slate-500 uppercase">{openPostReplies.subject}</span>
+              </div>
+              <p className={`text-xs ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'} line-clamp-3 leading-relaxed`}>
+                "{openPostReplies.text}"
+              </p>
+            </div>
+
+            {/* Replies List */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 hide-scrollbar">
+              {repliesLoading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 size={24} className="animate-spin text-indigo-500" />
+                </div>
+              ) : replies.length === 0 ? (
+                <div className="text-center py-10 opacity-60">
+                  <MessageSquare size={32} className="mx-auto mb-2 text-slate-500" />
+                  <p className="font-bold text-xs">No replies yet</p>
+                  <p className="text-[11px] text-slate-500">Write the first helpful response or answer below!</p>
+                </div>
+              ) : (
+                replies.map((rep, ri) => (
+                  <div 
+                    key={rep.id || ri}
+                    className={`p-3.5 rounded-2xl border ${
+                      theme === 'dark' ? 'bg-gray-800/60 border-gray-700/60' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-[10px] border ${rep.color || 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
+                          {rep.initial || rep.name[0]}
+                        </div>
+                        <span className="font-extrabold text-xs">{rep.name}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 uppercase font-bold">
+                        {formatTime(rep.createdAt)}
+                      </span>
+                    </div>
+                    <p className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {rep.text}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Reply Input Bar */}
+            <form onSubmit={handleSendReply} className="p-4 border-t border-gray-800/40 shrink-0 flex gap-2">
+              <input
+                type="text"
+                value={newReplyText}
+                onChange={e => setNewReplyText(e.target.value)}
+                placeholder="Write your explanation or answer..."
+                className={`flex-1 px-4 py-2.5 rounded-2xl text-xs font-medium outline-none border ${
+                  theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white focus:border-indigo-500' : 'bg-slate-100 border-slate-200 text-slate-900 focus:border-indigo-500'
+                }`}
+              />
+              <button
+                type="submit"
+                disabled={replying || !newReplyText.trim()}
+                className="px-4 py-2.5 rounded-2xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center disabled:opacity-40 shadow-lg active:scale-95 transition-all"
+              >
+                {replying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={2.5} />}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

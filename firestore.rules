@@ -93,6 +93,107 @@ service cloud.firestore {
       allow write: if isAdmin() && isValidId(notificationId);
     }
 
+    // Community Feeds & Discussions
+    match /feeds/{feedId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+
+      match /replies/{replyId} {
+        allow read: if true;
+        allow create: if true;
+        allow update: if true;
+        allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      }
+    }
+
+    // Study Circle WhatsApp-style Group Messages
+    match /group_messages/{messageId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true; // allow adding emoji reactions, edits, pinning
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // Community Groups & Circles
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.creatorId);
+    }
+
+    // Group Announcements
+    match /group_announcements/{announcementId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isAdmin());
+    }
+
+    // Group Discussions
+    match /group_discussions/{discussionId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isAdmin());
+
+      match /responses/{responseId} {
+        allow read: if true;
+        allow create: if true;
+        allow update: if true;
+        allow delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isAdmin());
+      }
+    }
+
+    // Teacher Assignments
+    match /group_assignments/{assignmentId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.teacherId || isAdmin());
+    }
+
+    // Assignment Submissions
+    match /assignment_submissions/{submissionId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.studentId || isAdmin());
+    }
+
+    // Group Events
+    match /group_events/{eventId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isAdmin());
+    }
+
+    // Group Polls
+    match /group_polls/{pollId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isAdmin());
+    }
+
+    // Group Resources
+    match /group_resources/{resourceId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.uploaderId || isAdmin());
+    }
+
+    // Real-time User Presence
+    match /user_presence/{presenceId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSignedIn() || isAdmin();
+    }
+
     // AI Feedback
     match /ai_feedback/{feedbackId} {
       allow create: if isSignedIn();

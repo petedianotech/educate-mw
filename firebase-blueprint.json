@@ -30,9 +30,222 @@
         "authorId": { "type": "string" }
       },
       "required": ["title", "content", "type", "authorId"]
+    },
+    "FeedPost": {
+      "title": "FeedPost",
+      "description": "Community trending study posts and discussions",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "initial": { "type": "string" },
+        "color": { "type": "string" },
+        "subject": { "type": "string" },
+        "likes": { "type": "number" },
+        "likedBy": { "type": "array" },
+        "repliesCount": { "type": "number" },
+        "audioData": { "type": "string" },
+        "audioDuration": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "userId", "name"]
+    },
+    "GroupMessage": {
+      "title": "GroupMessage",
+      "description": "Real-time WhatsApp-style messages in study circles",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "voice", "image", "document", "formula"] },
+        "audioData": { "type": "string" },
+        "audioDuration": { "type": "number" },
+        "attachmentUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "isPinned": { "type": "boolean" },
+        "isEdited": { "type": "boolean" },
+        "replyTo": { "type": "object" },
+        "reactions": { "type": "object" },
+        "mentions": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "userId", "userName", "type"]
+    },
+    "CommunityGroup": {
+      "title": "CommunityGroup",
+      "description": "Study groups, circles, and teacher classrooms",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "adminIds": { "type": "array" },
+        "teacherIds": { "type": "array" },
+        "moderatorIds": { "type": "array" },
+        "memberIds": { "type": "array" },
+        "rules": { "type": "array" },
+        "inviteCode": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "creatorId"]
+    },
+    "GroupAnnouncement": {
+      "title": "GroupAnnouncement",
+      "description": "Official teacher/admin broadcasts",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorRole": { "type": "string" },
+        "isPinned": { "type": "boolean" },
+        "attachmentUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "title", "content", "authorId", "authorName"]
+    },
+    "GroupDiscussion": {
+      "title": "GroupDiscussion",
+      "description": "Topic-based academic forums",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "isClosed": { "type": "boolean" },
+        "isPinned": { "type": "boolean" },
+        "responsesCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "title", "description", "authorId"]
+    },
+    "GroupAssignment": {
+      "title": "GroupAssignment",
+      "description": "Teacher assignments with submission & marking workflow",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "title": { "type": "string" },
+        "instructions": { "type": "string" },
+        "subject": { "type": "string" },
+        "points": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "isClosed": { "type": "boolean" },
+        "attachmentUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "title", "instructions", "teacherId", "points"]
+    },
+    "AssignmentSubmission": {
+      "title": "AssignmentSubmission",
+      "description": "Student work submissions and teacher marking feedback",
+      "type": "object",
+      "properties": {
+        "assignmentId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "content": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "status": { "type": "string", "enum": ["submitted", "marked", "late", "returned"] },
+        "score": { "type": "number" },
+        "feedback": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "markedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["assignmentId", "groupId", "studentId", "studentName"]
+    },
+    "GroupEvent": {
+      "title": "GroupEvent",
+      "description": "Study sessions, revision meetings & webinars",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "eventDate": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "meetingLink": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "rsvps": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "title", "eventDate", "creatorId"]
+    },
+    "GroupPoll": {
+      "title": "GroupPoll",
+      "description": "Decision and consensus polls",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "question": { "type": "string" },
+        "options": { "type": "array" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "votes": { "type": "object" },
+        "isClosed": { "type": "boolean" },
+        "expiresAt": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "question", "options", "creatorId"]
+    },
+    "GroupResource": {
+      "title": "GroupResource",
+      "description": "Shared PDF, past-paper, image, and note files",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["pdf", "image", "doc", "link", "notes", "past_paper"] },
+        "url": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "uploaderId": { "type": "string" },
+        "uploaderName": { "type": "string" },
+        "uploaderRole": { "type": "string" },
+        "subject": { "type": "string" },
+        "downloads": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "title", "type", "uploaderId"]
+    },
+    "UserPresence": {
+      "title": "UserPresence",
+      "description": "Real-time online presence and activity tracking for community and study groups",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "groupId": { "type": "string" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "isOnline": { "type": "boolean" }
+      },
+      "required": ["userId", "userName", "isOnline"]
     }
   },
   "firestore": {
+    "/user_presence/{presenceId}": {
+      "schema": "UserPresence",
+      "description": "Real-time presence tracking for users in community"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "Store user accounts and pro status"
@@ -40,6 +253,50 @@
     "/materials/{materialId}": {
       "schema": "Material",
       "description": "Store published educational materials"
+    },
+    "/feeds/{feedId}": {
+      "schema": "FeedPost",
+      "description": "Community posts and questions"
+    },
+    "/feeds/{feedId}/replies/{replyId}": {
+      "schema": "FeedPost",
+      "description": "Replies to community posts"
+    },
+    "/groups/{groupId}": {
+      "schema": "CommunityGroup",
+      "description": "Study groups, circles, and teacher classrooms"
+    },
+    "/group_messages/{messageId}": {
+      "schema": "GroupMessage",
+      "description": "Real-time WhatsApp group study circle messages"
+    },
+    "/group_announcements/{announcementId}": {
+      "schema": "GroupAnnouncement",
+      "description": "Official announcements"
+    },
+    "/group_discussions/{discussionId}": {
+      "schema": "GroupDiscussion",
+      "description": "Topic discussions"
+    },
+    "/group_assignments/{assignmentId}": {
+      "schema": "GroupAssignment",
+      "description": "Teacher assignments"
+    },
+    "/assignment_submissions/{submissionId}": {
+      "schema": "AssignmentSubmission",
+      "description": "Student assignment submissions"
+    },
+    "/group_events/{eventId}": {
+      "schema": "GroupEvent",
+      "description": "Study sessions and webinars"
+    },
+    "/group_polls/{pollId}": {
+      "schema": "GroupPoll",
+      "description": "Decision polls"
+    },
+    "/group_resources/{resourceId}": {
+      "schema": "GroupResource",
+      "description": "Organized resources, past papers, notes"
     }
   }
 }

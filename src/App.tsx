@@ -3173,15 +3173,15 @@ function CallingView({
           MSCE Curriculum Expert
         </p>
 
-        {/* Connection, Timer Badge & Dynamic Text Outputs */}
+        {/* Connection, Timer Badge */}
         <div
-          className={`backdrop-blur-xl px-6 py-3 rounded-2xl border flex flex-col items-center ${
+          className={`backdrop-blur-xl px-6 py-2.5 rounded-2xl border flex flex-col items-center ${
             theme === "dark"
               ? "bg-slate-900/60 border-slate-800 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
               : "bg-white border-slate-200/80 shadow-[0_8px_32px_rgba(99,102,241,0.05)]"
-          } min-w-[260px] max-w-[340px] mb-3 transition-all duration-300`}
+          } min-w-[240px] max-w-[320px] mb-3 transition-all duration-300`}
         >
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2">
             <div
               className={`w-2.5 h-2.5 rounded-full ${
                 isMuted
@@ -3213,7 +3213,7 @@ function CallingView({
                   : isUserSpeaking
                     ? "You are Speaking..."
                     : isConnected
-                      ? "Listening to you..."
+                      ? "Live Call Active"
                       : "Connecting..."}
             </span>
             <span className="text-[11px] font-mono font-black ml-2 text-slate-500">
@@ -3221,21 +3221,9 @@ function CallingView({
             </span>
           </div>
 
-          <p
-            className={`text-xs text-center font-medium mt-1 leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
-          >
-            {isMuted
-              ? "Microphone is muted. Tap the mic button below to unmute and speak."
-              : liveTranscript
-                ? `"${liveTranscript}"`
-                : isConnected
-                  ? "Speak naturally with Emi to discuss any MSCE/JCE topic..."
-                  : "Establishing secure real-time Live connection..."}
-          </p>
-
           {!profile?.isPro && isConnected && (
             <span
-              className={`text-[9px] font-extrabold mt-2 uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}
+              className={`text-[9px] font-extrabold mt-1.5 uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}
             >
               {300 - seconds > 0
                 ? `Free Call: ${formatTime(300 - seconds)} left`
