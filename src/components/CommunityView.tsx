@@ -155,7 +155,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
             return {
               id: d.id,
               name: data.name || d.id,
-              desc: data.description || 'Study circle',
+              desc: data.description || 'Study group',
               icon: FlaskConical,
               color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
               accent: 'from-indigo-600 to-indigo-800'
@@ -664,7 +664,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
             </div>
 
             <p className="text-xs text-gray-400 mb-3">
-              Choose which study circles appear on your Universal Community Feed. Toggle to hide or show:
+              Choose which study groups appear on your Universal Community Feed. Toggle to hide or show:
             </p>
 
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1 mb-4">
@@ -765,18 +765,18 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
 
       {/* Main Scrollable Body */}
       <div className="flex-1 overflow-y-auto hide-scrollbar pb-32">
-        {/* Horizontal Study Circles Quick-Access Row */}
+        {/* Horizontal Study Groups Quick-Access Row */}
         <div className="px-4 sm:px-6 pt-5 pb-2">
           <div className="flex items-center justify-between mb-3">
             <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-xs uppercase tracking-wider text-gray-400`}>
-              Active Study Circles
+              Active Study groups
             </h3>
             <button
               onClick={() => setShowHideFilterModal(true)}
               className="text-[11px] font-bold text-indigo-400 hover:underline flex items-center gap-1"
             >
               <SlidersHorizontal size={11} />
-              <span>Hide / Show Circles</span>
+              <span>Hide / Show Groups</span>
             </button>
           </div>
 
@@ -795,7 +795,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
                   } rounded-2xl p-3 border flex items-center justify-between cursor-pointer transition-all active:scale-95 group ${
                     isHidden ? 'opacity-50' : ''
                   }`}
-                  id={`circle-${group.id}`}
+                  id={`group-${group.id}`}
                 >
                   <div className="flex items-center gap-2.5">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${group.color} group-hover:scale-110 transition-transform`}>

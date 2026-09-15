@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, ThinkingLevel } from "@google/genai";
 import { WebSocketServer } from 'ws';
 import { WebSocket as wsClass } from 'ws';
 
@@ -206,7 +206,7 @@ Instructions & Guidelines:
       let responseText = "";
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents,
           config,
         });
@@ -257,7 +257,7 @@ Instructions & Guidelines:
       ]`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           temperature: 0.2,
@@ -285,7 +285,7 @@ Instructions & Guidelines:
       const { prompt } = req.body;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           temperature: 0.7,
@@ -329,7 +329,7 @@ Instructions & Guidelines:
       ]`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           temperature: 0.3,
@@ -380,7 +380,7 @@ Return ONLY a JSON object with this exact structure (no markdown fences, no conv
 }`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           temperature: 0.2,
@@ -401,6 +401,95 @@ Return ONLY a JSON object with this exact structure (no markdown fences, no conv
         statusCode = 429;
       }
       res.status(statusCode).json({ error: errorMessage });
+    }
+  });
+
+  // Dedicated Ultra-Fast Real-Time Voice Endpoint for Emi Calling Studio (Vercel & Production Ready)
+  app.post(["/api/gemini/voice-reply", "/gemini/voice-reply"], async (req, res) => {
+    try {
+      const { prompt, history, voiceName, userLevel } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ error: "Missing prompt" });
+      }
+
+      const voiceMapping: Record<string, string> = {
+        'Aoede': 'Zephyr',
+        'Kore': 'Kore',
+        'Puck': 'Puck',
+        'Charon': 'Charon',
+        'Fenrir': 'Fenrir',
+        'Zephyr': 'Zephyr',
+      };
+      const targetVoice = voiceMapping[voiceName || ''] || 'Kore';
+
+      const systemInstruction = `You are Emi AI, a friendly, encouraging, and knowledgeable Malawi secondary school study tutor from Educate Malawi (Educate MW).
+You are currently on a live voice call with a student preparing for JCE or MSCE exams.
+${userLevel ? `The student is studying in ${userLevel}.` : ''}
+
+SPOKEN VOICE CALL RULES:
+1. Speak naturally, warmly, and directly as a kind teacher on a phone call.
+2. Keep your answer brief: 1 to 3 short sentences maximum so the vocal dialogue is fast, snappy, and feels like a real conversation.
+3. Use plain natural spoken English (or Chichewa if the student greets/speaks in Chichewa).
+4. Do NOT use markdown symbols, asterisks (*), hashtags (#), or dollar signs ($).
+5. Give a direct, accurate answer for the Malawi secondary school curriculum.`;
+
+      const contents = [
+        ...(Array.isArray(history)
+          ? history.slice(-4).map((h: any) => ({
+              role: h.role === 'user' ? 'user' : 'model',
+              parts: [{ text: h.text || '' }],
+            }))
+          : []),
+        { role: 'user', parts: [{ text: prompt }] },
+      ];
+
+      // Step 1: Fast reasoning with gemini-3.8-flash
+      const textResponse = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents,
+        config: {
+          systemInstruction,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          temperature: 0.7,
+        },
+      });
+
+      let replyText = textResponse.text || "I am here to help you study. What would you like to explore next?";
+      replyText = replyText.replace(/[*#$]/g, '').trim();
+
+      // Step 2: High-fidelity natural TTS synthesis with gemini-3.1-flash-tts-preview
+      let audioBase64: string | null = null;
+      try {
+        const ttsResponse = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-tts-preview',
+          contents: [{ parts: [{ text: replyText }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: targetVoice },
+              },
+            },
+          },
+        });
+
+        const audioPart = ttsResponse.candidates?.[0]?.content?.parts?.find(
+          (p: any) => p.inlineData?.data,
+        );
+        if (audioPart?.inlineData?.data) {
+          audioBase64 = audioPart.inlineData.data;
+        }
+      } catch (ttsErr: any) {
+        console.warn("TTS generation fallback:", ttsErr?.message);
+      }
+
+      res.json({
+        text: replyText,
+        audioBase64,
+      });
+    } catch (error: any) {
+      console.error("Voice Reply API Error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate voice response" });
     }
   });
 

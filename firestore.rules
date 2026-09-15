@@ -218,5 +218,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Dictionary Public Shared Cache
+    match /dictionary_cache/{wordId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
   }
 }

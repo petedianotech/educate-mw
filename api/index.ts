@@ -1,5 +1,5 @@
 import express from 'express';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality, ThinkingLevel } from "@google/genai";
 
 const app = express();
 app.use(express.json());
@@ -60,11 +60,11 @@ app.post(["/api/gemini/chat", "/gemini/chat"], async (req: any, res: any) => {
     const { messages, userMessage, useSearch, isPro, userLevel } = req.body;
     
     const contents = [
-      ...messages.map((m: any) => ({
+      ...(messages || []).map((m: any) => ({
         role: m.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text }]
+        parts: [{ text: m.text || '' }]
       })),
-      { role: 'user', parts: [{ text: userMessage.text }] }
+      { role: 'user', parts: [{ text: userMessage?.text || '' }] }
     ];
 
     const isProUser = Boolean(isPro);
@@ -86,10 +86,10 @@ IMPORTANT RULES:
 7. Do NOT use any emojis.
 8. If asked who built or created you, state that you were built for Malawian secondary students by the Educate Malawi team led by S. Lifa.`;
 
-    const searchEnabled = true;
+    const searchEnabled = Boolean(useSearch);
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
@@ -142,17 +142,14 @@ app.post(["/api/gemini/quiz", "/gemini/quiz"], async (req: any, res: any) => {
     ]`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: prompt,
       config: {
         temperature: 0.2,
-        tools: [{ googleSearch: {} }],
       }
     });
 
     const text = response.text || '';
-    
-    // Attempt to extract JSON from markdown if necessary
     const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
 
     res.json({ text: jsonStr });
@@ -173,11 +170,10 @@ app.post(["/api/gemini/career", "/gemini/career"], async (req: any, res: any) =>
     const { prompt } = req.body;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
-        tools: [{ googleSearch: {} }],
       }
     });
 
@@ -219,17 +215,15 @@ app.post(["/api/gemini/flashcards", "/gemini/flashcards"], async (req: any, res:
     ]`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: prompt,
       config: {
         temperature: 0.3,
-        tools: [{ googleSearch: {} }],
+        responseMimeType: 'application/json',
       }
     });
 
     const text = response.text || '';
-    
-    // Attempt to extract JSON from markdown if necessary
     const jsonStr = text.replace(/```json\n?|\n?```/g, '').trim();
 
     res.json({ text: jsonStr });
@@ -242,6 +236,95 @@ app.post(["/api/gemini/flashcards", "/gemini/flashcards"], async (req: any, res:
       statusCode = 429;
     }
     res.status(statusCode).json({ error: errorMessage });
+  }
+});
+
+// Dedicated Ultra-Fast Real-Time Voice Endpoint for Emi Calling Studio (Vercel & Production Ready)
+app.post(["/api/gemini/voice-reply", "/gemini/voice-reply"], async (req: any, res: any) => {
+  try {
+    const { prompt, history, voiceName, userLevel } = req.body;
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: "Missing prompt" });
+    }
+
+    const voiceMapping: Record<string, string> = {
+      'Aoede': 'Zephyr',
+      'Kore': 'Kore',
+      'Puck': 'Puck',
+      'Charon': 'Charon',
+      'Fenrir': 'Fenrir',
+      'Zephyr': 'Zephyr',
+    };
+    const targetVoice = voiceMapping[voiceName || ''] || 'Kore';
+
+    const systemInstruction = `You are Emi AI, a friendly, encouraging, and knowledgeable Malawi secondary school study tutor from Educate Malawi (Educate MW).
+You are currently on a live voice call with a student preparing for JCE or MSCE exams.
+${userLevel ? `The student is studying in ${userLevel}.` : ''}
+
+SPOKEN VOICE CALL RULES:
+1. Speak naturally, warmly, and directly as a kind teacher on a phone call.
+2. Keep your answer brief: 1 to 3 short sentences maximum so the vocal dialogue is fast, snappy, and feels like a real conversation.
+3. Use plain natural spoken English (or Chichewa if the student greets/speaks in Chichewa).
+4. Do NOT use markdown symbols, asterisks (*), hashtags (#), or dollar signs ($).
+5. Give a direct, accurate answer for the Malawi secondary school curriculum.`;
+
+    const contents = [
+      ...(Array.isArray(history)
+        ? history.slice(-4).map((h: any) => ({
+            role: h.role === 'user' ? 'user' : 'model',
+            parts: [{ text: h.text || '' }],
+          }))
+        : []),
+      { role: 'user', parts: [{ text: prompt }] },
+    ];
+
+    // Step 1: Fast reasoning with gemini-3.8-flash
+    const textResponse = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents,
+      config: {
+        systemInstruction,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        temperature: 0.7,
+      },
+    });
+
+    let replyText = textResponse.text || "I am here to help you study. What would you like to explore next?";
+    replyText = replyText.replace(/[*#$]/g, '').trim();
+
+    // Step 2: High-fidelity natural TTS synthesis with gemini-3.1-flash-tts-preview
+    let audioBase64: string | null = null;
+    try {
+      const ttsResponse = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-tts-preview',
+        contents: [{ parts: [{ text: replyText }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: targetVoice },
+            },
+          },
+        },
+      });
+
+      const audioPart = ttsResponse.candidates?.[0]?.content?.parts?.find(
+        (p: any) => p.inlineData?.data,
+      );
+      if (audioPart?.inlineData?.data) {
+        audioBase64 = audioPart.inlineData.data;
+      }
+    } catch (ttsErr: any) {
+      console.warn("TTS generation fallback:", ttsErr?.message);
+    }
+
+    res.json({
+      text: replyText,
+      audioBase64,
+    });
+  } catch (error: any) {
+    console.error("Voice Reply API Error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate voice response" });
   }
 });
 

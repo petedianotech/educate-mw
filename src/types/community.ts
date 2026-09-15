@@ -29,7 +29,7 @@ export interface CommunityGroup {
   id: string;
   name: string;
   description: string;
-  category: 'Sciences' | 'Humanities' | 'Languages' | 'General MSCE' | 'Teacher Classrooms' | 'Study Circles';
+  category: 'Sciences' | 'Humanities' | 'Languages' | 'General MSCE' | 'Teacher Classrooms' | 'Study Groups';
   creatorId: string;
   creatorName: string;
   membersCount: number;

@@ -269,9 +269,36 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "code"]
+    },
+    "DictionaryCacheEntry": {
+      "title": "DictionaryCacheEntry",
+      "description": "Cached dictionary word definitions, phonetics, and meanings from Free Dictionary API and academic lexicon",
+      "type": "object",
+      "properties": {
+        "word": { "type": "string" },
+        "normalizedWord": { "type": "string" },
+        "phonetic": { "type": "string" },
+        "phonetics": { "type": "array" },
+        "meanings": { "type": "array" },
+        "definitions": { "type": "array" },
+        "examples": { "type": "array" },
+        "synonyms": { "type": "array" },
+        "antonyms": { "type": "array" },
+        "audioUrl": { "type": "string" },
+        "source": { "type": "string" },
+        "subject": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "cachedAt": { "type": "number" }
+      },
+      "required": ["word", "normalizedWord", "meanings", "source"]
     }
   },
   "firestore": {
+    "/dictionary_cache/{wordId}": {
+      "schema": "DictionaryCacheEntry",
+      "description": "Shared cache for dictionary word definitions and pronunciations"
+    },
     "/group_requests/{requestId}": {
       "schema": "GroupRequest",
       "description": "Student group requests and admin approval workflow"

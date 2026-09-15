@@ -59,6 +59,7 @@ import { CertificatesCleanView } from "./components/CertificatesCleanView";
 import { LeaderboardView } from "./components/LeaderboardView";
 import { AchievementsView } from "./components/AchievementsView";
 import { MscePointsCalculatorView } from "./components/MscePointsCalculatorView";
+import { DictionaryView } from "./components/DictionaryView";
 import { ACHIEVEMENTS } from "./data/achievements";
 import { ACADEMIC_DICTIONARY, POPULAR_DICTIONARY_WORDS } from "./data/academicDictionary";
 import { DEFAULT_MATERIALS } from "./data/defaultMaterials";
@@ -2556,6 +2557,7 @@ function CallingView({
   const [isConnected, setIsConnected] = useState(false);
   const [isEmiSpeaking, setIsEmiSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [voiceName, setVoiceName] = useState<string>(
     localStorage.getItem("emi_voice") || "Kore",
   );
@@ -2563,23 +2565,26 @@ function CallingView({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState<string>("");
+  const [emiSubtitles, setEmiSubtitles] = useState<string>(
+    "Hello! I am Emi, your MSCE study tutor. What would you like to explore or practice together today?",
+  );
   const [userAnalyserNode, setUserAnalyserNode] = useState<AnalyserNode | null>(null);
   const [emiAnalyserNode, setEmiAnalyserNode] = useState<AnalyserNode | null>(null);
 
-  const inputAudioCtxRef = useRef<AudioContext | null>(null);
   const outputAudioCtxRef = useRef<AudioContext | null>(null);
-  const userAnalyserRef = useRef<AnalyserNode | null>(null);
+  const userAudioCtxRef = useRef<AudioContext | null>(null);
   const emiAnalyserRef = useRef<AnalyserNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
-  const silentGainRef = useRef<GainNode | null>(null);
-  const sessionRef = useRef<any>(null);
+  const userAnalyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const nextPlayTimeRef = useRef<number>(0);
+  const recognitionRef = useRef<any>(null);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const isMutedRef = useRef(false);
-  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const userSpeakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const historyRef = useRef<{ role: string; text: string }[]>([]);
+  const speechDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentInterimRef = useRef<string>("");
+  const isProcessingQueryRef = useRef(false);
+  const isEmiSpeakingRef = useRef(false);
+  const animIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const voiceOptions = [
     { name: "Kore", desc: "Warm & Friendly" },
@@ -2590,35 +2595,7 @@ function CallingView({
     { name: "Aoede", desc: "Gentle & Expressive" },
   ];
 
-  // Sync mute state immediately to audio track and ref
-  useEffect(() => {
-    isMutedRef.current = isMuted;
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !isMuted;
-      });
-    }
-    if (isMuted) {
-      setIsUserSpeaking(false);
-    }
-  }, [isMuted]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isConnected) {
-      timer = setInterval(() => {
-        setSeconds((s) => s + 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isConnected]);
-
-  useEffect(() => {
-    if (!profile?.isPro && seconds >= 300) {
-      onEnd();
-    }
-  }, [seconds, profile?.isPro, onEnd]);
-
+  // Stop any playing audio immediately
   const stopAllAudio = () => {
     activeSourcesRef.current.forEach((src) => {
       try {
@@ -2626,18 +2603,30 @@ function CallingView({
       } catch (e) {}
     });
     activeSourcesRef.current = [];
-    if (outputAudioCtxRef.current) {
-      nextPlayTimeRef.current = outputAudioCtxRef.current.currentTime;
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    if (animIntervalRef.current) {
+      clearInterval(animIntervalRef.current);
+      animIntervalRef.current = null;
     }
     setIsEmiSpeaking(false);
+    isEmiSpeakingRef.current = false;
   };
 
-  const playAudioChunk = (base64Data: string) => {
+  // Play natural PCM audio returned by Gemini TTS
+  const playAudioData = async (base64Data: string) => {
     try {
-      const ctx = outputAudioCtxRef.current;
-      if (!ctx) return;
+      stopAllAudio();
+      let ctx = outputAudioCtxRef.current;
+      const AudioContextClass =
+        window.AudioContext || (window as any).webkitAudioContext;
+      if (!ctx || ctx.state === "closed") {
+        ctx = new AudioContextClass({ sampleRate: 24000 });
+        outputAudioCtxRef.current = ctx;
+      }
       if (ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
+        await ctx.resume().catch(() => {});
       }
 
       const binaryString = atob(base64Data);
@@ -2659,6 +2648,13 @@ function CallingView({
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
+      if (!emiAnalyserRef.current) {
+        const emiAnalyser = ctx.createAnalyser();
+        emiAnalyser.fftSize = 256;
+        emiAnalyserRef.current = emiAnalyser;
+        setEmiAnalyserNode(emiAnalyser);
+      }
+
       if (emiAnalyserRef.current) {
         source.connect(emiAnalyserRef.current);
         emiAnalyserRef.current.connect(ctx.destination);
@@ -2666,59 +2662,162 @@ function CallingView({
         source.connect(ctx.destination);
       }
 
-      const startTime = Math.max(nextPlayTimeRef.current, ctx.currentTime);
-      source.start(startTime);
-      nextPlayTimeRef.current = startTime + audioBuffer.duration;
-
       setIsEmiSpeaking(true);
-      if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-      speakingTimeoutRef.current = setTimeout(() => {
-        if (ctx.currentTime >= nextPlayTimeRef.current - 0.1) {
-          setIsEmiSpeaking(false);
-        }
-      }, (audioBuffer.duration + 0.3) * 1000);
-
+      isEmiSpeakingRef.current = true;
       activeSourcesRef.current.push(source);
+
       source.onended = () => {
         activeSourcesRef.current = activeSourcesRef.current.filter((s) => s !== source);
+        if (activeSourcesRef.current.length === 0) {
+          setIsEmiSpeaking(false);
+          isEmiSpeakingRef.current = false;
+        }
       };
+
+      source.start();
     } catch (err) {
-      console.error("Audio playback error:", err);
+      console.warn("PCM playback error, using speech synthesis fallback:", err);
+      speakFallback(emiSubtitles);
     }
   };
 
-  // High-fidelity downsampler from device microphone sampleRate to 16,000Hz PCM
-  const downsampleTo16k = (buffer: Float32Array, inputSampleRate: number): Int16Array => {
-    if (inputSampleRate === 16000) {
-      const pcm16 = new Int16Array(buffer.length);
-      for (let i = 0; i < buffer.length; i++) {
-        const s = Math.max(-1, Math.min(1, buffer[i]));
-        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  // Fast Speech Synthesis Fallback
+  const speakFallback = (text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    try {
+      stopAllAudio();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const ukOrUsVoice = voices.find(
+        (v) => (v.lang.includes("en-GB") || v.lang.includes("en-US")) && !v.name.includes("Google"),
+      ) || voices.find((v) => v.lang.includes("en"));
+      if (ukOrUsVoice) {
+        utterance.voice = ukOrUsVoice;
       }
-      return pcm16;
+
+      utterance.onstart = () => {
+        setIsEmiSpeaking(true);
+        isEmiSpeakingRef.current = true;
+      };
+
+      utterance.onend = () => {
+        setIsEmiSpeaking(false);
+        isEmiSpeakingRef.current = false;
+      };
+
+      utterance.onerror = () => {
+        setIsEmiSpeaking(false);
+        isEmiSpeakingRef.current = false;
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error("Speech synthesis failed:", e);
     }
-    const ratio = inputSampleRate / 16000;
-    const newLength = Math.round(buffer.length / ratio);
-    const result = new Int16Array(newLength);
-    let offsetResult = 0;
-    let offsetBuffer = 0;
-    while (offsetResult < result.length) {
-      const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
-      let accum = 0;
-      let count = 0;
-      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
-        accum += buffer[i];
-        count++;
-      }
-      const sample = count > 0 ? accum / count : 0;
-      const s = Math.max(-1, Math.min(1, sample));
-      result[offsetResult] = s < 0 ? s * 0x8000 : s * 0x7fff;
-      offsetResult++;
-      offsetBuffer = nextOffsetBuffer;
-    }
-    return result;
   };
 
+  // Dispatch spoken question to the ultra-fast /api/gemini/voice-reply endpoint
+  const sendVoiceQuery = async (queryText: string) => {
+    const textToSend = queryText.trim();
+    if (!textToSend || isProcessingQueryRef.current) return;
+
+    // Reset interim
+    currentInterimRef.current = "";
+    setLiveTranscript("");
+    isProcessingQueryRef.current = true;
+    setIsThinking(true);
+    stopAllAudio();
+
+    try {
+      historyRef.current.push({ role: "user", text: textToSend });
+      if (historyRef.current.length > 6) {
+        historyRef.current = historyRef.current.slice(-6);
+      }
+
+      const res = await fetch("/api/gemini/voice-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: textToSend,
+          history: historyRef.current,
+          voiceName: voiceName,
+          userLevel: profile?.classLevel || "MSCE Form 4",
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to reach voice assistant");
+      }
+
+      const data = await res.json();
+      const reply = data.text || "I'm ready. What else would you like to explore?";
+      setEmiSubtitles(reply);
+      historyRef.current.push({ role: "model", text: reply });
+
+      setIsThinking(false);
+
+      if (data.audioBase64) {
+        playAudioData(data.audioBase64);
+      } else {
+        speakFallback(reply);
+      }
+    } catch (err: any) {
+      console.error("Voice request error:", err);
+      setIsThinking(false);
+      setErrorMsg(err.message || "Connection hiccup. Please try speaking again.");
+      setTimeout(() => setErrorMsg(null), 4000);
+    } finally {
+      isProcessingQueryRef.current = false;
+    }
+  };
+
+  // Sync mute state immediately to audio track and ref
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !isMuted;
+      });
+    }
+    if (isMuted) {
+      setIsUserSpeaking(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+    } else {
+      if (recognitionRef.current && isConnected) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {}
+      }
+    }
+  }, [isMuted, isConnected]);
+
+  // Call duration timer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isConnected) {
+      timer = setInterval(() => {
+        setSeconds((s) => s + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isConnected]);
+
+  // Daily limits & free tier 5-minute limit
+  useEffect(() => {
+    if (!profile?.isPro && seconds >= 300) {
+      onEnd();
+    }
+  }, [seconds, profile?.isPro, onEnd]);
+
+  // Main Live Voice Lifecycle
   useEffect(() => {
     // Check call limits
     const today = new Date().toLocaleDateString("en-CA");
@@ -2751,14 +2850,25 @@ function CallingView({
 
     let active = true;
 
-    const initLiveConnection = async () => {
+    const startVoiceCall = async () => {
       try {
         setErrorMsg(null);
 
-        // 1. Get microphone stream with clear echo cancellation
+        // 1. Initialize Audio Contexts & Analysers
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
+        const outCtx = new AudioContextClass({ sampleRate: 24000 });
+        outputAudioCtxRef.current = outCtx;
+        outCtx.resume().catch(() => {});
+
+        const emiAnalyser = outCtx.createAnalyser();
+        emiAnalyser.fftSize = 256;
+        emiAnalyserRef.current = emiAnalyser;
+        setEmiAnalyserNode(emiAnalyser);
+
+        // 2. Capture Microphone with noise suppression & echo cancellation
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            channelCount: 1,
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
@@ -2769,235 +2879,140 @@ function CallingView({
           return;
         }
         streamRef.current = stream;
-        // Respect current mute setting immediately
-        stream.getAudioTracks().forEach((track) => {
-          track.enabled = !isMutedRef.current;
-        });
 
-        // 2. Fetch API token from backend
-        const tokenRes = await fetch("/api/gemini/token");
-        const tokenData = await tokenRes.json();
-        const apiKey = tokenData.token;
-        if (!apiKey) {
-          throw new Error("Gemini API key is not configured.");
-        }
+        // Connect mic to userAnalyserNode for responsive wave spectrum
+        const inCtx = new AudioContextClass();
+        userAudioCtxRef.current = inCtx;
+        inCtx.resume().catch(() => {});
 
-        // 3. Setup Output AudioContext (24kHz for Gemini Live audio) & Analyser
-        const AudioContextClass =
-          window.AudioContext || (window as any).webkitAudioContext;
-        const outputCtx = new AudioContextClass({ sampleRate: 24000 });
-        outputAudioCtxRef.current = outputCtx;
-        nextPlayTimeRef.current = outputCtx.currentTime;
-        outputCtx.resume().catch(() => {});
-
-        const emiAnalyser = outputCtx.createAnalyser();
-        emiAnalyser.fftSize = 256;
-        emiAnalyserRef.current = emiAnalyser;
-        setEmiAnalyserNode(emiAnalyser);
-
-        // 4. Initialize GoogleGenAI with Live API
-        const ai = new GoogleGenAI({
-          apiKey,
-          httpOptions: { apiVersion: "v1alpha" },
-        });
-
-        const chosenVoice = voiceName || "Kore";
-
-        const session = await ai.live.connect({
-          model: "gemini-3.1-flash-live-preview",
-          config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: chosenVoice,
-                },
-              },
-            },
-            systemInstruction: `You are Emi AI, a friendly, patient, and knowledgeable Malawi secondary school study tutor from Educate Malawi (Educate MW - MW stands for Malawi). You specialize in the MANEB curriculum for JCE and MSCE students. You know all Educate Malawi features (Study Notes Library, Video Lessons, Dictionary, Quizzes, University Points Calculator). Keep your vocal answers conversational, encouraging, direct, and under 2-3 sentences so the conversation flows naturally.`,
-          },
-          callbacks: {
-            onopen: () => {
-              if (!active) return;
-              setIsConnected(true);
-              setErrorMsg(null);
-            },
-            onmessage: (message: any) => {
-              if (!active) return;
-
-              // Transcription/subtitles
-              const outText =
-                message.text ||
-                message.serverContent?.outputTranscription?.text ||
-                message.serverContent?.modelTurn?.parts?.find(
-                  (p: any) => p.text,
-                )?.text;
-              if (outText) {
-                setLiveTranscript(outText);
-              }
-
-              // Audio response chunks
-              const parts = message.serverContent?.modelTurn?.parts || [];
-              for (const part of parts) {
-                if (part.inlineData?.data) {
-                  playAudioChunk(part.inlineData.data);
-                }
-              }
-
-              // Handle interruption
-              if (message.serverContent?.interrupted) {
-                stopAllAudio();
-              }
-            },
-            onerror: (err: any) => {
-              console.warn("Live API Notice:", err);
-            },
-            onclose: (e: any) => {
-              if (!active) return;
-              console.log("Live session closed:", e);
-              setIsConnected(false);
-            },
-          },
-        });
-
-        if (!active) {
-          try {
-            session.close();
-          } catch (e) {}
-          return;
-        }
-        sessionRef.current = session;
-
-        // 5. Initial greeting from Emi
-        session.sendClientContent({
-          turns: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: "Hello Emi! Introduce yourself briefly in one short sentence and ask how you can help me with my MSCE or JCE studies today.",
-                },
-              ],
-            },
-          ],
-          turnComplete: true,
-        });
-
-        // 6. Setup Input AudioContext (mic capture & real-time downsampling)
-        const inputCtx = new AudioContextClass();
-        inputAudioCtxRef.current = inputCtx;
-        inputCtx.resume().catch(() => {});
-
-        const userAnalyser = inputCtx.createAnalyser();
+        const userAnalyser = inCtx.createAnalyser();
         userAnalyser.fftSize = 256;
         userAnalyserRef.current = userAnalyser;
         setUserAnalyserNode(userAnalyser);
 
-        const source = inputCtx.createMediaStreamSource(stream);
-        sourceNodeRef.current = source;
-
-        const processor = inputCtx.createScriptProcessor(2048, 1, 1);
-        processorNodeRef.current = processor;
-
-        const silentGain = inputCtx.createGain();
-        silentGain.gain.value = 0; // Prevent microphone feedback loop to speakers
-        silentGainRef.current = silentGain;
-
+        const source = inCtx.createMediaStreamSource(stream);
         source.connect(userAnalyser);
-        userAnalyser.connect(processor);
-        processor.connect(silentGain);
-        silentGain.connect(inputCtx.destination);
 
-        processor.onaudioprocess = (e) => {
-          if (isMutedRef.current || !active) return;
-          const inputData = e.inputBuffer.getChannelData(0);
+        // 3. Setup High-Accuracy Speech Recognition with continuous stream & silence debounce
+        const SpeechRec =
+          (window as any).SpeechRecognition ||
+          (window as any).webkitSpeechRecognition;
 
-          // Calculate RMS to detect user speaking activity
-          let sum = 0;
-          for (let i = 0; i < inputData.length; i++) {
-            sum += inputData[i] * inputData[i];
-          }
-          const rms = Math.sqrt(sum / inputData.length);
-          if (rms > 0.012) {
-            setIsUserSpeaking(true);
-            if (userSpeakingTimeoutRef.current) {
-              clearTimeout(userSpeakingTimeoutRef.current);
+        if (SpeechRec) {
+          const recognition = new SpeechRec();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = "en-US";
+          recognition.maxAlternatives = 1;
+
+          recognition.onresult = (event: any) => {
+            if (!active || isMutedRef.current) return;
+
+            let interim = "";
+            let finalSentence = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const transcript = event.results[i][0]?.transcript || "";
+              if (event.results[i].isFinal) {
+                finalSentence += transcript + " ";
+              } else {
+                interim += transcript;
+              }
             }
-            userSpeakingTimeoutRef.current = setTimeout(() => {
-              setIsUserSpeaking(false);
-            }, 350);
-          }
 
-          // Resample buffer to 16kHz PCM
-          const pcm16 = downsampleTo16k(inputData, inputCtx.sampleRate);
-          if (pcm16.length === 0) return;
+            const activeText = (finalSentence + interim).trim();
+            if (activeText) {
+              currentInterimRef.current = activeText;
+              setLiveTranscript(activeText);
+              setIsUserSpeaking(true);
 
-          let binary = "";
-          const bytes = new Uint8Array(pcm16.buffer);
-          const len = bytes.byteLength;
-          for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64Data = btoa(binary);
+              // Barge-in: if Emi is talking when user starts speaking, stop Emi immediately
+              if (isEmiSpeakingRef.current) {
+                stopAllAudio();
+              }
 
-          if (sessionRef.current) {
-            try {
-              sessionRef.current.sendRealtimeInput({
-                audio: {
-                  mimeType: "audio/pcm;rate=16000",
-                  data: base64Data,
-                },
-              });
-            } catch (err) {}
+              // Reset silence timer to auto-send when student finishes speaking
+              if (speechDebounceTimerRef.current) {
+                clearTimeout(speechDebounceTimerRef.current);
+              }
+              speechDebounceTimerRef.current = setTimeout(() => {
+                setIsUserSpeaking(false);
+                if (currentInterimRef.current.trim().length > 1) {
+                  sendVoiceQuery(currentInterimRef.current);
+                }
+              }, 850);
+            }
+          };
+
+          recognition.onspeechend = () => {
+            setIsUserSpeaking(false);
+          };
+
+          recognition.onerror = (err: any) => {
+            if (err.error !== "no-speech") {
+              console.warn("Speech recognition notice:", err.error);
+            }
+          };
+
+          recognition.onend = () => {
+            // Auto-restart to maintain persistent live call session
+            if (active && !isMutedRef.current) {
+              try {
+                recognition.start();
+              } catch (e) {}
+            }
+          };
+
+          try {
+            recognition.start();
+            recognitionRef.current = recognition;
+          } catch (e) {
+            console.warn("Could not start recognition:", e);
           }
-        };
+        }
+
+        if (active) {
+          setIsConnected(true);
+          // Initial greeting audio
+          const initialGreeting =
+            "Hello! I am Emi, your MSCE study tutor. What would you like to explore or practice together today?";
+          setEmiSubtitles(initialGreeting);
+          speakFallback(initialGreeting);
+        }
       } catch (err: any) {
-        console.error("Live connection error:", err);
+        console.error("Live call initialization error:", err);
         if (active) {
           setErrorMsg(
             err.message ||
-              "Could not start Live Voice session. Please grant microphone permission.",
+              "Could not access microphone. Please ensure microphone permissions are granted.",
           );
           setIsConnected(false);
         }
       }
     };
 
-    initLiveConnection();
+    startVoiceCall();
 
     return () => {
       active = false;
       stopAllAudio();
-      if (speakingTimeoutRef.current) {
-        clearTimeout(speakingTimeoutRef.current);
+      if (speechDebounceTimerRef.current) {
+        clearTimeout(speechDebounceTimerRef.current);
       }
-      if (userSpeakingTimeoutRef.current) {
-        clearTimeout(userSpeakingTimeoutRef.current);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+        recognitionRef.current = null;
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
-      if (processorNodeRef.current) {
-        processorNodeRef.current.onaudioprocess = null;
-        try { processorNodeRef.current.disconnect(); } catch (e) {}
-      }
-      if (sourceNodeRef.current) {
-        try { sourceNodeRef.current.disconnect(); } catch (e) {}
-      }
-      if (inputAudioCtxRef.current) {
-        inputAudioCtxRef.current.close().catch(() => {});
+      if (userAudioCtxRef.current) {
+        userAudioCtxRef.current.close().catch(() => {});
       }
       if (outputAudioCtxRef.current) {
         outputAudioCtxRef.current.close().catch(() => {});
-      }
-      if (sessionRef.current) {
-        try {
-          if (typeof sessionRef.current.then === "function") {
-            sessionRef.current.then((s: any) => s.close?.()).catch(() => {});
-          } else {
-            sessionRef.current.close?.();
-          }
-        } catch (e) {}
       }
     };
   }, [voiceName]);
@@ -3067,33 +3082,37 @@ function CallingView({
             className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-yellow-500"}`}
           ></div>
           <span className="text-[10px] font-extrabold tracking-wider uppercase">
-            {isConnected ? "Secure Live" : "Connecting"}
+            {isConnected ? "Live Active" : "Connecting"}
           </span>
         </div>
       </div>
 
       {/* Studio Centered Stage with Double Interspatial Pulsing Circles */}
-      <div className="flex flex-col items-center relative z-10 w-full flex-1 justify-center max-w-sm mt-3">
-        <div className="mb-8 relative flex items-center justify-center">
+      <div className="flex flex-col items-center relative z-10 w-full flex-1 justify-center max-w-sm mt-1">
+        <div className="mb-6 relative flex items-center justify-center">
           {/* Dynamic multi-color ambient pulsing glow rings */}
           {isConnected && (
             <>
               <div
                 className={`absolute inset-[-20px] rounded-full transition-all duration-300 -z-10 ${
                   isEmiSpeaking
-                    ? "bg-indigo-500/25 animate-pulse"
+                    ? "bg-indigo-500/30 animate-pulse"
                     : isUserSpeaking && !isMuted
-                      ? "bg-emerald-500/25 animate-pulse"
-                      : "bg-indigo-500/10 opacity-60"
+                      ? "bg-emerald-500/30 animate-pulse"
+                      : isThinking
+                        ? "bg-amber-500/30 animate-pulse"
+                        : "bg-indigo-500/10 opacity-60"
                 }`}
               ></div>
               <div
                 className={`absolute inset-[-45px] rounded-full transition-all duration-500 -z-10 ${
                   isEmiSpeaking
-                    ? "bg-purple-500/15 animate-ping duration-1000"
+                    ? "bg-purple-500/20 animate-ping duration-1000"
                     : isUserSpeaking && !isMuted
-                      ? "bg-teal-400/20 animate-ping duration-1000"
-                      : "bg-emerald-400/5 opacity-40"
+                      ? "bg-teal-400/25 animate-ping duration-1000"
+                      : isThinking
+                        ? "bg-amber-400/20 animate-ping duration-1000"
+                        : "bg-emerald-400/5 opacity-40"
                 }`}
               ></div>
             </>
@@ -3101,12 +3120,16 @@ function CallingView({
 
           {/* Premium Vector Avatar Track Globe */}
           <div
-            className={`w-[190px] h-[190px] ${
+            className={`w-[180px] h-[180px] ${
               theme === "dark"
                 ? "bg-gray-900/60 border-indigo-500/30"
                 : "bg-white border-indigo-200"
             } rounded-full flex items-center justify-center border-4 relative z-10 p-3.5 shadow-[0_20px_50px_rgba(99,102,241,0.15)] transition-transform duration-300 ${
-              isEmiSpeaking ? "scale-105" : isUserSpeaking && !isMuted ? "scale-102" : ""
+              isEmiSpeaking
+                ? "scale-105"
+                : isUserSpeaking && !isMuted
+                  ? "scale-102"
+                  : ""
             }`}
           >
             <div
@@ -3127,10 +3150,12 @@ function CallingView({
               <div
                 className={`absolute inset-0 transition-opacity duration-300 ${
                   isEmiSpeaking
-                    ? "bg-indigo-500/20 opacity-100"
+                    ? "bg-indigo-500/25 opacity-100"
                     : isUserSpeaking && !isMuted
-                      ? "bg-emerald-500/20 opacity-100"
-                      : "opacity-0"
+                      ? "bg-emerald-500/25 opacity-100"
+                      : isThinking
+                        ? "bg-amber-500/20 opacity-100"
+                        : "opacity-0"
                 }`}
               ></div>
             </div>
@@ -3147,15 +3172,29 @@ function CallingView({
                       ? "bg-emerald-400 animate-ping shadow-emerald-400/50"
                       : "bg-emerald-500"
                 }`}
-                title={isMuted ? "Microphone Muted" : isUserSpeaking ? "Microphone Active" : "Microphone Ready"}
+                title={
+                  isMuted
+                    ? "Microphone Muted"
+                    : isUserSpeaking
+                      ? "Microphone Active"
+                      : "Microphone Ready"
+                }
               ></div>
               <div
                 className={`absolute w-3 h-3 rounded-full bottom-[10%] left-[10%] transition-colors duration-300 shadow-md ${
                   isEmiSpeaking
                     ? "bg-indigo-400 animate-bounce shadow-indigo-400/50"
-                    : "bg-indigo-600/60"
+                    : isThinking
+                      ? "bg-amber-400 animate-spin"
+                      : "bg-indigo-600/60"
                 }`}
-                title={isEmiSpeaking ? "Emi is Speaking" : "Emi is Listening"}
+                title={
+                  isEmiSpeaking
+                    ? "Emi is Speaking"
+                    : isThinking
+                      ? "Emi is Thinking..."
+                      : "Emi is Listening"
+                }
               ></div>
             </>
           )}
@@ -3163,23 +3202,23 @@ function CallingView({
 
         {/* Title and Study Assistant Heading */}
         <h3
-          className={`text-3xl font-extrabold mb-1 tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"} text-center drop-shadow-sm`}
+          className={`text-2xl font-extrabold mb-0.5 tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"} text-center drop-shadow-sm`}
         >
           Emi AI
         </h3>
         <p
-          className={`text-[11px] font-bold ${theme === "dark" ? "text-indigo-300" : "text-indigo-600"} text-center uppercase tracking-widest mb-4`}
+          className={`text-[10px] font-bold ${theme === "dark" ? "text-indigo-300" : "text-indigo-600"} text-center uppercase tracking-widest mb-3`}
         >
-          MSCE Curriculum Expert
+          MSCE & JCE Curriculum Tutor
         </p>
 
         {/* Connection, Timer Badge */}
         <div
-          className={`backdrop-blur-xl px-6 py-2.5 rounded-2xl border flex flex-col items-center ${
+          className={`backdrop-blur-xl px-5 py-2 rounded-2xl border flex flex-col items-center ${
             theme === "dark"
               ? "bg-slate-900/60 border-slate-800 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
               : "bg-white border-slate-200/80 shadow-[0_8px_32px_rgba(99,102,241,0.05)]"
-          } min-w-[240px] max-w-[320px] mb-3 transition-all duration-300`}
+          } min-w-[220px] max-w-[320px] mb-3 transition-all duration-300`}
         >
           <div className="flex items-center gap-2">
             <div
@@ -3188,11 +3227,13 @@ function CallingView({
                   ? "bg-red-500"
                   : isEmiSpeaking
                     ? "bg-indigo-500 animate-ping"
-                    : isUserSpeaking
-                      ? "bg-emerald-500 animate-ping"
-                      : isConnected
-                        ? "bg-teal-500 animate-pulse"
-                        : "bg-slate-400"
+                    : isThinking
+                      ? "bg-amber-500 animate-pulse"
+                      : isUserSpeaking
+                        ? "bg-emerald-500 animate-ping"
+                        : isConnected
+                          ? "bg-teal-500 animate-pulse"
+                          : "bg-slate-400"
               }`}
             ></div>
             <span
@@ -3201,20 +3242,24 @@ function CallingView({
                   ? "text-red-500"
                   : isEmiSpeaking
                     ? "text-indigo-500"
-                    : isUserSpeaking
-                      ? "text-emerald-500"
-                      : "text-slate-500"
+                    : isThinking
+                      ? "text-amber-500"
+                      : isUserSpeaking
+                        ? "text-emerald-500"
+                        : "text-slate-500"
               }`}
             >
               {isMuted
                 ? "Microphone Muted"
                 : isEmiSpeaking
                   ? "Emi Speaking..."
-                  : isUserSpeaking
-                    ? "You are Speaking..."
-                    : isConnected
-                      ? "Live Call Active"
-                      : "Connecting..."}
+                  : isThinking
+                    ? "Emi Thinking..."
+                    : isUserSpeaking
+                      ? "Listening to You..."
+                      : isConnected
+                        ? "Speak Freely"
+                        : "Connecting..."}
             </span>
             <span className="text-[11px] font-mono font-black ml-2 text-slate-500">
               {formatTime(seconds)}
@@ -3223,7 +3268,7 @@ function CallingView({
 
           {!profile?.isPro && isConnected && (
             <span
-              className={`text-[9px] font-extrabold mt-1.5 uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}
+              className={`text-[9px] font-extrabold mt-1 uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}
             >
               {300 - seconds > 0
                 ? `Free Call: ${formatTime(300 - seconds)} left`
@@ -3232,9 +3277,52 @@ function CallingView({
           )}
         </div>
 
-        {/* Error / System feedback alerts */}
+        {/* Live Subtitles / Spoken Response Dialogue Display Box */}
+        <div
+          className={`w-full max-w-sm px-4 py-3 rounded-2xl border backdrop-blur-md transition-all text-center min-h-[58px] flex items-center justify-center mb-1 ${
+            theme === "dark"
+              ? "bg-slate-900/50 border-slate-800/80 text-slate-200"
+              : "bg-white/90 border-slate-200/90 text-slate-800 shadow-sm"
+          }`}
+        >
+          {liveTranscript ? (
+            <div className="flex flex-col items-center gap-1 animate-in fade-in">
+              <span className="text-[10px] uppercase font-black text-emerald-500 tracking-wider">
+                You are saying:
+              </span>
+              <p className="text-xs font-semibold leading-relaxed line-clamp-2">
+                "{liveTranscript}"
+              </p>
+            </div>
+          ) : isThinking ? (
+            <div className="flex items-center gap-2 text-amber-500 animate-pulse">
+              <span className="text-xs font-bold">Emi is formulating your answer...</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1 animate-in fade-in">
+              <span className="text-[9px] uppercase font-black text-indigo-500 tracking-wider">
+                Emi:
+              </span>
+              <p className="text-xs font-medium leading-relaxed line-clamp-3">
+                "{emiSubtitles}"
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Send Trigger Chip if user is speaking */}
+        {liveTranscript && (
+          <button
+            onClick={() => sendVoiceQuery(liveTranscript)}
+            className="mt-1 px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider shadow-md transition-all active:scale-95 animate-in zoom-in-95 cursor-pointer"
+          >
+            Tap to Ask Now →
+          </button>
+        )}
+
+        {/* Error feedback alert */}
         {errorMsg && (
-          <div className="mt-3 bg-red-500/10 px-5 py-2.5 rounded-2xl border border-red-500/30 text-center max-w-[280px] animate-in fade-in zoom-in-95 relative z-20">
+          <div className="mt-2 bg-red-500/10 px-4 py-2 rounded-2xl border border-red-500/30 text-center max-w-[280px] animate-in fade-in zoom-in-95 relative z-20">
             <p className="text-red-400 text-xs font-bold leading-snug">
               {errorMsg}
             </p>
@@ -3243,7 +3331,7 @@ function CallingView({
       </div>
 
       {/* Interactive Controls & Bottom Wave Visualizer Block */}
-      <div className="flex flex-col items-center gap-6 relative z-20 w-full max-w-sm">
+      <div className="flex flex-col items-center gap-5 relative z-20 w-full max-w-sm">
         {/* Dual-Color Spectrum Wave Visualization (User Mic vs Emi AI) */}
         <div className="w-full">
           <SpectrumVisualizer
@@ -3304,11 +3392,11 @@ function CallingView({
           </button>
         </div>
 
-        {/* Small humble Malawi copyright branding tag */}
+        {/* Malawi copyright branding tag */}
         <p
           className={`text-[8px] font-bold uppercase tracking-[0.45em] text-center ${theme === "dark" ? "text-white/20" : "text-slate-400"}`}
         >
-          MSCE Vocal Core v2.4
+          MSCE Vocal Core v3.0 • Fast Response
         </p>
       </div>
 
@@ -4152,495 +4240,6 @@ function LibraryItem({
           <Download size={18} />
         )}
       </button>
-    </div>
-  );
-}
-
-function DictionaryView({
-  onBack,
-  theme,
-}: {
-  onBack: () => void;
-  theme: "light" | "dark";
-}) {
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("All");
-  const [query, setQuery] = useState("");
-  const [result, setResult] = useState<any>(() => {
-    try {
-      const lastWord = localStorage.getItem("mw_dict_last_word");
-      if (lastWord && ACADEMIC_DICTIONARY[lastWord.toLowerCase()]) {
-        return ACADEMIC_DICTIONARY[lastWord.toLowerCase()];
-      }
-    } catch {}
-    return ACADEMIC_DICTIONARY["photosynthesis"] || null;
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [dictionaryCache, setDictionaryCache] = useState<Record<string, any>>(
-    () => {
-      try {
-        const saved = localStorage.getItem("mw_dictionary_cache_v2");
-        return saved ? JSON.parse(saved) : {};
-      } catch {
-        return {};
-      }
-    },
-  );
-
-  const speak = (text: string) => {
-    try {
-      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-      const utterance = new SpeechSynthesisUtterance(text);
-
-      const setVoiceAndSpeak = () => {
-        try {
-          const voices = window.speechSynthesis.getVoices();
-          const preferredVoice = voices.find(
-            (v) =>
-              (v.name?.toLowerCase()?.includes("google us english") ||
-                v.name?.toLowerCase()?.includes("natural") ||
-                v.name?.toLowerCase()?.includes("english") ||
-                v.name?.toLowerCase()?.includes("male") ||
-                v.name?.toLowerCase()?.includes("david")) &&
-              v.lang?.startsWith("en"),
-          );
-
-          if (preferredVoice) {
-            utterance.voice = preferredVoice;
-          } else if (voices.length > 0) {
-            utterance.voice = voices.find((v) => v.lang?.startsWith("en")) || voices[0];
-          }
-
-          utterance.pitch = 0.95;
-          utterance.rate = 0.95;
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-        } catch (innerErr) {
-          console.warn("Speech voice selection ignored:", innerErr);
-        }
-      };
-
-      if (window.speechSynthesis.getVoices().length === 0) {
-        window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
-      } else {
-        setVoiceAndSpeak();
-      }
-    } catch (e) {
-      console.warn("Speech synthesis notice:", e);
-    }
-  };
-
-  const performSearch = async (searchTerm: string) => {
-    const rawWord = searchTerm.trim();
-    if (!rawWord) return;
-    const wordKey = rawWord.toLowerCase();
-
-    setLoading(true);
-    setError("");
-
-    try {
-      localStorage.setItem("mw_dict_last_word", wordKey);
-    } catch {}
-
-    // 1. Check local persistent cache
-    if (dictionaryCache[wordKey]) {
-      setResult(dictionaryCache[wordKey]);
-      setLoading(false);
-      return;
-    }
-
-    // 2. Check built-in curated academic dictionary
-    if (ACADEMIC_DICTIONARY[wordKey]) {
-      const localEntry = ACADEMIC_DICTIONARY[wordKey];
-      const nextCache = { ...dictionaryCache, [wordKey]: localEntry };
-      setDictionaryCache(nextCache);
-      try {
-        localStorage.setItem("mw_dictionary_cache_v2", JSON.stringify(nextCache));
-      } catch {}
-      setResult(localEntry);
-      setLoading(false);
-      return;
-    }
-
-    // 3. Try Free Dictionary API with timeout
-    let found = false;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const cleanWord = encodeURIComponent(wordKey.replace(/[^a-zA-Z0-9 -]/g, ""));
-      const dictRes = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`,
-        { signal: controller.signal }
-      );
-      clearTimeout(timeoutId);
-
-      if (dictRes.ok) {
-        const data = await dictRes.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const entry = data[0];
-          const formattedResult = {
-            word: entry.word || rawWord,
-            phonetic:
-              entry.phonetic ||
-              entry.phonetics?.find((p: any) => p.text)?.text ||
-              "",
-            meanings: (entry.meanings || []).map((m: any) => ({
-              partOfSpeech: m.partOfSpeech || "general",
-              definitions: (m.definitions || []).slice(0, 3).map((d: any) => ({
-                definition: d.definition,
-                example: d.example || (d.synonyms?.length ? `Synonyms: ${d.synonyms.slice(0, 4).join(", ")}` : undefined),
-              })),
-            })),
-            synonyms: entry.meanings?.flatMap((m: any) => m.synonyms || []).slice(0, 6),
-          };
-
-          const nextCache = { ...dictionaryCache, [wordKey]: formattedResult };
-          setDictionaryCache(nextCache);
-          try {
-            localStorage.setItem(
-              "mw_dictionary_cache_v2",
-              JSON.stringify(nextCache),
-            );
-          } catch {}
-          setResult(formattedResult);
-          found = true;
-        }
-      }
-    } catch (apiErr) {
-      console.warn("Free Dictionary API attempt timed out or failed:", apiErr);
-    }
-
-    if (found) {
-      setLoading(false);
-      return;
-    }
-
-    // 4. Fallback to Gemini AI Dictionary Endpoint with timeout
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const aiRes = await fetch("/api/gemini/dictionary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: rawWord }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (aiRes.ok) {
-        const aiData = await aiRes.json();
-        if (aiData && aiData.meanings && aiData.meanings.length > 0) {
-          const formattedAiResult = {
-            word: aiData.word || rawWord,
-            phonetic: aiData.phonetic || "",
-            meanings: aiData.meanings,
-            synonyms: aiData.synonyms || [],
-            subject: aiData.subject || "Academic & General Vocabulary",
-          };
-
-          const nextCache = { ...dictionaryCache, [wordKey]: formattedAiResult };
-          setDictionaryCache(nextCache);
-          try {
-            localStorage.setItem(
-              "mw_dictionary_cache_v2",
-              JSON.stringify(nextCache),
-            );
-          } catch {}
-          setResult(formattedAiResult);
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (aiErr) {
-      console.warn("Gemini dictionary fallback error:", aiErr);
-    }
-
-    // 5. Final fallback check if any partial match in local dictionary exists
-    const partialMatchKey = Object.keys(ACADEMIC_DICTIONARY).find(
-      (k) => k.includes(wordKey) || wordKey.includes(k)
-    );
-    if (partialMatchKey) {
-      setResult(ACADEMIC_DICTIONARY[partialMatchKey]);
-      setLoading(false);
-      return;
-    }
-
-    setError(`Could not find a definition for "${rawWord}". Please check spelling or select one of the suggested academic topics below.`);
-    setLoading(false);
-  };
-
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    performSearch(query);
-  };
-
-  const handleChipClick = (word: string) => {
-    setQuery(word);
-    performSearch(word);
-  };
-
-  const SUBJECT_CATEGORIES = [
-    "All",
-    "Biology",
-    "Physics",
-    "Chemistry",
-    "Mathematics",
-    "English",
-    "Geography",
-    "Agriculture",
-    "History",
-  ];
-
-  const filteredWords = selectedSubjectFilter === "All"
-    ? POPULAR_DICTIONARY_WORDS
-    : Object.values(ACADEMIC_DICTIONARY)
-        .filter((entry) => {
-          const subj = (entry.subject || "").toLowerCase();
-          return subj.includes(selectedSubjectFilter.toLowerCase());
-        })
-        .map((e) => e.word)
-        .slice(0, 15);
-
-  return (
-    <div
-      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} animate-in slide-in-from-right duration-300`}
-    >
-      {/* Header */}
-      <div
-        className={`${theme === "dark" ? "bg-gray-900/90 border-gray-800 text-white" : "bg-white/90 border-slate-200 text-slate-900"} backdrop-blur-xl pt-4 pb-3 px-5 flex items-center justify-between shrink-0 z-10 border-b shadow-md`}
-      >
-        <div className="flex items-center">
-          <button
-            onClick={onBack}
-            className={`w-10 h-10 ${theme === "dark" ? "bg-gray-800 text-white hover:bg-gray-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"} rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform`}
-          >
-            <ChevronLeft size={24} strokeWidth={3} />
-          </button>
-          <div className="ml-4">
-            <h2
-              className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg leading-tight uppercase tracking-tight`}
-            >
-              Academic Dictionary
-            </h2>
-            <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
-              MSCE & JCE Syllabus Lexicon
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-16 hide-scrollbar max-w-4xl mx-auto w-full space-y-5">
-        {/* Search Bar */}
-        <form
-          onSubmit={handleSearchSubmit}
-          className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-md"} rounded-[2rem] px-5 py-3 flex items-center border transition-all focus-within:border-indigo-500/50 group`}
-        >
-          <Search
-            className="text-gray-400 mr-3 group-focus-within:text-indigo-500 transition-colors"
-            size={20}
-            strokeWidth={2.5}
-          />
-          <input
-            type="text"
-            placeholder="Search academic terms (e.g. Osmosis, Velocity, Metaphor)..."
-            className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm sm:text-base font-semibold placeholder-gray-400`}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query.trim() && (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold mr-2 px-1"
-            >
-              Clear
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={!query.trim() || loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform disabled:opacity-30 shrink-0"
-          >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <ArrowRight size={18} strokeWidth={3} />
-            )}
-          </button>
-        </form>
-
-        {/* Subject Filter Pills */}
-        <div>
-          <div className="flex items-center gap-2 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-            <Sparkles size={13} className="text-indigo-500" />
-            <span>Curriculum Categories</span>
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
-            {SUBJECT_CATEGORIES.map((cat) => {
-              const isSelected = selectedSubjectFilter === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedSubjectFilter(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border shrink-0 ${
-                    isSelected
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                      : theme === "dark"
-                      ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Popular / Filtered Terms Chips */}
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {(filteredWords.length > 0 ? filteredWords : POPULAR_DICTIONARY_WORDS).map((word) => (
-              <button
-                key={word}
-                type="button"
-                onClick={() => handleChipClick(word)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border capitalize ${
-                  (query && query.toLowerCase() === word.toLowerCase()) || (result && result.word.toLowerCase() === word.toLowerCase())
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                    : theme === "dark"
-                    ? "bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
-                }`}
-              >
-                {word}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Error Notification */}
-        {error && (
-          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-2xl text-center text-sm font-bold">
-            {error}
-          </div>
-        )}
-
-        {/* Result Display */}
-        {result && (
-          <div className="animate-in fade-in slide-in-from-bottom duration-300">
-            <div
-              className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200 shadow-sm"} rounded-[28px] p-6 sm:p-8 border mb-6`}
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h3
-                      className={`font-black text-3xl sm:text-4xl ${theme === "dark" ? "text-white" : "text-slate-900"} capitalize tracking-tight`}
-                    >
-                      {result.word}
-                    </h3>
-                    {result.subject && (
-                      <span className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-                        {result.subject}
-                      </span>
-                    )}
-                  </div>
-                  {result.phonetic && (
-                    <p className="text-sm text-indigo-500 dark:text-indigo-400 font-bold tracking-wider mt-1 font-mono">
-                      {result.phonetic}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  title="Listen to pronunciation"
-                  onClick={() => speak(result.word)}
-                  className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center rounded-2xl shadow-lg shadow-indigo-600/30 active:scale-90 transition-transform shrink-0"
-                >
-                  <Volume2 size={24} />
-                </button>
-              </div>
-
-              {/* Meanings & Definitions */}
-              <div className="space-y-6">
-                {result.meanings && result.meanings.map((meaning: any, i: number) => (
-                  <div key={i} className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <span className="font-black text-indigo-600 dark:text-indigo-400 text-xs sm:text-sm uppercase tracking-wider font-mono">
-                        {meaning.partOfSpeech}
-                      </span>
-                      <div
-                        className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
-                      ></div>
-                    </div>
-                    <ul className="space-y-4">
-                      {meaning.definitions && meaning.definitions.map((def: any, idx: number) => (
-                        <li
-                          key={idx}
-                          className={`${theme === "dark" ? "text-gray-200" : "text-slate-800"} text-base sm:text-lg leading-relaxed font-semibold border-l-4 border-indigo-500 pl-4 py-0.5`}
-                        >
-                          <div>{def.definition}</div>
-                          {def.example && (
-                            <div
-                              className={`mt-2.5 p-3.5 rounded-xl ${theme === "dark" ? "bg-indigo-950/30 text-indigo-200 border-indigo-900/40" : "bg-indigo-50 text-indigo-900 border-indigo-100"} text-xs sm:text-sm font-medium leading-relaxed border`}
-                            >
-                              <span className="text-[10px] uppercase font-black tracking-wider text-indigo-500 block mb-1">
-                                Usage Example
-                              </span>
-                              "{def.example}"
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-
-                {/* Synonyms if available */}
-                {result.synonyms && result.synonyms.length > 0 && (
-                  <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
-                    <span className="text-xs uppercase font-black tracking-wider text-gray-400 block mb-2">
-                      Related Concepts & Synonyms:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {result.synonyms.map((syn: string, idx: number) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => handleChipClick(syn)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${theme === "dark" ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-                        >
-                          {syn}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!result && !error && !loading && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400 text-center">
-            <div
-              className={`w-20 h-20 rounded-3xl ${theme === "dark" ? "bg-gray-900 text-gray-700" : "bg-slate-100 text-slate-300"} flex items-center justify-center mb-4`}
-            >
-              <BookA size={38} strokeWidth={1.5} />
-            </div>
-            <h4 className="font-bold text-sm text-gray-500 uppercase tracking-widest mb-1">
-              Search Any Academic or General Term
-            </h4>
-            <p className="text-xs text-gray-400 max-w-sm">
-              Instant curriculum-aligned definitions, pronunciation audio, parts of speech, and usage context.
-            </p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
