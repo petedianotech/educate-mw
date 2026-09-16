@@ -145,7 +145,6 @@ import {
   FileText,
   Key,
   Languages,
-  LayoutDashboard,
   Eye,
   Settings,
   CreditCard,
@@ -1099,22 +1098,6 @@ export default function App() {
                 <SidebarItem
                   theme={theme}
                   icon={
-                    <CreditCard
-                      size={20}
-                      className="text-indigo-400"
-                      strokeWidth={2.5}
-                    />
-                  }
-                  label="MSCE Pro Access"
-                  onClick={() => {
-                    navigateTo("subscription");
-                    setIsSidebarOpen(false);
-                  }}
-                  active={currentView === "subscription"}
-                />
-                <SidebarItem
-                  theme={theme}
-                  icon={
                     <BookOpen
                       size={20}
                       className="text-emerald-400"
@@ -1160,70 +1143,6 @@ export default function App() {
                   }}
                   active={currentView === "leaderboard"}
                 />
-
-                {isAdmin && (
-                  <SidebarItem
-                    theme={theme}
-                    icon={
-                      <LayoutDashboard
-                        size={20}
-                        className="text-amber-500"
-                        strokeWidth={2.5}
-                      />
-                    }
-                    label="Admin"
-                    onClick={() => {
-                      navigateTo("admin");
-                      setIsSidebarOpen(false);
-                    }}
-                    active={currentView === "admin"}
-                  />
-                )}
-
-                <div className="flex-1" />
-
-                <SidebarItem
-                  theme={theme}
-                  icon={<Settings size={20} />}
-                  label="App Settings"
-                  onClick={() => {
-                    setShowSettings(true);
-                    setIsSidebarOpen(false);
-                  }}
-                />
-              </div>
-
-              <div
-                className={`p-4 border-t ${theme === "dark" ? "border-gray-800" : "border-slate-200"} mt-auto`}
-              >
-                <div
-                  className={`${theme === "dark" ? "bg-indigo-600/10 border-indigo-500/20" : "bg-indigo-50 border-indigo-100 shadow-sm"} p-4 rounded-2xl border flex flex-col gap-3`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500">
-                      <Crown size={16} fill="currentColor" fillOpacity={0.2} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span
-                        className={`text-[13px] font-black tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}
-                      >
-                        Educate MW Pro
-                      </span>
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                        Upgrade Account
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setCurrentView("subscription");
-                      setIsSidebarOpen(false);
-                    }}
-                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-                  >
-                    Upgrade Now
-                  </button>
-                </div>
               </div>
             </div>
           </div>
