@@ -146,6 +146,7 @@ import {
   Key,
   Languages,
   Eye,
+  EyeOff,
   Settings,
   CreditCard,
   LogOut,
@@ -166,6 +167,8 @@ import {
   Activity,
   Save,
   Award,
+  Pencil,
+  ExternalLink,
 } from "lucide-react";
 
 export type ViewState =
@@ -957,7 +960,7 @@ export default function App() {
                 />
                 <NavItem
                   icon={
-                    <Book
+                    <BookOpen
                       size={22}
                       strokeWidth={currentView === "library" ? 2.5 : 2}
                       fill={currentView === "library" ? "currentColor" : "none"}
@@ -1082,25 +1085,9 @@ export default function App() {
                 <SidebarItem
                   theme={theme}
                   icon={
-                    <Calculator
+                    <FileText
                       size={20}
-                      className="text-indigo-400"
-                      strokeWidth={2.5}
-                    />
-                  }
-                  label="MSCE Points Calculator"
-                  onClick={() => {
-                    navigateTo("msce-calculator");
-                    setIsSidebarOpen(false);
-                  }}
-                  active={currentView === "msce-calculator"}
-                />
-                <SidebarItem
-                  theme={theme}
-                  icon={
-                    <BookOpen
-                      size={20}
-                      className="text-emerald-400"
+                      className="text-blue-400"
                       strokeWidth={2.5}
                     />
                   }
@@ -1142,6 +1129,22 @@ export default function App() {
                     setIsSidebarOpen(false);
                   }}
                   active={currentView === "leaderboard"}
+                />
+                <SidebarItem
+                  theme={theme}
+                  icon={
+                    <Calculator
+                      size={20}
+                      className="text-emerald-400"
+                      strokeWidth={2.5}
+                    />
+                  }
+                  label="MSCE Points Calculator"
+                  onClick={() => {
+                    navigateTo("msce-calculator");
+                    setIsSidebarOpen(false);
+                  }}
+                  active={currentView === "msce-calculator"}
                 />
               </div>
             </div>
@@ -3698,7 +3701,6 @@ function LibraryView({
 }) {
   const [filter, setFilter] = useState<"all" | "offline">("all");
   const [filterSubject, setFilterSubject] = useState("");
-  const [filterLevel, setFilterLevel] = useState("");
   const [materials, setMaterials] = useState<any[]>(() => {
     try {
       const cached = localStorage.getItem("mw_library_materials_cache");
@@ -3810,24 +3812,6 @@ function LibraryView({
     "Computer Studies",
   ];
 
-  const dynamicSubjects = Array.from(
-    new Set(libraryMaterials.map((m) => m.subject).filter(Boolean)),
-  ) as string[];
-
-  const allSubjectsList = Array.from(
-    new Set([...standardSubjects.slice(1), ...dynamicSubjects]),
-  );
-
-  const uniqueLevels = Array.from(
-    new Set([
-      "Form 1",
-      "Form 2",
-      "Form 3",
-      "Form 4",
-      ...libraryMaterials.map((m) => m.level).filter(Boolean),
-    ]),
-  ) as string[];
-
   const visibleItems = libraryMaterials
     .filter((item) =>
       filter === "offline" ? (downloadedIds || []).includes(item.id) : true,
@@ -3837,12 +3821,6 @@ function LibraryView({
       const itemSub = (item.subject || "").toLowerCase().trim();
       const targetSub = filterSubject.toLowerCase().trim();
       return itemSub === targetSub || itemSub.includes(targetSub) || targetSub.includes(itemSub);
-    })
-    .filter((item) => {
-      if (!filterLevel || filterLevel === "All Levels") return true;
-      const itemLvl = (item.level || "").toLowerCase().trim();
-      const targetLvl = filterLevel.toLowerCase().trim();
-      return itemLvl === targetLvl || itemLvl.includes(targetLvl);
     })
     .filter((item) => {
       if (!searchQuery.trim()) return true;
@@ -3861,7 +3839,6 @@ function LibraryView({
 
   const clearFilters = () => {
     setFilterSubject("");
-    setFilterLevel("");
     setSearchQuery("");
     setFilter("all");
   };
@@ -3949,12 +3926,12 @@ function LibraryView({
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Filter by Subject
             </span>
-            {(filterSubject || filterLevel || searchQuery) && (
+            {(filterSubject || searchQuery) && (
               <button
                 onClick={clearFilters}
                 className="text-xs font-bold text-indigo-500 hover:underline"
               >
-                Reset Filters
+                Reset Filter
               </button>
             )}
           </div>
@@ -3982,35 +3959,6 @@ function LibraryView({
               );
             })}
           </div>
-        </div>
-
-        {/* Level Select & Detailed Dropdowns */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <select
-            value={filterSubject}
-            onChange={(e) => setFilterSubject(e.target.value)}
-            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none focus:border-indigo-500`}
-          >
-            <option value="">All Subjects</option>
-            {allSubjectsList.map((sub) => (
-              <option key={sub} value={sub}>
-                {sub}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterLevel}
-            onChange={(e) => setFilterLevel(e.target.value)}
-            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"} border outline-none focus:border-indigo-500`}
-          >
-            <option value="">All Levels (Forms 1-4)</option>
-            {uniqueLevels.map((lvl) => (
-              <option key={lvl} value={lvl}>
-                {lvl}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div>
@@ -5797,6 +5745,7 @@ function AuthView({
 }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -5811,11 +5760,11 @@ function AuthView({
       if (err.code === "auth/popup-closed-by-user") {
         setError(""); // Ignore closed popups gracefully
       } else if (err.code === "auth/popup-blocked") {
-        setError("Popup blocked by browser. Please allow popups or try Email login.");
+        setError("Browser blocked the login popup. Please allow popups or use phone/email login.");
       } else if (err.code === "auth/cancelled-popup-request") {
         setError(""); // Multiple clicks ignored
       } else {
-        setError(err.message || "Login failed");
+        setError(err.message || "Google sign-in could not be completed. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -5825,29 +5774,50 @@ function AuthView({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!identifier || !password) {
-      setError("Please enter your credentials");
+    const trimmedId = identifier.trim();
+    if (!trimmedId || !password) {
+      setError("Please enter your phone number or email, and your password.");
       return;
     }
     setLoading(true);
     try {
-      let emailToUse = identifier.trim();
-      if (/^[\d\s+\-()]+$/.test(identifier) && identifier.length >= 8) {
-        const digits = identifier.replace(/\D/g, "");
+      let emailToUse = trimmedId;
+      if (/^[\d\s+\-()]+$/.test(trimmedId) && trimmedId.length >= 8) {
+        const digits = trimmedId.replace(/\D/g, "");
         emailToUse = `${digits}@educatemw.app`;
       }
       await signInWithEmailAndPassword(auth, emailToUse, password);
     } catch (err: any) {
-      setError(err.message || "Login failed. Check credentials.");
-      console.error(err);
+      console.error("Login Error:", err);
+      const code = err?.code || "";
+      if (
+        code === "auth/invalid-credential" ||
+        code === "auth/user-not-found" ||
+        code === "auth/wrong-password"
+      ) {
+        setError(
+          "We could not find an account with these details, or the password was incorrect. If you haven't created an account yet, tap 'Create Account' above!",
+        );
+      } else if (code === "auth/invalid-email") {
+        setError("Please check your phone number or email address format.");
+      } else if (code === "auth/network-request-failed") {
+        setError("Network problem. Please check your internet connection and try again.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a moment or reach out to our WhatsApp support.");
+      } else {
+        setError(err.message || "Sign in failed. Please check your details or tap WhatsApp help below.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const whatsappHelpUrl =
+    "https://wa.me/265987066051?text=Hello%20Educate%20MW%2C%20I%20need%20help%20with%20logging%20in%20or%20have%20questions%20about%20the%20app.";
+
   return (
     <div
-      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} p-4 sm:p-8 pt-12 sm:pt-16 animate-in fade-in duration-500 overflow-y-auto`}
+      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} p-4 sm:p-8 pt-10 sm:pt-14 animate-in fade-in duration-500 overflow-y-auto`}
     >
       {/* Brand Header */}
       <div className="flex flex-col items-center mb-8 text-center max-w-2xl mx-auto">
@@ -5864,79 +5834,149 @@ function AuthView({
         >
           Educate MW
         </h1>
-        <p className="text-indigo-500 dark:text-indigo-400 text-xs font-black uppercase tracking-[0.25em] mt-1.5 mb-3">
+        <p className="text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-[0.22em] mt-1.5 mb-2.5">
           Malawi National Secondary Curriculum & AI Study Companion
         </p>
 
         <p
           className={`text-sm sm:text-base ${theme === "dark" ? "text-gray-300" : "text-slate-600"} max-w-xl font-medium leading-relaxed`}
         >
-          The complete digital learning platform built for Malawian students preparing for Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) exams under MANEB.
+          Built for Malawian secondary students (Form 1 to Form 4) preparing for JCE and MSCE national examinations under MANEB.
         </p>
       </div>
 
-      {/* Main Grid: Login Box + App Functionality & Transparency */}
-      <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-12">
-        {/* Left Col: Features & Transparency Overview */}
+      {/* Main Grid: Platform Capabilities + Sign-In Box */}
+      <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-8">
+        {/* Left Col: Platform Capabilities & Transparency */}
         <div className="lg:col-span-7 space-y-6 order-2 lg:order-1">
           <div
             className={`${theme === "dark" ? "bg-gray-900/80 border-gray-800" : "bg-white border-slate-200"} rounded-3xl p-6 sm:p-8 border shadow-sm space-y-6`}
           >
-            <h2
-              className={`text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-wide flex items-center gap-2`}
-            >
-              <span>Platform Capabilities</span>
-            </h2>
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800/80 pb-4">
+              <div>
+                <h2
+                  className={`text-base sm:text-lg font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-wide`}
+                >
+                  Platform Capabilities
+                </h2>
+                <p className="text-xs text-gray-500 font-medium">
+                  Designed specifically for Malawian secondary school success
+                </p>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+                MANEB Aligned
+              </span>
+            </div>
 
+            {/* Consistent color scheme, zero emojis */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
-                <div className="font-bold text-indigo-500 text-sm mb-1">🤖 Emi AI Tutor</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                  24/7 MANEB syllabus-grounded tutoring, homework steps, and exam memory tips.
-                </p>
+              <div
+                className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border flex items-start gap-3.5`}
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <BrainCircuit size={19} />
+                </div>
+                <div className="min-w-0">
+                  <h3
+                    className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1`}
+                  >
+                    Emi AI Syllabus Tutor
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    24/7 MANEB syllabus-grounded tutoring, homework steps, and exam revision hints.
+                  </p>
+                </div>
               </div>
 
-              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
-                <div className="font-bold text-emerald-500 text-sm mb-1">📐 MSCE Points Calculator</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                  Calculate MSCE aggregate points and discover university program requirements.
-                </p>
+              <div
+                className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border flex items-start gap-3.5`}
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Calculator size={19} />
+                </div>
+                <div className="min-w-0">
+                  <h3
+                    className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1`}
+                  >
+                    MSCE Points Calculator
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Calculate your best 6 subjects aggregate and discover university requirements.
+                  </p>
+                </div>
               </div>
 
-              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
-                <div className="font-bold text-amber-500 text-sm mb-1">📝 Past Exam Archives</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                  Access official MSCE & JCE examination papers, marking guides, and practice tests.
-                </p>
+              <div
+                className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border flex items-start gap-3.5`}
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <FileText size={19} />
+                </div>
+                <div className="min-w-0">
+                  <h3
+                    className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1`}
+                  >
+                    Past Exam Archives
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Access official MSCE and JCE examination papers, marking guides, and practice tests.
+                  </p>
+                </div>
               </div>
 
-              <div className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border`}>
-                <div className="font-bold text-pink-500 text-sm mb-1">🧠 Quizzes & Flashcards</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                  Instant self-assessment drills to reinforce formulas, definitions, and concepts.
-                </p>
+              <div
+                className={`p-4 rounded-2xl ${theme === "dark" ? "bg-gray-950/60 border-gray-800" : "bg-slate-50 border-slate-200"} border flex items-start gap-3.5`}
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Award size={19} />
+                </div>
+                <div className="min-w-0">
+                  <h3
+                    className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1`}
+                  >
+                    Quizzes & Flashcards
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Subject drills to reinforce formulas, scientific terms, and core syllabus facts.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Transparent Data Privacy Disclosure */}
-            <div className={`p-5 rounded-2xl ${theme === "dark" ? "bg-indigo-950/30 border-indigo-900/50" : "bg-indigo-50/70 border-indigo-100"} border space-y-2`}>
-              <div className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                🔒 Data Privacy & Transparency Notice
+            {/* Transparent Data Privacy Disclosure - NO emojis */}
+            <div
+              className={`p-5 rounded-2xl ${theme === "dark" ? "bg-indigo-950/30 border-indigo-900/50" : "bg-indigo-50/70 border-indigo-100"} border space-y-2`}
+            >
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                <ShieldCheck size={16} />
+                <span>Student Data Privacy Notice</span>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                When you sign in with Google, we only access your basic profile information (Name, Email, and Profile Picture) to create your student profile and securely save your syllabus progress, quiz history, and certificates. <strong>We never sell, rent, or share your data with third parties.</strong>
+                When you sign in, we only store your basic student profile information (Name, Email or Phone, and Form Level) to securely record your study progress, quiz scores, and certificates. <strong>We never sell, rent, or share student data with advertisers or third parties.</strong>
               </p>
-              <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              <div className="pt-1 flex flex-wrap gap-4 text-xs font-bold text-indigo-600 dark:text-indigo-400">
                 <button
                   type="button"
-                  onClick={onNavigatePrivacy || (() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+                  onClick={
+                    onNavigatePrivacy ||
+                    (() => {
+                      window.history.pushState({}, "", "/privacy");
+                      window.dispatchEvent(new PopStateEvent("popstate"));
+                    })
+                  }
                   className="hover:underline flex items-center gap-1"
                 >
                   View Privacy Policy →
                 </button>
                 <button
                   type="button"
-                  onClick={onNavigateTerms || (() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+                  onClick={
+                    onNavigateTerms ||
+                    (() => {
+                      window.history.pushState({}, "", "/terms");
+                      window.dispatchEvent(new PopStateEvent("popstate"));
+                    })
+                  }
                   className="hover:underline flex items-center gap-1"
                 >
                   View Terms of Service →
@@ -5944,20 +5984,83 @@ function AuthView({
               </div>
             </div>
           </div>
+
+          {/* WhatsApp Support Banner for Confused / Questioning Students */}
+          <div
+            className={`p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+              theme === "dark"
+                ? "bg-gray-900/90 border-gray-800"
+                : "bg-emerald-50/70 border-emerald-200/90 shadow-sm"
+            }`}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <MessageCircle size={22} className="text-emerald-500" />
+              </div>
+              <div>
+                <h4
+                  className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+                >
+                  Need Help or Have Questions?
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  If you are confused, failing to login, or have questions, reach us on WhatsApp.
+                </p>
+              </div>
+            </div>
+            <a
+              href={whatsappHelpUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 shrink-0"
+            >
+              <MessageCircle size={15} />
+              <span>WhatsApp: 0987066051</span>
+            </a>
+          </div>
         </div>
 
-        {/* Right Col: Sign-In / Login Form */}
+        {/* Right Col: Sign-In / Login Form - Designed psychologically for ages 13-20 */}
         <div className="lg:col-span-5 order-1 lg:order-2">
           <div
             className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-3xl p-6 sm:p-8 border w-full`}
           >
-            <h2
-              className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mb-6 tracking-tight`}
+            {/* Simple Segmented Tabs for 13-20 year olds: Sign In vs Create Account */}
+            <div
+              className={`flex rounded-2xl p-1 mb-6 border ${
+                theme === "dark"
+                  ? "bg-gray-950 border-gray-800"
+                  : "bg-slate-100 border-slate-200"
+              }`}
             >
-              Sign In to Your Account
-            </h2>
+              <button
+                type="button"
+                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={onNavigateRegister}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+              >
+                Create Account
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <h2
+                className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight`}
+              >
+                Sign In to Continue
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Enter your registered phone number or email to access your studies.
+              </p>
+            </div>
 
             <div className="space-y-4 relative z-10">
+              {/* Google Sign-in */}
               <button
                 type="button"
                 onClick={handleGoogleLogin}
@@ -5975,7 +6078,7 @@ function AuthView({
                       className="w-5 h-5"
                       alt="Google"
                     />
-                    Continue with Google
+                    <span>Continue with Google</span>
                   </>
                 )}
               </button>
@@ -5985,7 +6088,7 @@ function AuthView({
                   className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
                 ></div>
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                  or email login
+                  or with phone / email
                 </span>
                 <div
                   className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`}
@@ -5994,68 +6097,116 @@ function AuthView({
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-                    Email or Phone
-                  </label>
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      Phone Number or Email
+                    </label>
+                  </div>
                   <div
                     className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
                   >
-                    <User size={18} className="text-gray-400 mr-3" />
+                    <User size={18} className="text-gray-400 mr-3 shrink-0" />
                     <input
                       type="text"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="student@example.com or 099..."
-                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                      placeholder="e.g. 0991234567 or name@gmail.com"
+                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-                    Password
-                  </label>
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                    >
+                      {showPassword ? (
+                        <>
+                          <EyeOff size={12} /> Hide
+                        </>
+                      ) : (
+                        <>
+                          <Eye size={12} /> Show
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <div
                     className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
                   >
-                    <Lock size={18} className="text-gray-400 mr-3" />
+                    <Lock size={18} className="text-gray-400 mr-3 shrink-0" />
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                      placeholder="Enter your password"
+                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <p className="text-red-500 text-[11px] font-bold text-center mt-2">
-                    {error}
-                  </p>
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-left space-y-2">
+                    <p className="text-red-500 text-xs font-semibold leading-relaxed">
+                      {error}
+                    </p>
+                    <a
+                      href={whatsappHelpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
+                      <MessageCircle size={13} />
+                      <span>Trouble logging in? Chat on WhatsApp (0987066051)</span>
+                    </a>
+                  </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 disabled:opacity-50"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-2 flex items-center justify-center gap-3 disabled:opacity-50 text-sm"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    "Log In"
+                    "Sign In"
                   )}
                 </button>
               </form>
+
+              {/* Direct Help for confused students */}
+              <div
+                className={`pt-3 border-t ${theme === "dark" ? "border-gray-800" : "border-slate-100"} flex flex-col items-center gap-2`}
+              >
+                <a
+                  href={whatsappHelpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-500 hover:text-emerald-500 transition-colors flex items-center gap-1.5 font-bold"
+                >
+                  <MessageCircle size={14} className="text-emerald-500" />
+                  <span>Confused or need help? Chat on WhatsApp: 0987066051</span>
+                </a>
+              </div>
             </div>
 
-            <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-800 flex flex-col items-center gap-3 relative z-10">
+            <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-800 flex flex-col items-center gap-2 relative z-10">
+              <p className="text-xs text-gray-500 font-medium">
+                New to Educate MW?
+              </p>
               <button
                 type="button"
                 onClick={onNavigateRegister}
                 className={`w-full ${theme === "dark" ? "bg-gray-800 text-white hover:bg-gray-700" : "bg-slate-100 text-slate-900 hover:bg-slate-200"} font-bold py-3 rounded-xl transition-colors shadow-none text-sm`}
               >
-                Create New Student Account
+                Create Free Student Account
               </button>
             </div>
           </div>
@@ -6069,7 +6220,13 @@ function AuthView({
         <div className="flex items-center gap-4 font-bold">
           <button
             type="button"
-            onClick={onNavigatePrivacy || (() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+            onClick={
+              onNavigatePrivacy ||
+              (() => {
+                window.history.pushState({}, "", "/privacy");
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              })
+            }
             className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
             Privacy Policy
@@ -6077,7 +6234,13 @@ function AuthView({
           <span>•</span>
           <button
             type="button"
-            onClick={onNavigateTerms || (() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); })}
+            onClick={
+              onNavigateTerms ||
+              (() => {
+                window.history.pushState({}, "", "/terms");
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              })
+            }
             className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
             Terms of Service
@@ -6343,6 +6506,7 @@ function RegisterView({
     level: "Form 4",
     gender: "male",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -6359,18 +6523,18 @@ function RegisterView({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      !formData.username ||
+      !formData.username.trim() ||
       !formData.password ||
-      (!formData.email && !formData.phone)
+      (!formData.email.trim() && !formData.phone.trim())
     ) {
-      setError("Please fill in all required fields");
+      setError("Please fill in your name, phone number or email, and a password.");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      let emailToUse = formData.email;
-      if (!emailToUse && formData.phone) {
+      let emailToUse = formData.email.trim();
+      if (!emailToUse && formData.phone.trim()) {
         const digits = formData.phone.replace(/\D/g, "");
         emailToUse = `${digits}@educatemw.app`;
       }
@@ -6408,7 +6572,7 @@ function RegisterView({
         emailToUse,
         formData.password,
       );
-      await updateProfile(cred.user, { displayName: formData.username });
+      await updateProfile(cred.user, { displayName: formData.username.trim() });
 
       const userRef = doc(db, "users", cred.user.uid);
       const gradient = getAvatarGradient(formData.gender, cred.user.uid);
@@ -6418,7 +6582,7 @@ function RegisterView({
       const startingAiPoints = isReferralApplied ? 20 : 10; // 10 base + 10 Emi AI points bonus
 
       await setDoc(userRef, {
-        name: formData.username,
+        name: formData.username.trim(),
         email: emailToUse,
         gender: formData.gender,
         avatarGradient: gradient,
@@ -6444,11 +6608,10 @@ function RegisterView({
           if (referrerSnap.exists()) {
             const rData = referrerSnap.data();
             const currentReferrerAiPoints = rData.aiPoints ?? 10;
-            // Reward referrer: 1 friend = 10 Emi study points
             await updateDoc(referrerDocRef, {
               aiPoints: currentReferrerAiPoints + 10,
               aiPointsLastReset: today,
-              points: increment(150), // Give them also 150 study XP points as nice motivation
+              points: increment(150),
               successfulReferralsCount: increment(1),
             });
           }
@@ -6464,109 +6627,171 @@ function RegisterView({
 
       onBack();
     } catch (err: any) {
-      setError(err.message);
+      console.error("Register Error:", err);
+      const code = err?.code || "";
+      if (code === "auth/email-already-in-use") {
+        setError("An account already exists with this phone or email. Please sign in instead.");
+      } else if (code === "auth/weak-password") {
+        setError("Password should be at least 6 characters long.");
+      } else {
+        setError(err.message || "Registration failed. Please check your information.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const whatsappHelpUrl =
+    "https://wa.me/265987066051?text=Hello%20Educate%20MW%2C%20I%20need%20help%20creating%20an%20account%20or%20have%20questions.";
+
   return (
     <div
-      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950 text-white" : "bg-slate-50 text-slate-900"} animate-in fade-in duration-500 overflow-y-auto p-6 pt-12 pb-12`}
+      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950 text-white" : "bg-slate-50 text-slate-900"} animate-in fade-in duration-500 overflow-y-auto p-4 sm:p-6 pt-10 pb-12`}
     >
-      <div className="flex items-center justify-between w-full max-w-md mx-auto mb-8">
+      <div className="flex items-center justify-between w-full max-w-md mx-auto mb-6">
         <button
           onClick={onBack}
-          className={`w-10 h-10 ${theme === "dark" ? "bg-gray-900 border-gray-800 hover:bg-gray-800" : "bg-white border-slate-200 hover:bg-slate-50"} rounded-xl flex items-center justify-center border shadow-sm transition-colors`}
+          className={`w-10 h-10 ${theme === "dark" ? "bg-gray-900 border-gray-800 hover:bg-gray-800 text-white" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-900"} rounded-xl flex items-center justify-center border shadow-sm transition-colors`}
+          aria-label="Back to sign in"
         >
           <ChevronLeft size={20} />
         </button>
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold">
+          <span>Already have an account?</span>
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-indigo-600 dark:text-indigo-400 hover:underline font-black"
+          >
+            Sign In
+          </button>
+        </div>
       </div>
 
       <div
-        className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-2xl p-8 border w-full max-w-md mx-auto`}
+        className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-3xl p-6 sm:p-8 border w-full max-w-md mx-auto`}
       >
-        <div className="mb-8 text-center flex flex-col items-center">
-          <div className="w-20 h-20 rounded-[22px] flex items-center justify-center mb-6 shadow-xl shadow-blue-600/20 overflow-hidden p-1 bg-blue-600 border border-blue-500/30 rotate-2">
+        {/* Simple Tabs for 13-20 year olds */}
+        <div
+          className={`flex rounded-2xl p-1 mb-6 border ${
+            theme === "dark"
+              ? "bg-gray-950 border-gray-800"
+              : "bg-slate-100 border-slate-200"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all"
+          >
+            Create Account
+          </button>
+        </div>
+
+        <div className="mb-6 text-center flex flex-col items-center">
+          <div className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-3 shadow-lg shadow-indigo-600/20 overflow-hidden p-1 bg-gradient-to-br from-indigo-600 to-blue-700 border border-indigo-400/30">
             <img
-              src="/app-icon.jpg"
-              alt="educate mw logo"
-              className="w-full h-full object-cover rounded-[17px]"
+              src="/app-icon.png"
+              alt="Educate MW Logo"
+              className="w-full h-full object-cover rounded-[16px]"
               referrerPolicy="no-referrer"
             />
           </div>
-          <h3 className="text-2xl font-black mb-2 tracking-tight">
-            Create Account
+          <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+            Create Student Account
           </h3>
-          <p className="text-gray-500 font-medium text-sm">
-            Join Malawi's Elite Study Platform
+          <p className="text-gray-500 font-medium text-xs mt-1">
+            Free access to MANEB notes, quizzes, and Emi AI
           </p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Student Name
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">
+              Your Full Name
             </label>
             <div
               className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
             >
-              <User size={18} className="text-gray-400 mr-3" />
+              <User size={18} className="text-gray-400 mr-3 shrink-0" />
               <input
                 type="text"
                 value={formData.username}
                 onChange={(e) =>
                   setFormData({ ...formData, username: e.target.value })
                 }
-                placeholder="Full Name"
-                className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                placeholder="e.g. Kondwani Banda"
+                className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Email or Phone
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">
+              Phone Number or Email
             </label>
             <div
               className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
             >
-              <Mail size={18} className="text-gray-400 mr-3" />
+              <Mail size={18} className="text-gray-400 mr-3 shrink-0" />
               <input
                 type="text"
                 value={formData.email}
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
-                placeholder="student@example.com or 099..."
-                className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                placeholder="e.g. 0991234567 or name@gmail.com"
+                className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Password
-            </label>
+            <div className="flex items-center justify-between ml-1">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                Create Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+              >
+                {showPassword ? (
+                  <>
+                    <EyeOff size={12} /> Hide
+                  </>
+                ) : (
+                  <>
+                    <Eye size={12} /> Show
+                  </>
+                )}
+              </button>
+            </div>
             <div
               className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border focus-within:border-indigo-500/50 transition-all`}
             >
-              <Lock size={18} className="text-gray-400 mr-3" />
+              <Lock size={18} className="text-gray-400 mr-3 shrink-0" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
-                placeholder="Secure Password"
-                className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-500`}
+                placeholder="At least 6 characters"
+                className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-1">
+          <div className="grid grid-cols-2 gap-3.5 pt-1">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Gender
               </label>
               <div
@@ -6575,14 +6800,14 @@ function RegisterView({
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, gender: "male" })}
-                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${formData.gender === "male" ? "bg-indigo-600 text-white shadow-md" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${formData.gender === "male" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   Male
                 </button>
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, gender: "female" })}
-                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${formData.gender === "female" ? "bg-indigo-600 text-white shadow-md" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${formData.gender === "female" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   Female
                 </button>
@@ -6590,8 +6815,8 @@ function RegisterView({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-                Level
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Class / Form
               </label>
               <div
                 className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3.5 flex items-center border relative`}
@@ -6603,25 +6828,25 @@ function RegisterView({
                   }
                   className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium appearance-none relative z-10 w-full`}
                 >
-                  <option value="Form 1">Form 1</option>
-                  <option value="Form 2">Form 2</option>
-                  <option value="Form 3">Form 3</option>
-                  <option value="Form 4">Form 4</option>
+                  <option value="Form 1">Form 1 (JCE)</option>
+                  <option value="Form 2">Form 2 (JCE)</option>
+                  <option value="Form 3">Form 3 (MSCE)</option>
+                  <option value="Form 4">Form 4 (MSCE)</option>
                 </select>
                 <ChevronDown
                   size={16}
-                  className="text-gray-400 absolute right-3"
+                  className="text-gray-400 absolute right-3 pointer-events-none"
                 />
               </div>
             </div>
           </div>
 
-          <div className="space-y-1.5 border-t pt-4 border-slate-200 dark:border-gray-800/60 mt-2">
+          <div className="space-y-1.5 border-t pt-3.5 border-slate-200 dark:border-gray-800">
             <div className="flex justify-between items-center ml-1">
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
-                <Gift size={12} className="text-indigo-500 animate-pulse" />{" "}
-                Referral Code{" "}
-                <span className="text-[9px] text-indigo-400 lowercase font-medium">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Gift size={13} className="text-indigo-500" />
+                <span>Referral Code</span>
+                <span className="text-[9px] text-gray-400 lowercase font-medium">
                   (optional)
                 </span>
               </label>
@@ -6644,64 +6869,68 @@ function RegisterView({
                   onChange={(e) =>
                     setReferralCode(e.target.value.toUpperCase())
                   }
-                  placeholder="Enter custom or friend's code"
-                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-bold placeholder-gray-500`}
+                  placeholder="Enter code if you have one"
+                  className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-bold placeholder-gray-400`}
                 />
               </div>
               {referralCode === "EDUCATE500" && (
-                <span className="text-[9px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md font-extrabold uppercase tracking-widest ml-2 border border-emerald-500/20">
-                  Default applied
+                <span className="text-[9px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ml-2 border border-emerald-500/20">
+                  Applied
                 </span>
               )}
             </div>
-            <p className="text-[9.5px] text-gray-500/80 font-bold ml-1 leading-snug">
-              🎁 Code awards you{" "}
-              <span className="text-indigo-500 font-extrabold">
-                +10 Emi AI questions
-              </span>{" "}
-              and{" "}
-              <span className="text-emerald-500 font-extrabold">
-                +500 XP bonus
-              </span>
-              !
-            </p>
           </div>
 
           {error && (
-            <p className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-500 text-xs font-bold text-center mt-2">
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-500 text-left">
               {error}
-            </p>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4 disabled:opacity-50"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-3 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              "Create Account"
+              "Complete Free Registration"
             )}
           </button>
         </form>
 
-        <p className="mt-6 text-[11px] text-gray-500 text-center">
+        {/* WhatsApp Help Banner for registering students */}
+        <div
+          className={`mt-6 pt-4 border-t ${theme === "dark" ? "border-gray-800" : "border-slate-100"} flex flex-col items-center gap-2`}
+        >
+          <a
+            href={whatsappHelpUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-500 hover:text-emerald-500 transition-colors flex items-center gap-1.5 font-bold"
+          >
+            <MessageCircle size={14} className="text-emerald-500" />
+            <span>Need help or questions? Chat on WhatsApp: 0987066051</span>
+          </a>
+        </div>
+
+        <p className="mt-4 text-[11px] text-gray-500 text-center">
           By signing up, you agree to our{" "}
-          <a href="/terms" className="text-indigo-500 hover:underline">
+          <a href="/terms" className="text-indigo-500 hover:underline font-semibold">
             Terms of Service
           </a>{" "}
           &{" "}
-          <a href="/privacy" className="text-indigo-500 hover:underline">
+          <a href="/privacy" className="text-indigo-500 hover:underline font-semibold">
             Privacy Policy
           </a>
           .
         </p>
       </div>
 
-      <footer className="mt-auto py-8 flex flex-col items-center gap-3">
-        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] opacity-40">
-          © {new Date().getFullYear()} educate mw
+      <footer className="mt-auto py-8 flex flex-col items-center gap-2">
+        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">
+          Educate MW • Malawi National Secondary Curriculum Companion
         </p>
       </footer>
     </div>
@@ -6851,6 +7080,9 @@ function AdminDashboard({
     tags: "",
     type: "pdf" as "pdf" | "video" | "blog",
   });
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [materialUrlSource, setMaterialUrlSource] = useState<"drive" | "cloudinary">("drive");
+  const [copiedUrlId, setCopiedUrlId] = useState<string | null>(null);
   const [notification, setNotification] = useState({ title: "", body: "" });
   const [materials, setMaterials] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
@@ -7050,47 +7282,116 @@ function AdminDashboard({
     }
   };
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedUrlId(id);
+    setTimeout(() => setCopiedUrlId(null), 2000);
+  };
+
+  const startEditingMaterial = (mat: any) => {
+    setEditingMaterialId(mat.id);
+    setNewMaterial({
+      title: mat.title || "",
+      subject: mat.subject || "",
+      level: mat.level || "",
+      content: mat.content || "",
+      excerpt: mat.excerpt || "",
+      image: mat.image || "",
+      tags: Array.isArray(mat.tags) ? mat.tags.join(", ") : mat.tags || "",
+      type: mat.type || "pdf",
+    });
+    if (mat.content && mat.content.includes("cloudinary.com")) {
+      setMaterialUrlSource("cloudinary");
+    } else {
+      setMaterialUrlSource("drive");
+    }
+  };
+
+  const cancelEditingMaterial = () => {
+    setEditingMaterialId(null);
+    setNewMaterial({
+      title: "",
+      subject: "",
+      level: "",
+      content: "",
+      excerpt: "",
+      image: "",
+      tags: "",
+      type: "pdf",
+    });
+    setMaterialUrlSource("drive");
+  };
+
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMaterial.title || !newMaterial.content) return;
+    if (!newMaterial.title.trim() || !newMaterial.content.trim()) {
+      alert("Please provide both a Title and Content / URL.");
+      return;
+    }
     setPublishing(true);
     try {
       const slug = newMaterial.title.toLowerCase().replace(/[^\w]+/g, "-");
       const author = auth.currentUser?.displayName || "Educate MW Team";
 
-      await addDoc(collection(db, "materials"), {
-        ...newMaterial,
-        slug: slug,
-        author: newMaterial.type === "blog" ? author : null,
-        tags:
-          newMaterial.type === "blog"
-            ? newMaterial.tags.split(",").map((t) => t.trim())
-            : [],
-        date: new Date().toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        }),
-        readTime:
-          newMaterial.type === "blog"
-            ? `${Math.ceil(newMaterial.content.split(" ").length / 200)} min read`
-            : null,
-        authorId: auth.currentUser?.uid,
-        createdAt: serverTimestamp(),
-      });
-      setNewMaterial({
-        title: "",
-        subject: "",
-        level: "",
-        content: "",
-        excerpt: "",
-        image: "",
-        tags: "",
-        type: "pdf",
-      });
-      alert(`${newMaterial.type} published successfully!`);
+      if (editingMaterialId) {
+        await updateDoc(doc(db, "materials", editingMaterialId), {
+          title: newMaterial.title.trim(),
+          subject: newMaterial.subject.trim(),
+          level: newMaterial.level.trim(),
+          content: newMaterial.content.trim(),
+          type: newMaterial.type,
+          excerpt: newMaterial.excerpt ? newMaterial.excerpt.trim() : "",
+          image: newMaterial.image ? newMaterial.image.trim() : "",
+          slug: slug,
+          author: newMaterial.type === "blog" ? author : null,
+          tags:
+            newMaterial.type === "blog" && newMaterial.tags
+              ? (typeof newMaterial.tags === "string"
+                  ? newMaterial.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+                  : newMaterial.tags)
+              : [],
+          updatedAt: serverTimestamp(),
+        });
+        alert("Material updated successfully!");
+        cancelEditingMaterial();
+      } else {
+        await addDoc(collection(db, "materials"), {
+          ...newMaterial,
+          title: newMaterial.title.trim(),
+          content: newMaterial.content.trim(),
+          slug: slug,
+          author: newMaterial.type === "blog" ? author : null,
+          tags:
+            newMaterial.type === "blog"
+              ? newMaterial.tags.split(",").map((t) => t.trim()).filter(Boolean)
+              : [],
+          date: new Date().toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }),
+          readTime:
+            newMaterial.type === "blog"
+              ? `${Math.ceil(newMaterial.content.split(" ").length / 200)} min read`
+              : null,
+          authorId: auth.currentUser?.uid,
+          createdAt: serverTimestamp(),
+        });
+        setNewMaterial({
+          title: "",
+          subject: "",
+          level: "",
+          content: "",
+          excerpt: "",
+          image: "",
+          tags: "",
+          type: "pdf",
+        });
+        alert(`${newMaterial.type.toUpperCase()} published successfully!`);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Save material error:", err);
+      alert("Error saving material. Please check permissions or connection.");
     } finally {
       setPublishing(false);
     }
@@ -7334,6 +7635,29 @@ function AdminDashboard({
                 onSubmit={handlePublish}
                 className="mt-8 space-y-5 relative z-10"
               >
+                {editingMaterialId && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Pencil size={16} className="text-amber-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                          Editing Published Material
+                        </p>
+                        <p className={`text-xs font-bold truncate ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                          {newMaterial.title || "Untitled"}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={cancelEditingMaterial}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all"
+                    >
+                      Cancel Edit
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">
                     Material Title
@@ -7384,50 +7708,151 @@ function AdminDashboard({
                   </div>
                 )}
                 {newMaterial.type === "pdf" ? (
-                  <div className="space-y-2">
-                    <CloudinaryUploader
-                      theme={theme}
-                      allowedType="pdf"
-                      onUploadSuccess={(url) =>
-                        setNewMaterial((prev) => ({ ...prev, content: url }))
-                      }
-                      onClear={() =>
-                        setNewMaterial((prev) => ({ ...prev, content: "" }))
-                      }
-                    />
-                    {newMaterial.content && (
-                      <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
-                        <span>Uploaded Target URL:</span>
-                        <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">
-                          {newMaterial.content}
-                        </span>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <label className="text-[9px] font-bold text-gray-500 uppercase">
+                        Document Source
+                      </label>
+                      <div className="flex gap-1 bg-slate-900/60 p-1 rounded-xl border border-gray-800">
+                        <button
+                          type="button"
+                          onClick={() => setMaterialUrlSource("drive")}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                            materialUrlSource === "drive"
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "text-gray-400 hover:text-white"
+                          }`}
+                        >
+                          Google Drive / URL
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMaterialUrlSource("cloudinary")}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                            materialUrlSource === "cloudinary"
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "text-gray-400 hover:text-white"
+                          }`}
+                        >
+                          Cloudinary Upload
+                        </button>
+                      </div>
+                    </div>
+
+                    {materialUrlSource === "drive" ? (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input
+                            value={newMaterial.content}
+                            onChange={(e) =>
+                              setNewMaterial({
+                                ...newMaterial,
+                                content: e.target.value,
+                              })
+                            }
+                            placeholder="Paste Google Drive share link (e.g. https://drive.google.com/file/d/.../view) or PDF link"
+                            className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900 shadow-sm"} rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 border pr-20`}
+                          />
+                          {newMaterial.content && (
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(newMaterial.content, "edit-drive-url")}
+                              className="absolute right-2 top-2.5 px-2.5 py-1 text-[10px] font-bold rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 flex items-center gap-1"
+                            >
+                              {copiedUrlId === "edit-drive-url" ? <CheckCircle size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                              <span>{copiedUrlId === "edit-drive-url" ? "Copied" : "Copy"}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <CloudinaryUploader
+                          theme={theme}
+                          allowedType="pdf"
+                          onUploadSuccess={(url) =>
+                            setNewMaterial((prev) => ({ ...prev, content: url }))
+                          }
+                          onClear={() =>
+                            setNewMaterial((prev) => ({ ...prev, content: "" }))
+                          }
+                        />
+                        {newMaterial.content && (
+                          <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <span>Target File URL:</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(newMaterial.content, "cloudinary-url-copy")}
+                                className="text-indigo-400 hover:underline flex items-center gap-1 text-[10px]"
+                              >
+                                {copiedUrlId === "cloudinary-url-copy" ? <CheckCircle size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                                <span>{copiedUrlId === "cloudinary-url-copy" ? "Copied!" : "Copy URL"}</span>
+                              </button>
+                            </div>
+                            <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">
+                              {newMaterial.content}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 ) : newMaterial.type === "video" ? (
                   <div className="space-y-3">
-                    <CloudinaryUploader
-                      theme={theme}
-                      allowedType="video"
-                      onUploadSuccess={(url) =>
-                        setNewMaterial((prev) => ({ ...prev, content: url }))
-                      }
-                      onClear={() =>
-                        setNewMaterial((prev) => ({ ...prev, content: "" }))
-                      }
-                    />
-                    {newMaterial.content ? (
-                      <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
-                        <span>Uploaded Video URL:</span>
-                        <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">
-                          {newMaterial.content}
-                        </span>
+                    <div className="flex items-center justify-between px-1">
+                      <label className="text-[9px] font-bold text-gray-500 uppercase">
+                        Video Source
+                      </label>
+                      <div className="flex gap-1 bg-slate-900/60 p-1 rounded-xl border border-gray-800">
+                        <button
+                          type="button"
+                          onClick={() => setMaterialUrlSource("drive")}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                            materialUrlSource === "drive"
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "text-gray-400 hover:text-white"
+                          }`}
+                        >
+                          Direct / YouTube Link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMaterialUrlSource("cloudinary")}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                            materialUrlSource === "cloudinary"
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "text-gray-400 hover:text-white"
+                          }`}
+                        >
+                          Cloudinary Upload
+                        </button>
+                      </div>
+                    </div>
+
+                    {materialUrlSource === "cloudinary" ? (
+                      <div className="space-y-2">
+                        <CloudinaryUploader
+                          theme={theme}
+                          allowedType="video"
+                          onUploadSuccess={(url) =>
+                            setNewMaterial((prev) => ({ ...prev, content: url }))
+                          }
+                          onClear={() =>
+                            setNewMaterial((prev) => ({ ...prev, content: "" }))
+                          }
+                        />
+                        {newMaterial.content && (
+                          <div className="text-[10px] text-gray-500 font-bold ml-1 flex flex-col gap-1">
+                            <span>Uploaded Video URL:</span>
+                            <span className="font-mono text-indigo-400 select-all truncate bg-slate-950 p-2 rounded-lg border border-gray-900">
+                              {newMaterial.content}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">
-                          Or Paste Video URL / YouTube Link
-                        </label>
                         <input
                           value={newMaterial.content}
                           onChange={(e) =>
@@ -7436,8 +7861,8 @@ function AdminDashboard({
                               content: e.target.value,
                             })
                           }
-                          placeholder="https://..."
-                          className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900 shadow-sm"} rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 border`}
+                          placeholder="Paste Video URL, YouTube link, or Google Drive video link..."
+                          className={`w-full ${theme === "dark" ? "bg-gray-950 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900 shadow-sm"} rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 border`}
                         />
                       </div>
                     )}
@@ -7546,6 +7971,10 @@ function AdminDashboard({
                 >
                   {publishing ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : editingMaterialId ? (
+                    <>
+                      Save Changes <CheckCircle size={16} />
+                    </>
                   ) : (
                     <>
                       Post Material <Plus size={16} />
@@ -7564,24 +7993,64 @@ function AdminDashboard({
               {materials.map((mat) => (
                 <div
                   key={mat.id}
-                  className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} p-4 rounded-3xl border flex items-center justify-between`}
+                  className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} p-4 rounded-3xl border flex items-center justify-between gap-3`}
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h4
-                      className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+                      className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"} truncate`}
                     >
                       {mat.title}
                     </h4>
-                    <span className="text-[10px] font-black uppercase text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
-                      {mat.type}
-                    </span>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-[10px] font-black uppercase text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                        {mat.type}
+                      </span>
+                      {mat.subject && (
+                        <span className="text-[10px] font-bold text-gray-400">
+                          {mat.subject}
+                        </span>
+                      )}
+                      {mat.level && (
+                        <span className="text-[10px] font-bold text-gray-500">
+                          • {mat.level}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => deleteMaterial(mat.id)}
-                    className="p-3 text-red-500 bg-red-500/10 rounded-xl hover:bg-red-500/20"
-                  >
-                    <X size={16} />
-                  </button>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {mat.content && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(mat.content, mat.id)}
+                        title="Copy document URL"
+                        className="p-2.5 text-gray-400 hover:text-indigo-400 bg-gray-800/60 rounded-xl hover:bg-gray-800 transition-colors"
+                      >
+                        {copiedUrlId === mat.id ? (
+                          <CheckCircle size={15} className="text-emerald-400" />
+                        ) : (
+                          <Copy size={15} />
+                        )}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => startEditingMaterial(mat)}
+                      title="Edit Material"
+                      className="px-3 py-2 text-indigo-400 bg-indigo-500/10 rounded-xl hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5 text-xs font-bold"
+                    >
+                      <Pencil size={14} />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteMaterial(mat.id)}
+                      title="Delete Material"
+                      className="p-2.5 text-red-500 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -8172,200 +8641,523 @@ function LegalPageView({
   theme: "light" | "dark";
   onBack: () => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"terms" | "privacy">(type);
+
+  useEffect(() => {
+    setActiveTab(type);
+  }, [type]);
+
+  const whatsappLegalUrl =
+    "https://wa.me/265987066051?text=Hello%20Educate%20MW%2C%20I%20have%20a%20question%20regarding%20the%20platform%20policies.";
+
   return (
     <div
-      className={`min-h-full ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"} p-6 pt-12 animate-in fade-in duration-500`}
+      className={`min-h-full ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} p-4 sm:p-8 pt-8 sm:pt-12 animate-in fade-in duration-500 overflow-y-auto`}
     >
-      <div className="flex items-center gap-4 mb-8 max-w-4xl mx-auto">
-        <button
-          onClick={onBack}
-          className={`w-12 h-12 ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-white border-slate-200 text-slate-900"} rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform`}
-        >
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <div>
-          <h1
-            className={`text-2xl sm:text-3xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} uppercase tracking-tight`}
-          >
-            {type === "terms" ? "Terms of Service" : "Privacy Policy"}
-          </h1>
-          <p className="text-xs text-indigo-500 font-bold tracking-wider uppercase">
-            Educate MW • Official Educational Platform
-          </p>
-        </div>
-      </div>
-      <div
-        className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} rounded-[2.5rem] p-6 sm:p-10 border shadow-xl max-w-4xl mx-auto`}
-      >
-        <div
-          className={`prose prose-sm max-w-none ${theme === "dark" ? "prose-invert text-gray-300" : "text-slate-700"} font-medium space-y-6 leading-relaxed`}
-        >
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-4">
-            <span className="text-xs uppercase tracking-widest font-black text-indigo-500">
-              Effective Date: January 1, 2026 (Updated)
-            </span>
-            <span className="text-xs text-gray-500 font-semibold">
-              Host: https://educatemw.vercel.app
-            </span>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Navigation & Tab Selector Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className={`w-11 h-11 ${
+                theme === "dark"
+                  ? "bg-gray-900 border-gray-800 text-white hover:bg-gray-800"
+                  : "bg-white border-slate-200 text-slate-900 hover:bg-slate-100"
+              } rounded-2xl flex items-center justify-center border shadow-sm active:scale-90 transition-transform shrink-0`}
+              aria-label="Back"
+            >
+              <ChevronLeft size={22} strokeWidth={2.5} />
+            </button>
+            <div>
+              <h1
+                className={`text-xl sm:text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight`}
+              >
+                {activeTab === "terms" ? "Terms of Service" : "Privacy Policy"}
+              </h1>
+              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
+                Educate MW • Official Educational Platform
+              </p>
+            </div>
           </div>
 
-          {type === "privacy" ? (
-            <>
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  1. Overview & Application Identity
-                </h2>
+          {/* Interactive Document Switcher */}
+          <div
+            className={`flex rounded-2xl p-1 border shrink-0 ${
+              theme === "dark"
+                ? "bg-gray-900 border-gray-800"
+                : "bg-slate-200/70 border-slate-300"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab("privacy")}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                activeTab === "privacy"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+              }`}
+            >
+              Privacy Policy
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("terms")}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                activeTab === "terms"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+              }`}
+            >
+              Terms of Service
+            </button>
+          </div>
+        </div>
+
+        {/* Executive Highlights Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div
+            className={`p-3.5 rounded-2xl border ${
+              theme === "dark"
+                ? "bg-gray-900/60 border-gray-800"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
+              <ShieldCheck size={18} />
+            </div>
+            <div className="font-black text-xs">Zero Ads</div>
+            <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+              No third-party ad networks or trackers
+            </p>
+          </div>
+
+          <div
+            className={`p-3.5 rounded-2xl border ${
+              theme === "dark"
+                ? "bg-gray-900/60 border-gray-800"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
+              <Lock size={18} />
+            </div>
+            <div className="font-black text-xs">Encrypted</div>
+            <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+              Google Cloud & Firebase protection
+            </p>
+          </div>
+
+          <div
+            className={`p-3.5 rounded-2xl border ${
+              theme === "dark"
+                ? "bg-gray-900/60 border-gray-800"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
+              <GraduationCap size={18} />
+            </div>
+            <div className="font-black text-xs">Academic Only</div>
+            <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+              Syllabus progress & exam preparation
+            </p>
+          </div>
+
+          <div
+            className={`p-3.5 rounded-2xl border ${
+              theme === "dark"
+                ? "bg-gray-900/60 border-gray-800"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
+              <CheckCircle2 size={18} />
+            </div>
+            <div className="font-black text-xs">Full Control</div>
+            <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+              Export or delete account anytime
+            </p>
+          </div>
+        </div>
+
+        {/* Main Document Body */}
+        <div
+          className={`${
+            theme === "dark"
+              ? "bg-gray-900 border-gray-800"
+              : "bg-white border-slate-200"
+          } rounded-3xl p-6 sm:p-10 border shadow-sm space-y-6`}
+        >
+          {/* Metadata bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 pb-4 text-xs font-semibold text-gray-500">
+            <span className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
+              Effective Date: January 1, 2026 (Updated)
+            </span>
+            <span>Host: https://educatemw.vercel.app</span>
+          </div>
+
+          {activeTab === "privacy" ? (
+            <div className="space-y-6 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+              {/* Section 1 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    01
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Application Identity & Scope
+                  </h2>
+                </div>
                 <p>
-                  <strong>Educate MW</strong> ("we", "our", or "us"), available at <strong>https://educatemw.vercel.app</strong>, is an educational learning application designed to empower secondary school students in Malawi preparing for Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) national examinations administered by MANEB.
+                  <strong>Educate MW</strong> (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;), hosted at <strong>https://educatemw.vercel.app</strong>, is a dedicated educational platform designed to empower secondary school students across Malawi preparing for Junior Certificate of Education (JCE) and Malawi School Certificate of Education (MSCE) national examinations under MANEB.
                 </p>
               </div>
 
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  2. User Data We Collect & Request
-                </h2>
+              {/* Section 2 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-3`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    02
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    User Data We Collect & Request
+                  </h2>
+                </div>
                 <p>
-                  We are committed to full transparency regarding user data. When you access Educate MW, we collect only the minimal data required to provide a personalized, secure educational experience:
+                  We believe in minimal data collection and complete transparency. When you access Educate MW, we collect only what is strictly necessary to deliver a secure, personalized learning journey:
                 </p>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>
-                    <strong>Google Account Information (via Google Sign-In):</strong> When you sign in with Google, we access your basic public profile information, specifically your <strong>Name</strong>, <strong>Email Address</strong>, and <strong>Profile Picture</strong>.
-                  </li>
-                  <li>
-                    <strong>Academic Progress Data:</strong> We store your syllabus topic completion checklist, quiz scores, flashcard sets, study streak counters, and authenticated certificates.
-                  </li>
-                  <li>
-                    <strong>Device & Authentication Session Tokens:</strong> Standard Firebase Authentication tokens used strictly to keep your session logged in securely.
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  3. Purpose of Data Processing (Why We Request Data)
-                </h2>
-                <p>We process your data solely for the following educational and functional purposes:</p>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>To authenticate your identity and maintain your student account across multiple devices.</li>
-                  <li>To save and synchronize your syllabus progress, mock examination results, and study bookmarks.</li>
-                  <li>To generate personalized, grade-appropriate responses from Emi AI tutor tailored to your specific school class (e.g. Form 1, Form 2, Form 3, or Form 4).</li>
-                  <li>To issue downloadable and verifiable certificates of academic completion.</li>
-                </ul>
-              </div>
-
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  4. Google API User Data Policy & Limited Use Disclosure
-                </h2>
-                <div className="bg-indigo-50 dark:bg-indigo-950/40 p-4 rounded-2xl border border-indigo-200 dark:border-indigo-800">
-                  <p className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm">
-                    <strong>Google API Compliance:</strong> Educate MW's use and transfer of information received from Google APIs to any other app will adhere to the{" "}
-                    <a
-                      href="https://developers.google.com/terms/api-services-user-data-policy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline font-bold text-indigo-600 dark:text-indigo-400"
-                    >
-                      Google API Services User Data Policy
-                    </a>
-                    , including the Limited Use requirements.
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  <div
+                    className={`p-3.5 rounded-xl border ${
+                      theme === "dark"
+                        ? "bg-gray-900/80 border-gray-800"
+                        : "bg-white border-slate-200"
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-indigo-600 dark:text-indigo-400 mb-1">
+                      Account Profile
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Your Student Name, Email Address or Phone Number, and Form Level (Form 1 to 4).
+                    </p>
+                  </div>
+                  <div
+                    className={`p-3.5 rounded-xl border ${
+                      theme === "dark"
+                        ? "bg-gray-900/80 border-gray-800"
+                        : "bg-white border-slate-200"
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-indigo-600 dark:text-indigo-400 mb-1">
+                      Academic Records
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Syllabus topic completions, quiz scores, mock points, and certificates.
+                    </p>
+                  </div>
+                  <div
+                    className={`p-3.5 rounded-xl border ${
+                      theme === "dark"
+                        ? "bg-gray-900/80 border-gray-800"
+                        : "bg-white border-slate-200"
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-indigo-600 dark:text-indigo-400 mb-1">
+                      Authentication
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Secure Firebase tokens to keep your study session logged in safely across devices.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  5. Third-Party Sharing & Data Protection
-                </h2>
-                <p>
-                  <strong>We do NOT sell, rent, monetize, or trade your personal data or Google user data with any third parties or advertisers.</strong>
-                </p>
-                <p>
-                  Your information is stored in secured, encrypted Google Cloud / Firebase Firestore databases with strict role-based access rules preventing unauthorized access.
-                </p>
+              {/* Section 3 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    03
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Purpose of Data Processing
+                  </h2>
+                </div>
+                <p>We process your data strictly for legitimate educational functionality:</p>
+                <ul className="list-disc pl-5 space-y-1.5 text-xs text-gray-600 dark:text-gray-300">
+                  <li>To verify your identity and maintain your study account across mobile and desktop devices.</li>
+                  <li>To synchronize your completed MANEB syllabus checklist, mock exams, and quiz rankings.</li>
+                  <li>To provide personalized, class-appropriate explanations via Emi AI tutor.</li>
+                  <li>To issue verifiable certificates of academic completion upon syllabus mastery.</li>
+                </ul>
               </div>
 
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  6. User Data Rights & Account Deletion
-                </h2>
-                <p>
-                  You retain full ownership of your data. You have the right to request access to, export, or permanently delete your account and all associated data at any time.
-                </p>
-                <p>
-                  To request immediate deletion of your account and all stored records, you can use the in-app account settings or email our data protection administrator at:{" "}
-                  <a href="mailto:petedianotech@gmail.com" className="font-bold text-indigo-600 dark:text-indigo-400 underline">
-                    petedianotech@gmail.com
+              {/* Section 4: Google Compliance Callout */}
+              <div className="p-5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    04
+                  </span>
+                  <h2 className="font-black text-base text-indigo-950 dark:text-indigo-200">
+                    Google API User Data Policy & Limited Use Disclosure
+                  </h2>
+                </div>
+                <p className="text-xs text-indigo-900 dark:text-indigo-200 font-medium">
+                  Educate MW&rsquo;s use and transfer to any other app of information received from Google APIs will adhere to the{" "}
+                  <a
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-bold text-indigo-600 dark:text-indigo-400 inline-flex items-center gap-1"
+                  >
+                    <span>Google API Services User Data Policy</span>
+                    <ExternalLink size={12} />
                   </a>
-                  . Deletion requests are processed within 48 hours.
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  1. Agreement to Terms
-                </h2>
-                <p>
-                  By accessing or using <strong>Educate MW</strong> (https://educatemw.vercel.app), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the application.
+                  , including the Limited Use requirements.
                 </p>
               </div>
 
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  2. Description of Educational Services
-                </h2>
+              {/* Section 5 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    05
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Third-Party Sharing & Data Protection
+                  </h2>
+                </div>
+                <p>
+                  <strong>We do NOT sell, rent, monetize, or trade student personal data or Google user data with any third parties or advertisers.</strong>
+                </p>
+                <p className="text-xs text-gray-500">
+                  Your information is stored in encrypted Google Cloud Firestore databases configured with strict security rules preventing unauthorized third-party access.
+                </p>
+              </div>
+
+              {/* Section 6 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    06
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    User Data Rights & Account Deletion
+                  </h2>
+                </div>
+                <p>
+                  You retain full ownership of your data. You have the right to request access to, export, or permanently delete your account and all associated study records at any time.
+                </p>
+                <p className="text-xs text-gray-500">
+                  To request immediate account deletion, contact our administrative team via email at{" "}
+                  <a
+                    href="mailto:petedianotech@gmail.com"
+                    className="font-bold text-indigo-600 dark:text-indigo-400 underline"
+                  >
+                    petedianotech@gmail.com
+                  </a>{" "}
+                  or on WhatsApp at <strong>0987066051</strong>. Requests are processed within 48 hours.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+              {/* Section 1 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    01
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Agreement to Terms
+                  </h2>
+                </div>
+                <p>
+                  By accessing or registering on <strong>Educate MW</strong> (https://educatemw.vercel.app), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the application.
+                </p>
+              </div>
+
+              {/* Section 2 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    02
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Description of Educational Services
+                  </h2>
+                </div>
                 <p>
                   Educate MW provides Malawian secondary school students with educational study aids, including MANEB syllabus checklists, past paper archives, interactive practice quizzes, flashcards, study notes, and the Emi AI educational tutoring assistant.
                 </p>
               </div>
 
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  3. Student Code of Conduct & Acceptable Use
-                </h2>
-                <p>Users agree to:</p>
-                <ul className="list-disc pl-5 space-y-2">
+              {/* Section 3 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    03
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Student Code of Conduct & Acceptable Use
+                  </h2>
+                </div>
+                <p>All users agree to:</p>
+                <ul className="list-disc pl-5 space-y-1.5 text-xs text-gray-600 dark:text-gray-300">
                   <li>Use the service solely for legitimate academic and educational learning purposes.</li>
                   <li>Maintain respectful communication in community forums and AI chat sessions.</li>
-                  <li>Not attempt to reverse engineer, scrape, overload, or disrupt the platform's infrastructure.</li>
+                  <li>Not attempt to reverse engineer, scrape, overload, or disrupt the platform&rsquo;s infrastructure.</li>
                 </ul>
               </div>
 
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  4. Intellectual Property & Academic Guidance
-                </h2>
+              {/* Section 4 */}
+              <div
+                className={`p-5 rounded-2xl border ${
+                  theme === "dark"
+                    ? "bg-gray-950/40 border-gray-800"
+                    : "bg-slate-50 border-slate-200"
+                } space-y-2`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    04
+                  </span>
+                  <h2
+                    className={`font-black text-base ${
+                      theme === "dark" ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Academic Guidance & AI Tutoring
+                  </h2>
+                </div>
                 <p>
-                  Emi AI is an AI-powered educational study companion designed to explain concepts and assist revision. Students are advised to verify critical examination guidelines and dates with official school teachers and MANEB circulars.
+                  Emi AI is an AI-powered educational study companion designed to explain concepts, guide homework, and assist syllabus revision. Students are encouraged to cross-reference critical examination guidelines and dates with official school teachers and MANEB circulars.
                 </p>
               </div>
-
-              <div>
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                  5. Contact Information
-                </h2>
-                <p>
-                  If you have questions regarding these Terms or the platform, contact the Educate Malawi administrative team at:{" "}
-                  <a href="mailto:petedianotech@gmail.com" className="font-bold text-indigo-600 dark:text-indigo-400 underline">
-                    petedianotech@gmail.com
-                  </a>
-                  .
-                </p>
-              </div>
-            </>
+            </div>
           )}
 
-          <div className="pt-6 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          {/* Contact Support & Administration Section */}
+          <div
+            className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+              theme === "dark"
+                ? "bg-gray-950/70 border-gray-800"
+                : "bg-slate-50 border-slate-200"
+            }`}
+          >
+            <div>
+              <h3
+                className={`text-sm font-black ${
+                  theme === "dark" ? "text-white" : "text-slate-900"
+                }`}
+              >
+                Questions or Policy Inquiries?
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Email: petedianotech@gmail.com &bull; Support WhatsApp: 0987066051
+              </p>
+            </div>
+            <a
+              href={whatsappLegalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 shrink-0"
+            >
+              <MessageCircle size={15} />
+              <span>Chat on WhatsApp</span>
+            </a>
+          </div>
+
+          {/* Bottom Footer Actions */}
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               onClick={onBack}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all"
+              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all text-xs uppercase tracking-wider shadow-sm"
             >
-              Return to Homepage
+              Return to Application
             </button>
             <p className="text-xs text-gray-500 font-semibold">
-              © {new Date().getFullYear()} Educate Malawi
+              &copy; {new Date().getFullYear()} Educate MW &bull; All Rights Reserved
             </p>
           </div>
         </div>
