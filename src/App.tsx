@@ -5,6 +5,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { GeminiLiveService, LiveState } from "./services/geminiLive";
 import { motion } from "motion/react";
 import SEO from "./components/SEO";
 import { BlogView, BlogPostView } from "./components/BlogSystem";
@@ -2477,6 +2478,7 @@ function CallingView({
   theme: "light" | "dark";
 }) {
   const [seconds, setSeconds] = useState(0);
+  const [liveState, setLiveState] = useState<LiveState>("idle");
   const [isConnected, setIsConnected] = useState(false);
   const [isEmiSpeaking, setIsEmiSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -2494,20 +2496,7 @@ function CallingView({
   const [userAnalyserNode, setUserAnalyserNode] = useState<AnalyserNode | null>(null);
   const [emiAnalyserNode, setEmiAnalyserNode] = useState<AnalyserNode | null>(null);
 
-  const outputAudioCtxRef = useRef<AudioContext | null>(null);
-  const userAudioCtxRef = useRef<AudioContext | null>(null);
-  const emiAnalyserRef = useRef<AnalyserNode | null>(null);
-  const userAnalyserRef = useRef<AnalyserNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
-  const isMutedRef = useRef(false);
-  const historyRef = useRef<{ role: string; text: string }[]>([]);
-  const speechDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const currentInterimRef = useRef<string>("");
-  const isProcessingQueryRef = useRef(false);
-  const isEmiSpeakingRef = useRef(false);
-  const animIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const liveServiceRef = useRef<GeminiLiveService | null>(null);
 
   const voiceOptions = [
     { name: "Kore", desc: "Warm & Friendly" },
@@ -2518,209 +2507,20 @@ function CallingView({
     { name: "Aoede", desc: "Gentle & Expressive" },
   ];
 
-  // Stop any playing audio immediately
-  const stopAllAudio = () => {
-    activeSourcesRef.current.forEach((src) => {
-      try {
-        src.stop();
-      } catch (e) {}
-    });
-    activeSourcesRef.current = [];
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    if (animIntervalRef.current) {
-      clearInterval(animIntervalRef.current);
-      animIntervalRef.current = null;
-    }
-    setIsEmiSpeaking(false);
-    isEmiSpeakingRef.current = false;
-  };
-
-  // Play natural PCM audio returned by Gemini TTS
-  const playAudioData = async (base64Data: string) => {
-    try {
-      stopAllAudio();
-      let ctx = outputAudioCtxRef.current;
-      const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
-      if (!ctx || ctx.state === "closed") {
-        ctx = new AudioContextClass({ sampleRate: 24000 });
-        outputAudioCtxRef.current = ctx;
-      }
-      if (ctx.state === "suspended") {
-        await ctx.resume().catch(() => {});
-      }
-
-      const binaryString = atob(base64Data);
-      const len = binaryString.length;
-      const alignedLen = len - (len % 2);
-      const bytes = new Uint8Array(alignedLen);
-      for (let i = 0; i < alignedLen; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const pcm16 = new Int16Array(bytes.buffer);
-      if (pcm16.length === 0) return;
-
-      const audioBuffer = ctx.createBuffer(1, pcm16.length, 24000);
-      const channelData = audioBuffer.getChannelData(0);
-      for (let i = 0; i < pcm16.length; i++) {
-        channelData[i] = pcm16[i] / 32768.0;
-      }
-
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-
-      if (!emiAnalyserRef.current) {
-        const emiAnalyser = ctx.createAnalyser();
-        emiAnalyser.fftSize = 256;
-        emiAnalyserRef.current = emiAnalyser;
-        setEmiAnalyserNode(emiAnalyser);
-      }
-
-      if (emiAnalyserRef.current) {
-        source.connect(emiAnalyserRef.current);
-        emiAnalyserRef.current.connect(ctx.destination);
-      } else {
-        source.connect(ctx.destination);
-      }
-
-      setIsEmiSpeaking(true);
-      isEmiSpeakingRef.current = true;
-      activeSourcesRef.current.push(source);
-
-      source.onended = () => {
-        activeSourcesRef.current = activeSourcesRef.current.filter((s) => s !== source);
-        if (activeSourcesRef.current.length === 0) {
-          setIsEmiSpeaking(false);
-          isEmiSpeakingRef.current = false;
-        }
-      };
-
-      source.start();
-    } catch (err) {
-      console.warn("PCM playback error, using speech synthesis fallback:", err);
-      speakFallback(emiSubtitles);
-    }
-  };
-
-  // Fast Speech Synthesis Fallback
-  const speakFallback = (text: string) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    try {
-      stopAllAudio();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.05;
-      utterance.pitch = 1.0;
-      
-      const voices = window.speechSynthesis.getVoices();
-      const ukOrUsVoice = voices.find(
-        (v) => (v.lang.includes("en-GB") || v.lang.includes("en-US")) && !v.name.includes("Google"),
-      ) || voices.find((v) => v.lang.includes("en"));
-      if (ukOrUsVoice) {
-        utterance.voice = ukOrUsVoice;
-      }
-
-      utterance.onstart = () => {
-        setIsEmiSpeaking(true);
-        isEmiSpeakingRef.current = true;
-      };
-
-      utterance.onend = () => {
-        setIsEmiSpeaking(false);
-        isEmiSpeakingRef.current = false;
-      };
-
-      utterance.onerror = () => {
-        setIsEmiSpeaking(false);
-        isEmiSpeakingRef.current = false;
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error("Speech synthesis failed:", e);
-    }
-  };
-
-  // Dispatch spoken question to the ultra-fast /api/gemini/voice-reply endpoint
-  const sendVoiceQuery = async (queryText: string) => {
+  // Dispatch text query to active Gemini Live WebSocket session
+  const sendVoiceQuery = (queryText: string) => {
     const textToSend = queryText.trim();
-    if (!textToSend || isProcessingQueryRef.current) return;
-
-    // Reset interim
-    currentInterimRef.current = "";
+    if (!textToSend || !liveServiceRef.current) return;
+    liveServiceRef.current.sendText(textToSend);
     setLiveTranscript("");
-    isProcessingQueryRef.current = true;
-    setIsThinking(true);
-    stopAllAudio();
-
-    try {
-      historyRef.current.push({ role: "user", text: textToSend });
-      if (historyRef.current.length > 6) {
-        historyRef.current = historyRef.current.slice(-6);
-      }
-
-      const res = await fetch("/api/gemini/voice-reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: textToSend,
-          history: historyRef.current,
-          voiceName: voiceName,
-          userLevel: profile?.classLevel || "MSCE Form 4",
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to reach voice assistant");
-      }
-
-      const data = await res.json();
-      const reply = data.text || "I'm ready. What else would you like to explore?";
-      setEmiSubtitles(reply);
-      historyRef.current.push({ role: "model", text: reply });
-
-      setIsThinking(false);
-
-      if (data.audioBase64) {
-        playAudioData(data.audioBase64);
-      } else {
-        speakFallback(reply);
-      }
-    } catch (err: any) {
-      console.error("Voice request error:", err);
-      setIsThinking(false);
-      setErrorMsg(err.message || "Connection hiccup. Please try speaking again.");
-      setTimeout(() => setErrorMsg(null), 4000);
-    } finally {
-      isProcessingQueryRef.current = false;
-    }
   };
 
-  // Sync mute state immediately to audio track and ref
+  // Sync mute state with Live Service
   useEffect(() => {
-    isMutedRef.current = isMuted;
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !isMuted;
-      });
+    if (liveServiceRef.current) {
+      liveServiceRef.current.setMuted(isMuted);
     }
-    if (isMuted) {
-      setIsUserSpeaking(false);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-      }
-    } else {
-      if (recognitionRef.current && isConnected) {
-        try {
-          recognitionRef.current.start();
-        } catch (e) {}
-      }
-    }
-  }, [isMuted, isConnected]);
+  }, [isMuted]);
 
   // Call duration timer
   useEffect(() => {
@@ -2740,7 +2540,7 @@ function CallingView({
     }
   }, [seconds, profile?.isPro, onEnd]);
 
-  // Main Live Voice Lifecycle
+  // Main Gemini Live Session Lifecycle
   useEffect(() => {
     // Check call limits
     const today = new Date().toLocaleDateString("en-CA");
@@ -2771,172 +2571,49 @@ function CallingView({
       });
     }
 
-    let active = true;
-
-    const startVoiceCall = async () => {
-      try {
-        setErrorMsg(null);
-
-        // 1. Initialize Audio Contexts & Analysers
-        const AudioContextClass =
-          window.AudioContext || (window as any).webkitAudioContext;
-        const outCtx = new AudioContextClass({ sampleRate: 24000 });
-        outputAudioCtxRef.current = outCtx;
-        outCtx.resume().catch(() => {});
-
-        const emiAnalyser = outCtx.createAnalyser();
-        emiAnalyser.fftSize = 256;
-        emiAnalyserRef.current = emiAnalyser;
-        setEmiAnalyserNode(emiAnalyser);
-
-        // 2. Capture Microphone with noise suppression & echo cancellation
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        if (!active) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-
-        // Connect mic to userAnalyserNode for responsive wave spectrum
-        const inCtx = new AudioContextClass();
-        userAudioCtxRef.current = inCtx;
-        inCtx.resume().catch(() => {});
-
-        const userAnalyser = inCtx.createAnalyser();
-        userAnalyser.fftSize = 256;
-        userAnalyserRef.current = userAnalyser;
-        setUserAnalyserNode(userAnalyser);
-
-        const source = inCtx.createMediaStreamSource(stream);
-        source.connect(userAnalyser);
-
-        // 3. Setup High-Accuracy Speech Recognition with continuous stream & silence debounce
-        const SpeechRec =
-          (window as any).SpeechRecognition ||
-          (window as any).webkitSpeechRecognition;
-
-        if (SpeechRec) {
-          const recognition = new SpeechRec();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = "en-US";
-          recognition.maxAlternatives = 1;
-
-          recognition.onresult = (event: any) => {
-            if (!active || isMutedRef.current) return;
-
-            let interim = "";
-            let finalSentence = "";
-
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              const transcript = event.results[i][0]?.transcript || "";
-              if (event.results[i].isFinal) {
-                finalSentence += transcript + " ";
-              } else {
-                interim += transcript;
-              }
-            }
-
-            const activeText = (finalSentence + interim).trim();
-            if (activeText) {
-              currentInterimRef.current = activeText;
-              setLiveTranscript(activeText);
-              setIsUserSpeaking(true);
-
-              // Barge-in: if Emi is talking when user starts speaking, stop Emi immediately
-              if (isEmiSpeakingRef.current) {
-                stopAllAudio();
-              }
-
-              // Reset silence timer to auto-send when student finishes speaking
-              if (speechDebounceTimerRef.current) {
-                clearTimeout(speechDebounceTimerRef.current);
-              }
-              speechDebounceTimerRef.current = setTimeout(() => {
-                setIsUserSpeaking(false);
-                if (currentInterimRef.current.trim().length > 1) {
-                  sendVoiceQuery(currentInterimRef.current);
-                }
-              }, 850);
-            }
-          };
-
-          recognition.onspeechend = () => {
-            setIsUserSpeaking(false);
-          };
-
-          recognition.onerror = (err: any) => {
-            if (err.error !== "no-speech") {
-              console.warn("Speech recognition notice:", err.error);
-            }
-          };
-
-          recognition.onend = () => {
-            // Auto-restart to maintain persistent live call session
-            if (active && !isMutedRef.current) {
-              try {
-                recognition.start();
-              } catch (e) {}
-            }
-          };
-
-          try {
-            recognition.start();
-            recognitionRef.current = recognition;
-          } catch (e) {
-            console.warn("Could not start recognition:", e);
-          }
-        }
-
-        if (active) {
-          setIsConnected(true);
-          // Initial greeting audio
-          const initialGreeting =
-            "Hello! I am Emi, your MSCE study tutor. What would you like to explore or practice together today?";
-          setEmiSubtitles(initialGreeting);
-          speakFallback(initialGreeting);
-        }
-      } catch (err: any) {
-        console.error("Live call initialization error:", err);
-        if (active) {
-          setErrorMsg(
-            err.message ||
-              "Could not access microphone. Please ensure microphone permissions are granted.",
+    const liveService = new GeminiLiveService(
+      {
+        voiceName: voiceName,
+        userLevel: profile?.classLevel || "MSCE Form 4",
+      },
+      {
+        onStateChange: (newState) => {
+          setLiveState(newState);
+          setIsConnected(newState === "connected" || newState === "speaking");
+          setIsEmiSpeaking(newState === "speaking");
+          setIsThinking(
+            newState === "connecting" || newState === "requesting_permission",
           );
-          setIsConnected(false);
-        }
-      }
-    };
+        },
+        onSubtitle: (text) => {
+          if (text) setEmiSubtitles(text);
+        },
+        onTranscript: (text, isUser) => {
+          if (isUser) {
+            setLiveTranscript(text);
+            setIsUserSpeaking(true);
+            setTimeout(() => setIsUserSpeaking(false), 2000);
+          }
+        },
+        onError: (msg) => {
+          setErrorMsg(msg);
+          setTimeout(() => setErrorMsg(null), 5000);
+        },
+        onEmiAnalyserCreated: (node) => {
+          setEmiAnalyserNode(node);
+        },
+        onUserAnalyserCreated: (node) => {
+          setUserAnalyserNode(node);
+        },
+      },
+    );
 
-    startVoiceCall();
+    liveServiceRef.current = liveService;
+    liveService.startSession();
 
     return () => {
-      active = false;
-      stopAllAudio();
-      if (speechDebounceTimerRef.current) {
-        clearTimeout(speechDebounceTimerRef.current);
-      }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-        recognitionRef.current = null;
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      if (userAudioCtxRef.current) {
-        userAudioCtxRef.current.close().catch(() => {});
-      }
-      if (outputAudioCtxRef.current) {
-        outputAudioCtxRef.current.close().catch(() => {});
-      }
+      liveService.stopSession();
+      liveServiceRef.current = null;
     };
   }, [voiceName]);
 

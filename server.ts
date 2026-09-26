@@ -24,9 +24,18 @@ async function startServer() {
     });
   });
 
-  // API to get Gemini API key for direct client-to-Gemini connection
-  app.get("/api/gemini/token", (req, res) => {
-    res.json({ token: process.env.GEMINI_API_KEY });
+  // API to get ephemeral Gemini Live token for client-side direct connection
+  app.get("/api/gemini/token", async (req, res) => {
+    try {
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Server missing GEMINI_API_KEY environment variable" });
+      }
+      const tokenObj = await ai.authTokens.create({});
+      res.json({ token: tokenObj.name });
+    } catch (error: any) {
+      console.error("Gemini Token Server Error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate Gemini token" });
+    }
   });
 
   // API to verify PayChangu payment synchronously
