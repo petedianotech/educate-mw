@@ -1,0 +1,102 @@
+name: Phase3 Community Restore
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/phase3-community.yml"
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore and patch community + UI polish
+        run: |
+          for f in src/components/GroupChat.tsx src/components/CommunityView.tsx; do
+            size=$(wc -c < "$f" || echo 0)
+            if [ "$size" -lt 1000 ]; then
+              echo "Restoring $f from good commit"
+              git checkout 8e0f04d7ad8325e4784790e81d935cc2962cbc04 -- "$f" 2>/dev/null || git checkout fffa58c957c3fe08af2b9f081d30137f91dd5c2b -- "$f" || true
+            fi
+          done
+          python3 << 'PY2'
+          from pathlib import Path
+
+          gc = Path("src/components/GroupChat.tsx")
+          text = gc.read_text()
+          old = """      // Also publish to General Community Feed so all circle activity appears on the universal feed\n      try {\n        await addDoc(collection(db, 'feeds'), {\n          text: newMsg.text,\n          userId: newMsg.userId,\n          name: newMsg.user,\n          initial: newMsg.initial,\n          color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',\n          subject: group.name || 'Sciences',\n          groupId: newMsg.groupId,\n          groupName: group.name,\n          type: 'group_share',\n          audioData: newMsg.audioData || null,\n          audioDuration: newMsg.audioDuration || null,\n          likes: 0,\n          likedBy: [],\n          repliesCount: 0,\n          createdAt: serverTimestamp()\n        });\n      } catch (feedErr) {\n        console.warn(\"Could not mirror message to general feed:\", feedErr);\n      }"""
+          new = """      // Phase 3: Do NOT mirror every chat message into the global feed.\n      // Only announcements/assignments should appear on the community feed."""
+          if old in text:
+              text = text.replace(old, new, 1)
+              print("GroupChat: removed feed mirror")
+          else:
+              print("GroupChat: mirror block already gone or changed")
+          gc.write_text(text)
+
+          cv = Path("src/components/CommunityView.tsx")
+          text = cv.read_text()
+          if ", limit" not in text[:1500] and "limit," not in text[:1500]:
+              text = text.replace("serverTimestamp\n} from 'firebase/firestore';", "serverTimestamp, limit\n} from 'firebase/firestore';")
+          if "limit(40)" not in text:
+              text = text.replace(
+                  "query(collection(db, 'feeds'), orderBy('createdAt', 'desc'))",
+                  "query(collection(db, 'feeds'), orderBy('createdAt', 'desc'), limit(40))"
+              )
+              print("CommunityView: limit(40)")
+          if "Please sign in to post" not in text:
+              old_h = """  const handleCreatePost = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!newPostText.trim() && !recordedAudioBase64) return;\n    setPosting(true);"""
+              new_h = """  const handleCreatePost = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!newPostText.trim() && !recordedAudioBase64) return;\n    // Phase 3: require authenticated user (blocks anonymous spam)\n    if (!auth.currentUser) {\n      showToast(\"Please sign in to post in the community.\");\n      return;\n    }\n    setPosting(true);"""
+              if old_h in text:
+                  text = text.replace(old_h, new_h, 1)
+                  print("CommunityView: auth gate")
+          cv.write_text(text)
+
+          app = Path("src/App.tsx")
+          text = app.read_text()
+          if len(text) < 5000:
+              import subprocess
+              subprocess.check_call(["git", "checkout", "fffa58c957c3fe08af2b9f081d30137f91dd5c2b", "--", "src/App.tsx"])
+              text = app.read_text()
+          reps = [
+          (
+          """  return (\n    <div\n      className={`flex flex-col min-h-full ${theme === \"dark\" ? \"bg-gray-950 text-gray-100\" : \"bg-slate-50 text-slate-900\"} p-4 sm:p-8 pt-10 sm:pt-14 animate-in fade-in duration-500 overflow-y-auto`}\n    >""",
+          """  return (\n    <div\n      className={`flex flex-col min-h-full ${theme === \"dark\" ? \"emw-page-bg-dark text-gray-100\" : \"emw-page-bg text-slate-900\"} p-4 sm:p-6 lg:p-8 pt-8 sm:pt-12 animate-in fade-in duration-500 overflow-y-auto`}\n    >"""
+          ),
+          (
+          """        <div className=\"w-20 h-20 sm:w-24 sm:h-24 rounded-[24px] flex items-center justify-center shadow-xl shadow-indigo-600/20 mb-4 overflow-hidden p-1 bg-gradient-to-br from-indigo-600 to-blue-700 border border-indigo-400/30\">""",
+          """        <div className=\"w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-[22px] flex items-center justify-center shadow-lg shadow-indigo-600/25 mb-5 overflow-hidden p-[3px] bg-gradient-to-br from-indigo-500 to-indigo-700 border border-indigo-400/20\">"""
+          ),
+          (
+          """            className={`${theme === \"dark\" ? \"bg-gray-900/80 border-gray-800\" : \"bg-white border-slate-200\"} rounded-3xl p-6 sm:p-8 border shadow-sm space-y-6`}""",
+          """            className={`${theme === \"dark\" ? \"bg-gray-900/90 border-gray-800\" : \"bg-white border-slate-200/80\"} rounded-3xl p-5 sm:p-7 border emw-card space-y-5`}"""
+          ),
+          (
+          """            className={`${theme === \"dark\" ? \"bg-gray-900 border-gray-800 shadow-2xl\" : \"bg-white border-slate-200 shadow-xl\"} rounded-3xl p-6 sm:p-8 border w-full`}""",
+          """            className={`${theme === \"dark\" ? \"bg-gray-900 border-gray-800\" : \"bg-white border-slate-200/80\"} rounded-3xl p-5 sm:p-7 border w-full emw-card-elevated`}"""
+          ),
+          (
+          """                  className=\"w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-2 flex items-center justify-center gap-3 disabled:opacity-50 text-sm\"""",
+          """                  className=\"w-full emw-btn-primary text-white font-bold py-3.5 rounded-xl active:scale-95 transition-all mt-2 flex items-center justify-center gap-3 disabled:opacity-50 text-sm\""""
+          ),
+          (
+          """    <div className=\"fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300\">""",
+          """    <div className=\"fixed inset-0 emw-overlay z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300\">"""
+          ),
+          ]
+          n = 0
+          for o, nrep in reps:
+              if o in text:
+                  text = text.replace(o, nrep, 1)
+                  n += 1
+          app.write_text(text)
+          print("App patches:", n)
+          PY2
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/components/GroupChat.tsx src/components/CommunityView.tsx src/App.tsx src/lib/cloudinary.ts || true
+          git status
+          git commit -m "Phase 1-3: UI polish + community P0 (no feed mirror, auth gate, feed limit)" || echo "no changes"
+          git push origin HEAD:main
