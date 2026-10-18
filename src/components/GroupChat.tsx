@@ -326,8 +326,6 @@ export function GroupChat({
       setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, id: docRef.id } : m));
 
       // Phase 3: Do NOT mirror every chat message into the global feed.
-      // Only announcements/assignments should appear on the community feed.
-    } catch (err) {
       console.warn("Could not save message to cloud:", err);
     }
   };

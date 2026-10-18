@@ -428,7 +428,6 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPostText.trim() && !recordedAudioBase64) return;
-    // Phase 3: require authenticated user (blocks anonymous spam)
     if (!auth.currentUser) {
       showToast("Please sign in to post in the community.");
       return;
