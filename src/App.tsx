@@ -6346,7 +6346,7 @@ function RegisterView({
       </div>
 
       <div
-        className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-3xl p-6 sm:p-8 border w-full max-w-md mx-auto`}
+        className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200/80"} rounded-3xl p-5 sm:p-7 border w-full emw-card-elevated max-w-md mx-auto`}
       >
         {/* Simple Tabs for 13-20 year olds */}
         <div
