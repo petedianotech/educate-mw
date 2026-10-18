@@ -5494,11 +5494,11 @@ function AuthView({
 
   return (
     <div
-      className={`flex flex-col min-h-full ${theme === "dark" ? "bg-gray-950 text-gray-100" : "bg-slate-50 text-slate-900"} p-4 sm:p-8 pt-10 sm:pt-14 animate-in fade-in duration-500 overflow-y-auto`}
+      className={`flex flex-col min-h-full ${theme === "dark" ? "emw-page-bg-dark text-gray-100" : "emw-page-bg text-slate-900"} p-4 sm:p-6 lg:p-8 pt-8 sm:pt-12 animate-in fade-in duration-500 overflow-y-auto`}
     >
       {/* Brand Header */}
       <div className="flex flex-col items-center mb-8 text-center max-w-2xl mx-auto">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[24px] flex items-center justify-center shadow-xl shadow-indigo-600/20 mb-4 overflow-hidden p-1 bg-gradient-to-br from-indigo-600 to-blue-700 border border-indigo-400/30">
+        <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-[22px] flex items-center justify-center shadow-lg shadow-indigo-600/25 mb-5 overflow-hidden p-[3px] bg-gradient-to-br from-indigo-500 to-indigo-700 border border-indigo-400/20">
           <img
             src="/app-icon.png"
             alt="Educate MW Logo"
@@ -5527,7 +5527,7 @@ function AuthView({
         {/* Left Col: Platform Capabilities & Transparency */}
         <div className="lg:col-span-7 space-y-6 order-2 lg:order-1">
           <div
-            className={`${theme === "dark" ? "bg-gray-900/80 border-gray-800" : "bg-white border-slate-200"} rounded-3xl p-6 sm:p-8 border shadow-sm space-y-6`}
+            className={`${theme === "dark" ? "bg-gray-900/90 border-gray-800" : "bg-white border-slate-200/80"} rounded-3xl p-5 sm:p-7 border emw-card space-y-5`}
           >
             <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800/80 pb-4">
               <div>
@@ -5700,7 +5700,7 @@ function AuthView({
         {/* Right Col: Sign-In / Login Form - Designed psychologically for ages 13-20 */}
         <div className="lg:col-span-5 order-1 lg:order-2">
           <div
-            className={`${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-2xl" : "bg-white border-slate-200 shadow-xl"} rounded-3xl p-6 sm:p-8 border w-full`}
+            className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200/80"} rounded-3xl p-5 sm:p-7 border w-full emw-card-elevated`}
           >
             {/* Simple Segmented Tabs for 13-20 year olds: Sign In vs Create Account */}
             <div
@@ -5848,7 +5848,7 @@ function AuthView({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-2 flex items-center justify-center gap-3 disabled:opacity-50 text-sm"
+                  className="w-full emw-btn-primary text-white font-bold py-3.5 rounded-xl active:scale-95 transition-all mt-2 flex items-center justify-center gap-3 disabled:opacity-50 text-sm"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -9607,7 +9607,7 @@ function PwaInstallPrompt({
   theme: "light" | "dark";
 }) {
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 emw-overlay z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div
         className={`w-full max-w-sm rounded-[32px] overflow-hidden border p-6 flex flex-col items-center text-center relative ${
           theme === "dark"
