@@ -1,0 +1,21 @@
+name: Community Quick Polish
+on:
+  push:
+    paths:
+      - "scripts/community_quick_polish.py"
+      - ".github/workflows/community-quick-polish.yml"
+  workflow_dispatch:
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/community_quick_polish.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/components/CommunityView.tsx
+          git commit -m "UI: community title filters empty chips polish" || echo none
+          git push origin HEAD:main
