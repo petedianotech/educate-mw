@@ -1,0 +1,22 @@
+name: Wire Native Google PDF
+on:
+  push:
+    paths:
+      - "scripts/wire_native_google_pdf.py"
+      - "src/native/**"
+      - ".github/workflows/wire-native.yml"
+  workflow_dispatch:
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/wire_native_google_pdf.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/App.tsx
+          git commit -m "feat: native Google sign-in + APK PDF open in library" || echo none
+          git push origin HEAD:main

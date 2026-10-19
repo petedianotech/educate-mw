@@ -1,33 +1,59 @@
-name: Build Signed Android APK
+name: Build Release APK
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
+    paths-ignore:
+      - "scripts/**"
+      - ".github/workflows/community*.yml"
+      - ".github/workflows/patch-*.yml"
+      - ".github/workflows/polish-*.yml"
+      - ".github/workflows/restore-*.yml"
+      - ".github/workflows/run-*.yml"
+      - ".github/workflows/phase3*.yml"
 
 jobs:
-  apk:
+  release-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
-
-      - name: Install JS dependencies
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm install -D @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
-      - name: Build web (Vite)
+      - name: Require Android signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && echo "MISSING ANDROID_KEYSTORE_BASE64" && missing=1
+          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && echo "MISSING ANDROID_KEYSTORE_PASSWORD" && missing=1
+          [ -z "$ANDROID_KEY_ALIAS" ] && echo "MISSING ANDROID_KEY_ALIAS" && missing=1
+          [ -z "$ANDROID_KEY_PASSWORD" ] && echo "MISSING ANDROID_KEY_PASSWORD" && missing=1
+          if [ "$missing" = "1" ]; then
+            echo "::error::Add all 4 Android signing secrets, then re-run Build Release APK."
+            exit 1
+          fi
+          echo "Signing secrets OK"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm install -D @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
+          npm install @capacitor/app @capacitor/browser @capgo/capacitor-social-login @capacitor-community/file-opener @capgo/capacitor-file-picker || true
+
+      - name: Build web
         run: npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -38,8 +64,9 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+          VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
 
-      - name: Ensure capacitor.config.ts
+      - name: Capacitor Android platform
         run: |
           if [ ! -f capacitor.config.ts ] && [ ! -f capacitor.config.json ]; then
             cat > capacitor.config.ts << 'EOF'
@@ -54,42 +81,23 @@ jobs:
           export default config;
           EOF
           fi
-          if [ ! -d dist ]; then
-            echo "ERROR: dist/ missing after npm run build"
-            ls -la
-            exit 1
-          fi
-
-      - name: Add and sync Android platform
-        run: |
+          test -d dist || { echo "dist missing"; exit 1; }
           npx cap add android || true
           npx cap sync android
-          if [ ! -d android ] || [ ! -f android/gradlew ]; then
-            echo "ERROR: android platform not created"
-            ls -la
-            exit 1
-          fi
+          test -f android/gradlew || { echo "gradlew missing"; exit 1; }
           chmod +x android/gradlew
 
-      - name: Decode release keystore
-        id: ks
+      - name: Decode keystore + print fingerprints
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-            echo "Release keystore ready"
-          else
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "Signing secrets missing — will build DEBUG APK"
-          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+          test -s "$GITHUB_WORKSPACE/release.keystore" || exit 1
+          keytool -list -v -keystore "$GITHUB_WORKSPACE/release.keystore" \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -alias "${{ secrets.ANDROID_KEY_ALIAS }}" 2>/dev/null | grep -E "SHA1:|SHA256:" || true
 
-      - name: Build RELEASE signed APK
-        if: steps.ks.outputs.signed == 'true'
+      - name: Assemble RELEASE signed APK
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -102,23 +110,19 @@ jobs:
             -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
 
-      - name: Build DEBUG APK (fallback)
-        if: steps.ks.outputs.signed != 'true'
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Collect APKs
+      - name: Collect EducateMW-release.apk
         run: |
           mkdir -p artifacts-apk
-          find android/app/build/outputs -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} artifacts-apk/ \;
-          echo "=== APKs ==="
+          find android/app/build/outputs/apk/release -name "*.apk" -exec cp -v {} artifacts-apk/ \;
+          test "$(ls -A artifacts-apk)" || { echo "No release APK"; exit 1; }
+          f=$(ls artifacts-apk/*.apk | head -1)
+          mv "$f" artifacts-apk/EducateMW-release.apk
           ls -lah artifacts-apk
-          test "$(ls -A artifacts-apk)" || (echo "No APK found" && exit 1)
 
-      - name: Upload APK artifact
+      - name: Upload EducateMW-release.apk
         uses: actions/upload-artifact@v4
         with:
-          name: educate-mw-apk
-          path: artifacts-apk/*
+          name: EducateMW-release-apk
+          path: artifacts-apk/EducateMW-release.apk
           if-no-files-found: error
           retention-days: 30
