@@ -6,11 +6,14 @@ on:
     paths:
       - "src/**"
       - "android-config/**"
+      - "public/**"
       - "capacitor.config.ts"
       - "package.json"
       - "vite.config.*"
       - "index.html"
+      - "server.ts"
       - ".github/workflows/android-apk.yml"
+      - "scripts/apply_android_icon.sh"
 
 jobs:
   release-apk:
@@ -53,7 +56,6 @@ jobs:
             curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/25831e2/src/components/CommunityView.tsx" -o "$F"
           fi
           grep -q "export function CommunityView" "$F"
-          echo "CommunityView OK ($(wc -c < "$F") bytes)"
 
       - name: Install npm dependencies
         run: |
@@ -74,7 +76,7 @@ jobs:
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
 
-      - name: Capacitor Android + minSdk 23 + mic
+      - name: Capacitor Android + icon + mic + Google MainActivity
         run: |
           if [ ! -f capacitor.config.ts ]; then
             printf '%s\n' "import type { CapacitorConfig } from '@capacitor/cli';" "const config: CapacitorConfig = { appId: 'mw.educate.app', appName: 'Educate MW', webDir: 'dist', server: { androidScheme: 'https' }, android: { allowMixedContent: false, backgroundColor: '#0b1120' } };" "export default config;" > capacitor.config.ts
@@ -84,16 +86,16 @@ jobs:
           npx cap sync android
           test -f android/gradlew || exit 1
           chmod +x android/gradlew
+
           if [ -f android/variables.gradle ]; then
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/' android/variables.gradle
-            head -8 android/variables.gradle
           fi
           if [ -f android/app/build.gradle ]; then
             if ! grep -q 'androidx.browser:browser:1.8.0' android/app/build.gradle; then
-              echo '' >> android/app/build.gradle
               echo 'configurations.all { resolutionStrategy { force "androidx.browser:browser:1.8.0" } }' >> android/app/build.gradle
             fi
           fi
+
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if [ -f "$MANIFEST" ]; then
             for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS INTERNET ACCESS_NETWORK_STATE; do
@@ -101,7 +103,56 @@ jobs:
                 sed -i "s|<application|<uses-permission android:name=\"android.permission.$perm\" />\n    <application|" "$MANIFEST"
               fi
             done
-            grep uses-permission "$MANIFEST" || true
+          fi
+
+          # App icon from public/
+          chmod +x scripts/apply_android_icon.sh || true
+          bash scripts/apply_android_icon.sh || true
+
+          # Capgo Social Login MainActivity bridge (needed if scopes ever used)
+          MAIN=$(find android/app/src/main/java -name 'MainActivity.java' -o -name 'MainActivity.kt' | head -1)
+          if [ -n "$MAIN" ] && [ -f "$MAIN" ]; then
+            if ! grep -q 'ModifiedMainActivityForSocialLoginPlugin' "$MAIN"; then
+              if echo "$MAIN" | grep -q '\.java$'; then
+                cat > "$MAIN" << 'JAVA'
+          package mw.educate.app;
+
+          import android.content.Intent;
+          import android.os.Bundle;
+          import android.util.Log;
+          import com.getcapacitor.BridgeActivity;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginHandle;
+          import ee.forgr.capacitor.social.login.GoogleProvider;
+          import ee.forgr.capacitor.social.login.SocialLoginPlugin;
+          import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+
+          public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+            @Override
+            public void onActivityResult(int requestCode, int resultCode, Intent data) {
+              super.onActivityResult(requestCode, resultCode, data);
+              if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN
+                  && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+                PluginHandle pluginHandle = getBridge().getPlugin("SocialLogin");
+                if (pluginHandle == null) {
+                  Log.i("Google Activity Result", "SocialLogin plugin handle is null");
+                  return;
+                }
+                Plugin plugin = pluginHandle.getInstance();
+                if (!(plugin instanceof SocialLoginPlugin)) {
+                  Log.i("Google Activity Result", "Plugin is not SocialLoginPlugin");
+                  return;
+                }
+                ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+              }
+            }
+
+            @Override
+            public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+          }
+          JAVA
+              fi
+            fi
           fi
 
       - name: Install google-services.json
