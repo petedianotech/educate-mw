@@ -53,12 +53,12 @@ export const COMMUNITY_GROUPS = [
 ];
 
 const SUBJECT_FILTERS = [
-  'All Feed', 'Sciences', 'Humanities', 'Languages', 'General MSCE', 'Assignments Only', 'Announcements'
+  'All', 'Sciences', 'Humanities', 'Languages', 'MSCE', 'Assignments', 'Announcements'
 ];
 
 export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, theme?: 'light' | 'dark' }) {
   const [activeGroup, setActiveGroup] = useState<{name: string; members: number; id?: string; desc?: string; initialTab?: string} | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState('All Feed');
+  const [selectedFilter, setSelectedFilter] = useState('All');
   
   // Feed posts state
   const [feeds, setFeeds] = useState<FeedPostItem[]>(() => {
@@ -600,8 +600,8 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
       return false;
     }
 
-    if (selectedFilter === 'All Feed') return true;
-    if (selectedFilter === 'Assignments Only') return post.type === 'assignment' || post.text.includes('[Assigned]');
+    if (selectedFilter === 'All' || selectedFilter === 'All Feed') return true;
+    if (selectedFilter === 'Assignments' || selectedFilter === 'Assignments Only') return post.type === 'assignment' || post.text.includes('[Assigned]');
     if (selectedFilter === 'Announcements') return post.type === 'announcement' || post.text.includes('[Announcement]');
     
     return post.subject?.toLowerCase() === selectedFilter.toLowerCase() || post.groupName?.toLowerCase() === selectedFilter.toLowerCase();
@@ -715,7 +715,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
       )}
 
       {/* Main Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-950/90 border-gray-800/80' : 'bg-white/95 border-slate-200/80'} backdrop-blur-xl pt-3 pb-2.5 px-4 sm:px-5 flex items-center justify-between shrink-0 z-10 border-b`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/95 border-gray-800/70' : 'bg-white/95 border-slate-200/80'} backdrop-blur-xl pt-3 pb-2.5 px-4 sm:px-5 flex items-center justify-between shrink-0 z-20 border-b`}>
         <div className="flex items-center gap-3">
           <button 
             onClick={onBack} 
@@ -726,13 +726,13 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight tracking-tight`}>
-                Community Feed
+              <h2 className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight tracking-tight`}>
+                Community
               </h2>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
-            <p className={`text-[10px] ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'} font-bold uppercase tracking-wider`}>
-              Universal MSCE Network • {globalOnlineCount} Online
+            <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'} font-medium`}>
+              MSCE network · {globalOnlineCount} online
             </p>
           </div>
         </div>
@@ -741,10 +741,10 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRequestGroupModal(true)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 border transition-all active:scale-95 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border transition-all active:scale-95 ${
               theme === 'dark'
-                ? 'bg-gray-800 border-gray-700 text-indigo-300 hover:bg-gray-700'
-                : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+                ? 'bg-gray-900 border-gray-700 text-slate-300 hover:bg-gray-800'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
             }`}
           >
             <Plus size={13} strokeWidth={3} />
@@ -772,7 +772,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
         {/* Horizontal Study Groups Quick-Access Row */}
         <div className="px-4 sm:px-6 pt-5 pb-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-[11px] uppercase tracking-wider text-gray-500">
+            <h3 className="font-semibold text-[11px] uppercase tracking-wider text-slate-500">
               Study groups
             </h3>
             <button
@@ -794,10 +794,10 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
                 <div 
                   key={group.id} 
                   onClick={() => setActiveGroup({ name: group.name, members: msgCount, id: group.id, desc: group.desc })} 
-                  className={`shrink-0 min-w-[148px] sm:min-w-[164px] ${
-                    theme === 'dark' ? 'bg-gray-900/80 border-gray-800 hover:border-indigo-500/40' : 'bg-white border-slate-200/90 hover:border-indigo-300'
-                  } rounded-2xl p-2.5 border flex items-center justify-between cursor-pointer transition-all active:scale-95 group shadow-sm ${
-                    isHidden ? 'opacity-45' : ''
+                  className={`shrink-0 min-w-[148px] sm:min-w-[160px] ${
+                    theme === 'dark' ? 'bg-gray-900/70 border-gray-800 hover:border-indigo-500/40' : 'bg-white border-slate-200/90 hover:border-indigo-300'
+                  } rounded-2xl p-2.5 border flex items-center justify-between cursor-pointer transition-all active:scale-[0.98] group shadow-sm ${
+                    isHidden ? 'opacity-40' : ''
                   }`}
                   id={`group-${group.id}`}
                 >
@@ -827,12 +827,12 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
               <button
                 key={filter}
                 onClick={() => setSelectedFilter(filter)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer whitespace-nowrap border ${
+                className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap border ${
                   selectedFilter === filter
-                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/30 scale-102'
+                    ? 'bg-indigo-600 border-transparent text-white shadow-md shadow-indigo-600/25'
                     : theme === 'dark'
-                      ? 'bg-gray-900 border-gray-800 text-slate-400 hover:text-white hover:bg-gray-800'
-                      : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      ? 'bg-gray-900/80 border-gray-800 text-slate-400 hover:text-white hover:border-gray-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-sm'
                 }`}
               >
                 {filter}
@@ -844,12 +844,12 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
         {/* Post Creation Box on General Feed */}
         <div className="px-4 sm:px-6 pt-2 max-w-4xl mx-auto">
           <form onSubmit={handleCreatePost} className="mb-6">
-            <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800 focus-within:border-indigo-500/50' : 'bg-white border-slate-200 shadow-sm focus-within:border-indigo-500'} border rounded-3xl p-4 transition-all shadow-md`}>
+            <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800 focus-within:border-indigo-500/40' : 'bg-white border-slate-200/90 focus-within:border-indigo-400/50'} border rounded-2xl p-3.5 sm:p-4 transition-all shadow-sm`}>
               {/* Subject Tag Selector */}
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-800/40">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    Topic:
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Topic
                   </span>
                   <select
                     value={newPostSubject}
@@ -874,9 +874,9 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
               <textarea
                 value={newPostText}
                 onChange={e => setNewPostText(e.target.value)}
-                placeholder="Share a question, study tip, or MSCE concept…"
+                placeholder="Share a question, tip, or MSCE concept…"
                 rows={3}
-                className={`w-full bg-transparent outline-none text-sm font-medium resize-none min-h-[72px] leading-relaxed ${theme === 'dark' ? 'text-gray-100' : 'text-slate-900'} placeholder-gray-500`}
+                className={`w-full bg-transparent outline-none text-sm font-medium resize-none min-h-[72px] leading-relaxed ${theme === 'dark' ? 'text-gray-100' : 'text-slate-900'} placeholder-slate-400`}
               />
 
               {/* Voice Note Attachment Preview */}
@@ -948,7 +948,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
                 <button
                   type="submit"
                   disabled={posting || (!newPostText.trim() && !recordedAudioBase64)}
-                  className="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold flex items-center gap-2 disabled:opacity-40 shadow-lg shadow-indigo-600/30 active:scale-95 transition-all"
+                  className="px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-2 disabled:opacity-40 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
                   id="submit-feed-post-btn"
                 >
                   {posting ? (
@@ -966,9 +966,9 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
 
           {/* Feed Header */}
           <div className="flex items-center justify-between mb-4">
-            <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-base flex items-center gap-2`}>
-              <MessageCircle size={18} className="text-indigo-500" />
-              <span>Universal Community Feed ({filteredFeeds.length})</span>
+            <h3 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-sm flex items-center gap-2`}>
+              <MessageCircle size={16} className="text-indigo-500" />
+              <span>Feed · {filteredFeeds.length}</span>
             </h3>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {selectedFilter}
@@ -976,19 +976,19 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
           </div>
 
           {/* Feeds Stream */}
-          <div className="space-y-4">
+          <div className="space-y-3.5 pb-8">
             {loading ? (
               <div className="flex flex-col items-center justify-center p-12">
                 <Loader2 size={32} className="animate-spin text-indigo-500 mb-2" />
-                <p className="text-xs font-bold text-slate-500">Syncing live community discussions...</p>
+                <p className="text-xs font-medium text-slate-500">Loading community…</p>
               </div>
             ) : filteredFeeds.length === 0 ? (
               <div className="text-center p-10 border border-dashed border-gray-800 rounded-3xl opacity-70">
                 <MessageCircle size={36} className="mx-auto mb-3 text-slate-500" />
-                <h4 className={`font-black text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  No posts in {selectedFilter}
+                <h4 className={`font-semibold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Nothing here yet
                 </h4>
-                <p className="text-slate-500 text-xs mt-1">Be the first to share an assignment, formula or question!</p>
+                <p className="text-slate-500 text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">Be the first to share a question, formula, or study tip for {selectedFilter}.</p>
               </div>
             ) : (
               filteredFeeds.map((post, idx) => {
