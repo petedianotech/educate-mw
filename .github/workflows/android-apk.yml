@@ -50,7 +50,7 @@ jobs:
           mkdir -p src/components
           SIZE=$(wc -c < "$F" 2>/dev/null || echo 0)
           if [ ! -f "$F" ] || [ "$SIZE" -lt 1000 ] || ! grep -q "export function CommunityView" "$F" 2>/dev/null; then
-            echo "Restoring CommunityView.tsx from known-good commit…"
+            echo "Restoring CommunityView.tsx…"
             curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/25831e2/src/components/CommunityView.tsx" -o "$F"
           fi
           grep -q "export function CommunityView" "$F"
@@ -75,7 +75,7 @@ jobs:
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
 
-      - name: Capacitor Android + minSdk 23 + mic permissions
+      - name: Capacitor Android + SDK levels + mic
         run: |
           if [ ! -f capacitor.config.ts ]; then
             cat > capacitor.config.ts << 'EOF'
@@ -90,19 +90,41 @@ jobs:
           export default config;
           EOF
           fi
-          test -d dist || { echo "dist missing"; exit 1; }
+          test -d dist || exit 1
           npx cap add android || true
           npx cap sync android
           test -f android/gradlew || exit 1
           chmod +x android/gradlew
 
-          # Android 6.0+ (API 23)
+          # minSdk 23 = Android 6.0+, compileSdk 36 for androidx.browser 1.9
           if [ -f android/variables.gradle ]; then
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/' android/variables.gradle || true
+            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/' android/variables.gradle || true
+            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' android/variables.gradle || true
+            cat android/variables.gradle
           fi
           if [ -f android/app/build.gradle ]; then
             sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
-            sed -i 's/minSdk .*/minSdk 23/' android/app/build.gradle || true
+            sed -i 's/compileSdkVersion .*/compileSdkVersion 36/' android/app/build.gradle || true
+            sed -i 's/compileSdk .*/compileSdk 36/' android/app/build.gradle || true
+            sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/app/build.gradle || true
+            sed -i 's/targetSdk .*/targetSdk 35/' android/app/build.gradle || true
+          fi
+
+          # Upgrade Android Gradle Plugin to 8.9.1+ (required by androidx.browser:1.9.0)
+          if [ -f android/build.gradle ]; then
+            sed -i "s/classpath 'com.android.tools.build:gradle:[^']*'/classpath 'com.android.tools.build:gradle:8.9.1'/" android/build.gradle || true
+            sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.1/' android/build.gradle || true
+          fi
+          if [ -f android/settings.gradle ]; then
+            sed -i 's/com.android.application[^\'"]*/com.android.application" version "8.9.1"/' android/settings.gradle 2>/dev/null || true
+          fi
+
+          # Pin browser if AGP upgrade is awkward — force older AAR as safety net
+          if [ -f android/app/build.gradle ]; then
+            if ! grep -q "androidx.browser:browser" android/app/build.gradle; then
+              printf '\nconfigurations.all { resolutionStrategy { force "androidx.browser:browser:1.8.0" } }\n' >> android/app/build.gradle
+            fi
           fi
 
           MANIFEST=android/app/src/main/AndroidManifest.xml
@@ -112,7 +134,6 @@ jobs:
                 sed -i "s|<application|<uses-permission android:name=\"android.permission.$perm\" />\n    <application|" "$MANIFEST"
               fi
             done
-            grep uses-permission "$MANIFEST" || true
           fi
 
       - name: Install google-services.json
