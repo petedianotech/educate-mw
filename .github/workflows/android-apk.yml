@@ -1,8 +1,9 @@
-name: Build Android APK
+name: Build Signed Android APK
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -10,12 +11,23 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
-      - run: npm ci || npm install
-      - name: Build web
+
+      - name: Install JS dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm install -D @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build web (Vite)
         run: npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -26,22 +38,87 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      - name: Capacitor Android
+
+      - name: Ensure capacitor.config.ts
         run: |
-          npm install -D @capacitor/cli @capacitor/core @capacitor/android
+          if [ ! -f capacitor.config.ts ] && [ ! -f capacitor.config.json ]; then
+            cat > capacitor.config.ts << 'EOF'
+          import type { CapacitorConfig } from '@capacitor/cli';
+          const config: CapacitorConfig = {
+            appId: 'mw.educate.app',
+            appName: 'Educate MW',
+            webDir: 'dist',
+            server: { androidScheme: 'https' },
+            android: { allowMixedContent: false, backgroundColor: '#0b1120' },
+          };
+          export default config;
+          EOF
+          fi
+          if [ ! -d dist ]; then
+            echo "ERROR: dist/ missing after npm run build"
+            ls -la
+            exit 1
+          fi
+
+      - name: Add and sync Android platform
+        run: |
           npx cap add android || true
           npx cap sync android
-      - name: Assemble debug APK
-        working-directory: android
+          if [ ! -d android ] || [ ! -f android/gradlew ]; then
+            echo "ERROR: android platform not created"
+            ls -la
+            exit 1
+          fi
+          chmod +x android/gradlew
+
+      - name: Decode release keystore
+        id: ks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Release keystore ready"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Signing secrets missing — will build DEBUG APK"
+          fi
+
+      - name: Build RELEASE signed APK
+        if: steps.ks.outputs.signed == 'true'
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+
+      - name: Build DEBUG APK (fallback)
+        if: steps.ks.outputs.signed != 'true'
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APKs
+        run: |
+          mkdir -p artifacts-apk
+          find android/app/build/outputs -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} artifacts-apk/ \;
+          echo "=== APKs ==="
+          ls -lah artifacts-apk
+          test "$(ls -A artifacts-apk)" || (echo "No APK found" && exit 1)
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: educate-mw-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
+          name: educate-mw-apk
+          path: artifacts-apk/*
+          if-no-files-found: error
+          retention-days: 30
