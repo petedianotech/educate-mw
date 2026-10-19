@@ -1,4 +1,4 @@
-name: (disabled) community-ui-polish
+name: (disabled)
 on:
   workflow_dispatch:
 jobs:

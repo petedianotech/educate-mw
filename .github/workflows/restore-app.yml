@@ -1,4 +1,4 @@
-name: (disabled) restore-app
+name: (disabled)
 on:
   workflow_dispatch:
 jobs:

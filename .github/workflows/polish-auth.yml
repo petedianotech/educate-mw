@@ -1,4 +1,4 @@
-name: (disabled) polish-auth
+name: (disabled)
 on:
   workflow_dispatch:
 jobs:

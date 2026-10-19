@@ -1,4 +1,4 @@
-name: (disabled) phase3-community
+name: (disabled)
 on:
   workflow_dispatch:
 jobs:

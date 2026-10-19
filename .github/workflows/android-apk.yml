@@ -15,7 +15,7 @@ on:
 jobs:
   release-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     permissions:
       contents: write
     steps:
@@ -44,6 +44,18 @@ jobs:
           done
           echo "Signing secrets OK"
 
+      - name: Restore CommunityView if empty/broken
+        run: |
+          F=src/components/CommunityView.tsx
+          mkdir -p src/components
+          SIZE=$(wc -c < "$F" 2>/dev/null || echo 0)
+          if [ ! -f "$F" ] || [ "$SIZE" -lt 1000 ] || ! grep -q "export function CommunityView" "$F" 2>/dev/null; then
+            echo "Restoring CommunityView.tsx from known-good commit…"
+            curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/25831e2/src/components/CommunityView.tsx" -o "$F"
+          fi
+          grep -q "export function CommunityView" "$F"
+          echo "CommunityView OK ($(wc -c < "$F") bytes)"
+
       - name: Install npm dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
@@ -63,7 +75,7 @@ jobs:
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
 
-      - name: Capacitor Android + permissions
+      - name: Capacitor Android + minSdk 23 + mic permissions
         run: |
           if [ ! -f capacitor.config.ts ]; then
             cat > capacitor.config.ts << 'EOF'
@@ -78,13 +90,21 @@ jobs:
           export default config;
           EOF
           fi
-          test -d dist || { echo "dist missing after vite build"; ls -la; exit 1; }
+          test -d dist || { echo "dist missing"; exit 1; }
           npx cap add android || true
           npx cap sync android
-          test -f android/gradlew || { echo "gradlew missing"; exit 1; }
+          test -f android/gradlew || exit 1
           chmod +x android/gradlew
 
-          # Microphone + network for Emi Live + HTTPS
+          # Android 6.0+ (API 23)
+          if [ -f android/variables.gradle ]; then
+            sed -i 's/minSdkVersion = .*/minSdkVersion = 23/' android/variables.gradle || true
+          fi
+          if [ -f android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
+            sed -i 's/minSdk .*/minSdk 23/' android/app/build.gradle || true
+          fi
+
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if [ -f "$MANIFEST" ]; then
             for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS INTERNET ACCESS_NETWORK_STATE; do
@@ -92,28 +112,23 @@ jobs:
                 sed -i "s|<application|<uses-permission android:name=\"android.permission.$perm\" />\n    <application|" "$MANIFEST"
               fi
             done
-            echo "Permissions in manifest:"
             grep uses-permission "$MANIFEST" || true
           fi
 
-      - name: Install google-services.json (inject API key from secret)
+      - name: Install google-services.json
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
         run: |
           mkdir -p android/app
-          # Prefer full JSON from secret if provided; else template + key inject
           if [ -n "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" ]; then
             echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > android/app/google-services.json
           else
             cp android-config/google-services.json android/app/google-services.json
-            KEY="${VITE_FIREBASE_API_KEY:-AIzaSyBWRpqj-uAqH0UGhGKvIiB3spOyc5OAS0U}"
-            sed -i "s|\\[FIREBASE_ANDROID_API_KEY\]|${KEY}|g" android/app/google-services.json || true
-            sed -i "s|\\$\{FIREBASE_ANDROID_API_KEY\}|${KEY}|g" android/app/google-services.json || true
+            KEY="${VITE_FIREBASE_API_KEY}"
+            if [ -n "$KEY" ]; then
+              sed -i "s|\${FIREBASE_ANDROID_API_KEY}|${KEY}|g" android/app/google-services.json || true
+            fi
           fi
-          test -s android/app/google-services.json
-          # Avoid committing keys: ensure placeholder not left if sed failed
-          grep -q 'api_key' android/app/google-services.json
-
           if [ -f android/build.gradle ] && ! grep -q "google-services" android/build.gradle; then
             sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
           fi

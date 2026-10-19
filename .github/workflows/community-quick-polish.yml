@@ -1,4 +1,4 @@
-name: (disabled) community-quick-polish
+name: (disabled)
 on:
   workflow_dispatch:
 jobs:
