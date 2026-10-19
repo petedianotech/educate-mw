@@ -75,6 +75,7 @@ jobs:
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
+          VITE_API_BASE_URL: https://educatemw.vercel.app
 
       - name: Capacitor Android + icon + mic + Google MainActivity
         run: |
@@ -105,11 +106,9 @@ jobs:
             done
           fi
 
-          # App icon from public/
           chmod +x scripts/apply_android_icon.sh || true
           bash scripts/apply_android_icon.sh || true
 
-          # Capgo Social Login MainActivity bridge (needed if scopes ever used)
           MAIN=$(find android/app/src/main/java -name 'MainActivity.java' -o -name 'MainActivity.kt' | head -1)
           if [ -n "$MAIN" ] && [ -f "$MAIN" ]; then
             if ! grep -q 'ModifiedMainActivityForSocialLoginPlugin' "$MAIN"; then
@@ -118,7 +117,6 @@ jobs:
           package mw.educate.app;
 
           import android.content.Intent;
-          import android.os.Bundle;
           import android.util.Log;
           import com.getcapacitor.BridgeActivity;
           import com.getcapacitor.Plugin;
