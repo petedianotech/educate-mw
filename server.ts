@@ -109,7 +109,7 @@ Core Instructions & Pedagogical Guidelines:
   }
 
   /** Text models: prefer 3.1 Flash Lite (fast/cheap); fallback to 3.8 Flash (default quality). */
-  const TEXT_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"] as const;
+  const TEXT_MODELS = ["gemini-3.5-flash-lite"] as const; // Search grounding supported; high free-tier limits
 
   async function generateWithFallback(params: {
     contents: any;
@@ -482,7 +482,7 @@ SPOKEN VOICE CALL RULES:
         if (!process.env.GEMINI_API_KEY) {
           throw new Error("GEMINI_API_KEY is missing in environment variables. Please add it in the Secrets panel.");
         }
-        const liveModels = ["gemini-3.8-live", "gemini-3.1-flash-live-preview"];
+        const liveModels = ["gemini-3.8-live", "gemini-3.8-live-extended-thinking"];
         let session: any = null;
         let lastErr: any = null;
         for (const liveModel of liveModels) {
