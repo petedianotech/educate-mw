@@ -1,33 +1,43 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer, enableIndexedDbPersistence } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { initializeFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import fallbackConfig from '../../firebase-applet-config.json';
+
+/** Prefer Vite env (CI/Vercel secrets). Fallback JSON is for local only and must not hold real keys in git. */
+const envKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY as string | undefined;
+const firebaseConfig = {
+  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || (fallbackConfig as any).projectId,
+  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || (fallbackConfig as any).appId,
+  apiKey: envKey || (fallbackConfig as any).apiKey,
+  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || (fallbackConfig as any).authDomain,
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || (fallbackConfig as any).storageBucket,
+  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || (fallbackConfig as any).messagingSenderId,
+  measurementId: (fallbackConfig as any).measurementId,
+};
 
 const app = initializeApp(firebaseConfig);
 
-// Use the explicit database ID if provided, otherwise the default.
-const config = firebaseConfig as any;
-const databaseId = config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)' 
-  ? config.firestoreDatabaseId 
-  : undefined;
+const config = fallbackConfig as any;
+const databaseId =
+  config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
+    ? config.firestoreDatabaseId
+    : undefined;
 
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, databaseId);
+export const db = initializeFirestore(
+  app,
+  { experimentalForceLongPolling: true },
+  databaseId,
+);
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-// Standard Google sign-in (email & basic profile only, no Drive/Docs scopes)
 
-// Flag to indicate if we are in the middle of a sign-in flow.
 export let isSigningIn = false;
-
 export const setIsSigningIn = (val: boolean) => {
   isSigningIn = val;
 };
 
-// Enable offline persistence
-if (typeof window !== "undefined") {
+if (typeof window !== 'undefined') {
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
       console.warn('Firestore persistence failed: Multiple tabs open');
@@ -36,4 +46,3 @@ if (typeof window !== "undefined") {
     }
   });
 }
-
