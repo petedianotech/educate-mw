@@ -1,24 +1,8 @@
-name: Restore App.tsx
+name: (disabled) restore-app
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/restore-app.yml"
 jobs:
-  restore:
+  skip:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Restore App.tsx from known good commit
-        run: |
-          git checkout fffa58c957c3fe08af2b9f081d30137f91dd5c2b -- src/App.tsx
-          git config user.name "Peter Damiano"
-          git config user.email "petedianotech@gmail.com"
-          git add src/App.tsx
-          git status
-          git commit -m "fix: restore full App.tsx from good commit fffa58c" || echo "nothing to commit"
-          git push origin HEAD:main
+      - run: echo disabled

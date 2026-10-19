@@ -1,22 +1,8 @@
-name: Restore Community UI
+name: (disabled) restore-community-ui
 on:
-  push:
-    paths:
-      - "scripts/blobs/**"
-      - "scripts/restore_community_ui.py"
-      - ".github/workflows/restore-community-ui.yml"
   workflow_dispatch:
 jobs:
-  restore:
+  skip:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - run: python3 scripts/restore_community_ui.py
-      - run: |
-          git config user.name "Peter Damiano"
-          git config user.email "petedianotech@gmail.com"
-          git add src/components/CommunityView.tsx
-          git commit -m "UI: apply full Community visual polish" || echo none
-          git push origin HEAD:main
+      - run: echo disabled

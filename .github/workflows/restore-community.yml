@@ -1,78 +1,8 @@
-name: Restore Community Components
+name: (disabled) restore-community
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/restore-community.yml"
 jobs:
-  restore:
+  skip:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Restore GroupChat and CommunityView
-        run: |
-          set -e
-          # Find a commit that has full GroupChat
-          for sha in 8e0f04d7ad8325e4784790e81d935cc2962cbc04 fffa58c957c3fe08af2b9f081d30137f91dd5c2b e088901e11766cf6c7ae0f695000cdeadd5286ff; do
-            if git cat-file -e ${sha}:src/components/GroupChat.tsx 2>/dev/null; then
-              SIZE=$(git show ${sha}:src/components/GroupChat.tsx | wc -c)
-              echo "Found GroupChat in $sha size=$SIZE"
-              if [ "$SIZE" -gt 10000 ]; then
-                git checkout $sha -- src/components/GroupChat.tsx src/components/CommunityView.tsx
-                break
-              fi
-            fi
-          done
-          wc -c src/components/GroupChat.tsx src/components/CommunityView.tsx
-          # Apply Phase 3 patches
-          python3 << 'PY'
-          from pathlib import Path
-          gc = Path("src/components/GroupChat.tsx")
-          text = gc.read_text()
-          marker = "Also publish to General Community Feed"
-          if marker in text:
-              # Remove the whole try block for feed mirroring - find by unique start/end
-              start = text.find("      // Also publish to General Community Feed")
-              if start < 0:
-                  start = text.find("Also publish to General Community Feed")
-              if start >= 0:
-                  # find end of the catch block
-                  end = text.find("console.warn(\"Could not mirror message to general feed:\"", start)
-                  if end < 0:
-                      end = text.find("Could not mirror message to general feed", start)
-                  if end > 0:
-                      end = text.find("}", end)  # first }
-                      end = text.find("}", end+1)  # closing of catch
-                      end = text.find("\n", end) + 1
-                      text = text[:start] + "      // Phase 3: Do NOT mirror every chat message into the global feed.\n" + text[end:]
-                      print("removed feed mirror")
-          gc.write_text(text)
-
-          cv = Path("src/components/CommunityView.tsx")
-          text = cv.read_text()
-          if "limit(40)" not in text:
-              text = text.replace(
-                  "query(collection(db, 'feeds'), orderBy('createdAt', 'desc'))",
-                  "query(collection(db, 'feeds'), orderBy('createdAt', 'desc'), limit(40))"
-              )
-              if ", limit" not in text[:1500]:
-                  text = text.replace("serverTimestamp\n} from 'firebase/firestore';", "serverTimestamp, limit\n} from 'firebase/firestore';")
-              print("limit applied")
-          if "Please sign in to post" not in text:
-              needle = "if (!newPostText.trim() && !recordedAudioBase64) return;\n    setPosting(true);"
-              insert = "if (!newPostText.trim() && !recordedAudioBase64) return;\n    if (!auth.currentUser) {\n      showToast(\"Please sign in to post in the community.\");\n      return;\n    }\n    setPosting(true);"
-              if needle in text:
-                  text = text.replace(needle, insert, 1)
-                  print("auth gate applied")
-          cv.write_text(text)
-          print("done", gc.stat().st_size, cv.stat().st_size)
-          PY
-          git config user.name "Peter Damiano"
-          git config user.email "petedianotech@gmail.com"
-          git add src/components/GroupChat.tsx src/components/CommunityView.tsx
-          git commit -m "fix: restore GroupChat + CommunityView + Phase 3 P0 patches" || echo nochange
-          git push origin HEAD:main
+      - run: echo disabled

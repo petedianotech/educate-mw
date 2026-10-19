@@ -1,24 +1,8 @@
-name: Run Emi Community Polish
+name: (disabled) run-emi-polish
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/apply_emi_community_polish.py"
-      - ".github/workflows/run-emi-polish.yml"
 jobs:
-  polish:
+  skip:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Run polish script
-        run: |
-          python3 scripts/apply_emi_community_polish.py
-          git config user.name "Peter Damiano"
-          git config user.email "petedianotech@gmail.com"
-          git add src/App.tsx src/components/CommunityView.tsx src/index.css
-          git status
-          git diff --stat
-          git commit -m "UI: polish Emi chat input/header/bubbles, live call, community layout" || echo "no changes"
-          git push origin HEAD:main
+      - run: echo disabled

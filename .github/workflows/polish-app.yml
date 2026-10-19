@@ -1,1 +1,8 @@
-PLACEHOLDER_WF
+name: (disabled) polish-app
+on:
+  workflow_dispatch:
+jobs:
+  skip:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo disabled
