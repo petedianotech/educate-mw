@@ -19,6 +19,9 @@ import {
   User as FirebaseUser,
   GoogleAuthProvider,
 } from "firebase/auth";
+
+import { signInWithGoogleNativeAware, isNativeApp } from "./native/googleAuth";
+import { openPdf, pickDevicePdfs } from "./native/pdfReader";
 import {
   collection,
   doc,
@@ -3468,9 +3471,13 @@ function LibraryView({
 
     if (item.type === "pdf" && item.content) {
       try {
-        await triggerExplicitDownload(item.content, item.title);
+        if (isNativeApp()) {
+          await openPdf(item.content, item.title);
+        } else {
+          await triggerExplicitDownload(item.content, item.title);
+        }
       } catch (err) {
-        console.error("Trigger explicit download failed:", err);
+        console.error("PDF open/download failed:", err);
       }
     }
   };
@@ -3550,7 +3557,7 @@ function LibraryView({
             <h1
               className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"} text-lg sm:text-xl leading-tight uppercase tracking-tight`}
             >
-              Study Library
+              Study library
             </h1>
             <p className="text-[11px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider mt-0.5">
               MSCE & JCE Syllabus Vault
@@ -5441,7 +5448,7 @@ function AuthView({
     setLoading(true);
     setError("");
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithGoogleNativeAware();
     } catch (err: any) {
       console.error("Google Login Error:", err);
       if (err.code === "auth/popup-closed-by-user") {
@@ -7936,7 +7943,7 @@ function AdminDashboard({
                     ? "Destined for: Knowledge Hub / Blog"
                     : newMaterial.type === "video"
                       ? "Destined for: Video Library"
-                      : "Destined for: Study Library Vault"}
+                      : "Destined for: Study library Vault"}
                 </p>
                 <button
                   type="submit"
