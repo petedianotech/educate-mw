@@ -1,13 +1,7 @@
 /**
- * Google Sign-In for web (popup) and Android APK (system account picker).
- *
- * Web client ID (client_type 3 from google-services.json):
- * 918710657536-r6uqkjpr4fons0h69flfkgnod68l5hnk.apps.googleusercontent.com
- *
- * Android does NOT need Firebase Authorized Domains for native Google Sign-In.
- * Package mw.educate.app + SHA-1 in Firebase is what matters.
+ * Google Sign-In for web (popup) and Android APK (account picker).
+ * Web client ID from google-services.json client_type 3.
  */
-import { Capacitor } from "@capacitor/core";
 import {
   GoogleAuthProvider,
   signInWithCredential,
@@ -15,10 +9,19 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 
-/** From google-services.json oauth_client client_type 3 (Web) */
 export const GOOGLE_WEB_CLIENT_ID =
   ((import.meta as any).env?.VITE_GOOGLE_WEB_CLIENT_ID as string) ||
   "918710657536-r6uqkjpr4fons0h69flfkgnod68l5hnk.apps.googleusercontent.com";
+
+function isNative(): boolean {
+  try {
+    // Avoid static import so web/vite builds without @capacitor/core still succeed
+    const w = window as any;
+    return !!(w.Capacitor?.isNativePlatform?.() || w.Capacitor?.getPlatform?.() === "android");
+  } catch {
+    return false;
+  }
+}
 
 let socialReady = false;
 
@@ -32,7 +35,7 @@ async function ensureNativeGoogle() {
 }
 
 export async function signInWithGoogleNativeAware(): Promise<void> {
-  if (Capacitor.isNativePlatform()) {
+  if (isNative()) {
     await ensureNativeGoogle();
     const { SocialLogin } = await import("@capgo/capacitor-social-login");
     const login = await SocialLogin.login({
@@ -56,5 +59,5 @@ export async function signInWithGoogleNativeAware(): Promise<void> {
 }
 
 export function isNativeApp(): boolean {
-  return Capacitor.isNativePlatform();
+  return isNative();
 }

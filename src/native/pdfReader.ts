@@ -1,16 +1,21 @@
-/**
- * APK PDF helpers — open PDFs + pick from device via system document picker.
- * (Silent scan of all device PDFs is blocked on modern Android; SAF picker is required.)
- */
-import { Capacitor } from "@capacitor/core";
+/** APK PDF helpers — no static Capacitor import (keeps vite build clean). */
+
+function isNative(): boolean {
+  try {
+    const w = window as any;
+    return !!(w.Capacitor?.isNativePlatform?.());
+  } catch {
+    return false;
+  }
+}
 
 export function isNativeApp(): boolean {
-  return Capacitor.isNativePlatform();
+  return isNative();
 }
 
 export async function openPdf(source: string, title?: string): Promise<void> {
   if (!source) return;
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     window.open(source, "_blank", "noopener,noreferrer");
     return;
   }
@@ -26,7 +31,7 @@ export async function openPdf(source: string, title?: string): Promise<void> {
     try {
       const { Browser } = await import("@capacitor/browser");
       await Browser.open({ url: source });
-    } catch (e2) {
+    } catch {
       throw new Error(
         title
           ? `Could not open “${title}”. Install a PDF viewer app.`
@@ -44,7 +49,7 @@ export type PickedPdf = {
 };
 
 export async function pickDevicePdfs(multiple = true): Promise<PickedPdf[]> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
