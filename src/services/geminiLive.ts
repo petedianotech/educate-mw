@@ -1,3 +1,4 @@
+import { apiUrl } from "../lib/api";
 import { GoogleGenAI, Modality } from "@google/genai";
 
 export type LiveState =
@@ -197,7 +198,7 @@ export class GeminiLiveService {
       // 2. Fetch Ephemeral Token from Server Endpoint (pass preferred model)
       const preferredModel = this.config.model || "gemini-3.8-live";
       const tokenRes = await fetch(
-        `/api/gemini/token?model=${encodeURIComponent(preferredModel)}`,
+        apiUrl(`/api/gemini/token?model=${encodeURIComponent(preferredModel)}`),
       );
       if (!tokenRes.ok) {
         const errBody = await tokenRes.json().catch(() => ({}));

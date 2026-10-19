@@ -22,6 +22,7 @@ import {
 
 import { signInWithGoogleNativeAware, isNativeApp } from "./native/googleAuth";
 import { openPdf, pickDevicePdfs } from "./native/pdfReader";
+import { apiUrl } from "./lib/api";
 import {
   collection,
   doc,
@@ -1434,35 +1435,35 @@ function HomeView({
               <FeatureCard
                 theme={theme}
                 icon={<CheckSquare size={20} className="text-white" />}
-                bgColor="bg-emerald-600"
+                bgColor="bg-blue-600"
                 title="Quizzes"
                 onClick={() => onNavigate("quizzes")}
               />
               <FeatureCard
                 theme={theme}
                 icon={<Layers size={20} className="text-white" />}
-                bgColor="bg-amber-600"
+                bgColor="bg-blue-600"
                 title="Flashcards"
                 onClick={() => onNavigate("flashcards")}
               />
               <FeatureCard
                 theme={theme}
                 icon={<Users size={20} className="text-white" />}
-                bgColor="bg-indigo-600"
+                bgColor="bg-blue-600"
                 title="Community"
                 onClick={() => onNavigate("community")}
               />
               <FeatureCard
                 theme={theme}
                 icon={<BookA size={20} className="text-white" />}
-                bgColor="bg-purple-600"
+                bgColor="bg-blue-600"
                 title="Dictionary"
                 onClick={() => onNavigate("dictionary")}
               />
               <FeatureCard
                 theme={theme}
                 icon={<Video size={20} className="text-white" />}
-                bgColor="bg-sky-600"
+                bgColor="bg-blue-600"
                 title="Videos"
                 onClick={() => onNavigate("videos")}
               />
@@ -1988,7 +1989,7 @@ function EmiChatView({
         } catch (e) {}
       }
 
-      const response = await fetch("/api/gemini/chat", {
+      const response = await fetch(apiUrl("/api/gemini/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3972,7 +3973,7 @@ function QuizzesView({
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     try {
-      const response = await fetch("/api/gemini/quiz", {
+      const response = await fetch(apiUrl("/api/gemini/quiz"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: fullTopic, numQuestions }),
