@@ -211,7 +211,13 @@ export default function App() {
       return false;
     }
   });
-  const [currentView, setCurrentView] = useState<ViewState>("home");
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+    try {
+      const saved = localStorage.getItem("emw_last_view") as ViewState | null;
+      if (saved && typeof saved === "string") return saved;
+    } catch {}
+    return "home";
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -351,6 +357,11 @@ export default function App() {
 
   const navigateTo = (view: ViewState, slugOrSearch?: string) => {
     setCurrentView(view);
+    try {
+      localStorage.setItem("emw_last_view", view);
+      if (slugOrSearch) localStorage.setItem("emw_last_slug", slugOrSearch);
+      else localStorage.removeItem("emw_last_slug");
+    } catch {}
     if (view === "blog-post" && slugOrSearch) setSelectedBlogSlug(slugOrSearch);
     if (view === "library-item" && slugOrSearch)
       setSelectedLibrarySlug(slugOrSearch);
@@ -413,6 +424,17 @@ export default function App() {
     }
     window.history.pushState({}, "", path);
   };
+
+  // Restore deep link slug once for library/blog
+  useEffect(() => {
+    try {
+      const slug = localStorage.getItem("emw_last_slug");
+      const view = localStorage.getItem("emw_last_view");
+      if (slug && view === "library-item") setSelectedLibrarySlug(slug);
+      if (slug && view === "blog-post") setSelectedBlogSlug(slug);
+      if (slug && view === "library") setLibrarySearch(slug);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => {
