@@ -11,6 +11,8 @@ on:
       - ".github/workflows/restore-*.yml"
       - ".github/workflows/run-*.yml"
       - ".github/workflows/phase3*.yml"
+      - ".github/workflows/session-*.yml"
+      - ".github/workflows/wire-*.yml"
 
 jobs:
   release-apk:
@@ -86,6 +88,18 @@ jobs:
           npx cap sync android
           test -f android/gradlew || { echo "gradlew missing"; exit 1; }
           chmod +x android/gradlew
+
+      - name: Install google-services.json
+        run: |
+          mkdir -p android/app
+          cp android-config/google-services.json android/app/google-services.json
+          echo "google-services.json installed for mw.educate.app"
+          if [ -f android/build.gradle ] && ! grep -q "google-services" android/build.gradle; then
+            sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
+          fi
+          if [ -f android/app/build.gradle ] && ! grep -q "com.google.gms.google-services" android/app/build.gradle; then
+            echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+          fi
 
       - name: Decode keystore + print fingerprints
         env:
