@@ -77,45 +77,23 @@ jobs:
       - name: Capacitor Android + minSdk 23 + mic
         run: |
           if [ ! -f capacitor.config.ts ]; then
-            cat > capacitor.config.ts << 'EOF'
-          import type { CapacitorConfig } from '@capacitor/cli';
-          const config: CapacitorConfig = {
-            appId: 'mw.educate.app',
-            appName: 'Educate MW',
-            webDir: 'dist',
-            server: { androidScheme: 'https' },
-            android: { allowMixedContent: false, backgroundColor: '#0b1120' },
-          };
-          export default config;
-          EOF
+            printf '%s\n' "import type { CapacitorConfig } from '@capacitor/cli';" "const config: CapacitorConfig = { appId: 'mw.educate.app', appName: 'Educate MW', webDir: 'dist', server: { androidScheme: 'https' }, android: { allowMixedContent: false, backgroundColor: '#0b1120' } };" "export default config;" > capacitor.config.ts
           fi
           test -d dist || exit 1
           npx cap add android || true
           npx cap sync android
           test -f android/gradlew || exit 1
           chmod +x android/gradlew
-
-          # Android 6.0+ (API 23). Keep compileSdk at Capacitor default (35) and pin browser.
           if [ -f android/variables.gradle ]; then
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/' android/variables.gradle
-            echo "variables.gradle:"
-            head -10 android/variables.gradle
+            head -8 android/variables.gradle
           fi
-
-          # Force older browser AAR so AGP 8.7 / compileSdk 35 still works
           if [ -f android/app/build.gradle ]; then
             if ! grep -q 'androidx.browser:browser:1.8.0' android/app/build.gradle; then
-              cat >> android/app/build.gradle << 'GRADLE'
-
-configurations.all {
-    resolutionStrategy {
-        force "androidx.browser:browser:1.8.0"
-    }
-}
-GRADLE
+              echo '' >> android/app/build.gradle
+              echo 'configurations.all { resolutionStrategy { force "androidx.browser:browser:1.8.0" } }' >> android/app/build.gradle
             fi
           fi
-
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if [ -f "$MANIFEST" ]; then
             for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS INTERNET ACCESS_NETWORK_STATE; do
@@ -123,7 +101,6 @@ GRADLE
                 sed -i "s|<application|<uses-permission android:name=\"android.permission.$perm\" />\n    <application|" "$MANIFEST"
               fi
             done
-            echo "Permissions:"
             grep uses-permission "$MANIFEST" || true
           fi
 
@@ -132,14 +109,9 @@ GRADLE
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
         run: |
           mkdir -p android/app
-          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" ]; then
-            echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > android/app/google-services.json
-          else
-            cp android-config/google-services.json android/app/google-services.json
-            KEY="${VITE_FIREBASE_API_KEY}"
-            if [ -n "$KEY" ]; then
-              python3 -c "import os,pathlib; p=pathlib.Path('android/app/google-services.json'); t=p.read_text(); t=t.replace('\${FIREBASE_ANDROID_API_KEY}', os.environ.get('VITE_FIREBASE_API_KEY','')); p.write_text(t)"
-            fi
+          cp android-config/google-services.json android/app/google-services.json
+          if [ -n "$VITE_FIREBASE_API_KEY" ]; then
+            sed -i "s|PLACEHOLDER_API_KEY|$VITE_FIREBASE_API_KEY|g" android/app/google-services.json || true
           fi
           if [ -f android/build.gradle ] && ! grep -q google-services android/build.gradle; then
             sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
