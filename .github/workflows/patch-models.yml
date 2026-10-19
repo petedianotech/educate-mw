@@ -1,0 +1,21 @@
+name: Patch models + placeholder
+on:
+  push:
+    paths:
+      - "scripts/patch_models_placeholder.py"
+      - ".github/workflows/patch-models.yml"
+  workflow_dispatch:
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/patch_models_placeholder.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add server.ts src/App.tsx || true
+          git commit -m "feat: gemini-3.5-flash-lite text, gemini-3.8-live(+extended) voice, short Emi placeholder" || echo none
+          git push origin HEAD:main

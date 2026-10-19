@@ -1,6 +1,8 @@
 /**
  * Google Sign-In for web (popup) and Android APK (account picker).
- * Web client ID from google-services.json client_type 3.
+ * Do NOT pass scopes on Android — Capgo requires MainActivity changes for scopes
+ * and throws: "You CANNOT use scopes without modifying the main activity".
+ * Basic login still returns idToken for Firebase Auth (email/profile in token claims).
  */
 import {
   GoogleAuthProvider,
@@ -15,7 +17,6 @@ export const GOOGLE_WEB_CLIENT_ID =
 
 function isNative(): boolean {
   try {
-    // Avoid static import so web/vite builds without @capacitor/core still succeed
     const w = window as any;
     return !!(w.Capacitor?.isNativePlatform?.() || w.Capacitor?.getPlatform?.() === "android");
   } catch {
@@ -38,9 +39,10 @@ export async function signInWithGoogleNativeAware(): Promise<void> {
   if (isNative()) {
     await ensureNativeGoogle();
     const { SocialLogin } = await import("@capgo/capacitor-social-login");
+    // No scopes option — required on Android without custom MainActivity
     const login = await SocialLogin.login({
       provider: "google",
-      options: { scopes: ["email", "profile"] },
+      options: {},
     });
     const idToken =
       (login as any)?.result?.idToken ||
