@@ -619,7 +619,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
   }
 
   return (
-    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'bg-gray-950 text-white' : 'bg-slate-50 text-slate-900'} animate-in slide-in-from-right duration-300`}>
+    <div className={`absolute inset-0 z-50 flex flex-col ${theme === 'dark' ? 'emw-page-bg-dark text-white' : 'emw-page-bg text-slate-900'} animate-in slide-in-from-right duration-300`}>
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] bg-indigo-600 text-white text-xs font-black px-4 py-2 rounded-full shadow-2xl animate-in fade-in slide-in-from-top-2 flex items-center gap-2 border border-indigo-400/30">
@@ -650,7 +650,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
 
       {/* Hide / Unhide Groups Drawer */}
       {showHideFilterModal && (
-        <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[90] emw-overlay flex items-center justify-center p-4 animate-in fade-in">
           <div className={`w-full max-w-sm rounded-3xl border p-5 ${
             theme === 'dark' ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
           }`}>
@@ -715,7 +715,7 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
       )}
 
       {/* Main Header */}
-      <div className={`${theme === 'dark' ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200 shadow-sm'} backdrop-blur-xl pt-4 pb-3 px-4 sm:px-6 flex items-center justify-between shrink-0 z-10 border-b shadow-md`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-950/90 border-gray-800/80' : 'bg-white/95 border-slate-200/80'} backdrop-blur-xl pt-3 pb-2.5 px-4 sm:px-5 flex items-center justify-between shrink-0 z-10 border-b`}>
         <div className="flex items-center gap-3">
           <button 
             onClick={onBack} 
@@ -772,8 +772,8 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
         {/* Horizontal Study Groups Quick-Access Row */}
         <div className="px-4 sm:px-6 pt-5 pb-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-xs uppercase tracking-wider text-gray-400`}>
-              Active Study groups
+            <h3 className="font-bold text-[11px] uppercase tracking-wider text-gray-500">
+              Study groups
             </h3>
             <button
               onClick={() => setShowHideFilterModal(true)}
@@ -794,10 +794,10 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
                 <div 
                   key={group.id} 
                   onClick={() => setActiveGroup({ name: group.name, members: msgCount, id: group.id, desc: group.desc })} 
-                  className={`shrink-0 min-w-[150px] sm:min-w-[170px] ${
-                    theme === 'dark' ? 'bg-gray-900/90 border-gray-800 hover:border-indigo-500/50' : 'bg-white border-slate-200 hover:border-indigo-400'
-                  } rounded-2xl p-3 border flex items-center justify-between cursor-pointer transition-all active:scale-95 group ${
-                    isHidden ? 'opacity-50' : ''
+                  className={`shrink-0 min-w-[148px] sm:min-w-[164px] ${
+                    theme === 'dark' ? 'bg-gray-900/80 border-gray-800 hover:border-indigo-500/40' : 'bg-white border-slate-200/90 hover:border-indigo-300'
+                  } rounded-2xl p-2.5 border flex items-center justify-between cursor-pointer transition-all active:scale-95 group shadow-sm ${
+                    isHidden ? 'opacity-45' : ''
                   }`}
                   id={`group-${group.id}`}
                 >
@@ -874,9 +874,9 @@ export function CommunityView({ onBack, theme = 'dark' }: { onBack: () => void, 
               <textarea
                 value={newPostText}
                 onChange={e => setNewPostText(e.target.value)}
-                placeholder="Share an academic question, study tip, or discuss an MSCE concept with everyone..."
-                rows={2}
-                className={`w-full bg-transparent outline-none text-xs font-medium resize-none ${theme === 'dark' ? 'text-gray-100' : 'text-slate-900'} placeholder-gray-500`}
+                placeholder="Share a question, study tip, or MSCE concept…"
+                rows={3}
+                className={`w-full bg-transparent outline-none text-sm font-medium resize-none min-h-[72px] leading-relaxed ${theme === 'dark' ? 'text-gray-100' : 'text-slate-900'} placeholder-gray-500`}
               />
 
               {/* Voice Note Attachment Preview */}

@@ -1584,7 +1584,7 @@ function EmiChatView({
             </div>
           ) : (
             <div
-              className={`p-5 md:p-6 shadow-sm relative ${theme === "dark" ? "bg-gray-950 border-y border-gray-900 text-gray-200" : "bg-white border-y border-slate-200 text-slate-800"} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium`}
+              className={`p-4 md:p-5 shadow-sm relative ${theme === "dark" ? "bg-gray-900/80 border border-gray-800/80 text-gray-200" : "bg-white border border-slate-200/90 text-slate-800"} rounded-2xl md:rounded-3xl font-medium`}
             >
               {/* Elegant Header Inside Full-Width Card */}
               <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100 dark:border-gray-900/50">
@@ -2046,11 +2046,11 @@ function EmiChatView({
 
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "bg-gray-950 text-white" : "bg-slate-50 text-slate-900"} animate-in slide-in-from-right duration-300`}
+      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "emw-page-bg-dark text-white" : "emw-page-bg text-slate-900"} animate-in slide-in-from-right duration-300`}
     >
       {/* Header */}
       <div
-        className={`${theme === "dark" ? "bg-gray-950/80 border-gray-800" : "bg-white/80 border-slate-200 shadow-sm"} backdrop-blur-xl border-b pt-4 pb-2 px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`}
+        className={`${theme === "dark" ? "bg-gray-950/90 border-gray-800/80" : "bg-white/90 border-slate-200/80 shadow-sm"} backdrop-blur-xl border-b pt-3 pb-2.5 px-4 sm:px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`}
       >
         <div className="flex items-center gap-3">
           <button
@@ -2082,8 +2082,8 @@ function EmiChatView({
               </h2>
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-gray-400 text-[10px] font-bold tracking-wide uppercase font-sans">
-                  Always active
+                <span className="text-emerald-500/90 text-[10px] font-bold tracking-wide uppercase font-sans">
+                  Online · Ready to help
                 </span>
               </div>
             </div>
@@ -2153,8 +2153,8 @@ function EmiChatView({
                 How can I help?
               </h3>
               <p className="text-[14px] text-gray-500 font-medium leading-relaxed max-w-[250px]">
-                I can help you understand concepts, solve problems, or just
-                chat.
+                Ask about Form 1–4 topics, past papers, or exam tips —
+                text or live voice.
               </p>
             </div>
           </div>
@@ -2305,12 +2305,13 @@ function EmiChatView({
 
         <div className="p-4 pt-3">
           <div
-            className={`flex flex-col ${theme === "dark" ? "bg-gray-900 border-gray-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)]" : "bg-white border-slate-200 shadow-xl shadow-slate-200/60"} rounded-3xl p-1.5 pl-4 border transition-all duration-300 focus-within:ring-2 focus-within:ring-indigo-500/20`}
+            className={`flex flex-col ${theme === "dark" ? "bg-gray-900/95 border-gray-700/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)]" : "bg-white border-slate-200 shadow-xl shadow-indigo-500/5"} rounded-[22px] p-2 pl-4 border transition-all duration-300 focus-within:border-indigo-500/50 focus-within:ring-4 focus-within:ring-indigo-500/15`}
           >
-            <div className="flex items-end gap-2 w-full">
+            <div className="flex items-end gap-2.5 w-full">
               <textarea
-                placeholder="Ask anything..."
-                className={`flex-1 bg-transparent text-[15px] outline-none ${theme === "dark" ? "text-white placeholder-gray-500" : "text-slate-900 placeholder-slate-400"} font-medium py-3.5 resize-none max-h-36 min-h-[40px] leading-relaxed overflow-y-auto scrollbar-thin`}
+                placeholder="Ask Emi about notes, formulas, past papers..."
+                rows={1}
+                className={`flex-1 bg-transparent text-[15px] outline-none ${theme === "dark" ? "text-white placeholder-gray-500" : "text-slate-900 placeholder-slate-400"} font-medium py-3.5 resize-none max-h-40 min-h-[48px] leading-relaxed overflow-y-auto`}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -2657,8 +2658,8 @@ function CallingView({
         </button>
 
         <div className="flex flex-col items-center">
-          <span className="text-[10px] font-black tracking-[0.25em] text-indigo-500 uppercase">
-            Emi Calling Studio
+          <span className="text-[10px] font-black tracking-[0.2em] text-indigo-500 uppercase">
+            Live Voice Tutor
           </span>
           <span
             className={`text-[11px] font-bold mt-0.5 tracking-wide ${theme === "dark" ? "text-white/50" : "text-slate-500"}`}
@@ -2682,7 +2683,7 @@ function CallingView({
             className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-yellow-500"}`}
           ></div>
           <span className="text-[10px] font-extrabold tracking-wider uppercase">
-            {isConnected ? "Live Active" : "Connecting"}
+            {isConnected ? "Connected" : "Connecting…"}
           </span>
         </div>
       </div>
@@ -2896,7 +2897,7 @@ function CallingView({
             </div>
           ) : isThinking ? (
             <div className="flex items-center gap-2 text-amber-500 animate-pulse">
-              <span className="text-xs font-bold">Emi is formulating your answer...</span>
+              <span className="text-xs font-bold">Emi is thinking…</span>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1 animate-in fade-in">
