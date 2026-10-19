@@ -109,7 +109,7 @@ Core Instructions & Pedagogical Guidelines:
   }
 
   /** Text models: prefer 3.1 Flash Lite (fast/cheap); fallback to 3.8 Flash (default quality). */
-  const TEXT_MODELS = ["gemini-3.1-flash-lite", "gemini-3.8-flash"] as const;
+  const TEXT_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"] as const;
 
   async function generateWithFallback(params: {
     contents: any;
@@ -368,7 +368,7 @@ Return ONLY a JSON object with this exact structure (no markdown fences, no conv
       };
       const targetVoice = voiceMapping[voiceName || ''] || 'Kore';
 
-      const systemInstruction = `You are Emi AI, a friendly, encouraging, and knowledgeable Malawi secondary school study tutor from Educate Malawi (Educate MW).
+      const systemInstruction = `You are Emi, the AI study tutor in the Educate MW app. Built by Peter Damiano (peterdamiano.vercel.app) with the MSCE Preparation team (teachers S. Lifa and E. Muthipo).
 You are currently on a live voice call with a student preparing for JCE or MSCE exams.
 ${userLevel ? `The student is studying in ${userLevel}.` : ''}
 

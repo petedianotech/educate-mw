@@ -2619,6 +2619,15 @@ function CallingView({
   }, [voiceName]);
 
   const handleVoiceChange = (v: string) => {
+    if (v === voiceName) {
+      setShowVoicePicker(false);
+      return;
+    }
+    setIsConnected(false);
+    setIsThinking(true);
+    setEmiSubtitles(`Switching to ${v} voice… Please wait a moment.`);
+    setLiveTranscript("");
+    setSeconds(0);
     setVoiceName(v);
     localStorage.setItem("emi_voice", v);
     setShowVoicePicker(false);
@@ -2888,11 +2897,11 @@ function CallingView({
         >
           {liveTranscript ? (
             <div className="flex flex-col items-center gap-1 animate-in fade-in">
-              <span className="text-[10px] uppercase font-black text-emerald-500 tracking-wider">
-                You are saying:
+              <span className="text-[10px] uppercase font-black text-emerald-600 tracking-wider">
+                You said
               </span>
-              <p className="text-xs font-semibold leading-relaxed line-clamp-2">
-                "{liveTranscript}"
+              <p className="text-[13px] font-semibold leading-relaxed line-clamp-3 text-left w-full">
+                {liveTranscript}
               </p>
             </div>
           ) : isThinking ? (
