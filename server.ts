@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Modality, ThinkingLevel } from "@google/genai";
 import { WebSocketServer } from 'ws';
@@ -528,7 +529,7 @@ SPOKEN VOICE CALL RULES:
   app.use('*', async (req, res, next) => {
     try {
       const url = req.originalUrl;
-      let template = await vite.transformIndexHtml(url, require('fs').readFileSync(path.resolve('index.html'), 'utf-8'));
+      let template = await vite.transformIndexHtml(url, fs.readFileSync(path.resolve('index.html'), 'utf-8'));
       res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);

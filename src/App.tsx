@@ -67,7 +67,7 @@ import { DEFAULT_MATERIALS } from "./data/defaultMaterials";
 import { DEFAULT_VIDEOS } from "./data/defaultVideos";
 import { DEFAULT_QUIZZES } from "./data/defaultQuizzes";
 import { CloudinaryUploader } from "./components/CloudinaryUploader";
-import { triggerExplicitDownload } from "./lib/cloudinary";
+import { triggerExplicitDownload, uploadToCloudinary } from "./lib/cloudinary";
 import {
   Menu,
   GraduationCap,
@@ -6764,6 +6764,91 @@ function AdminDashboard({
   const [materials, setMaterials] = useState<any[]>([]);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  const [uploadMode, setUploadMode] = useState<"single" | "bulk">("single");
+  const [bulkItems, setBulkItems] = useState<any[]>([]);
+  const [sharedBulkSubject, setSharedBulkSubject] = useState("");
+  const [sharedBulkLevel, setSharedBulkLevel] = useState("Form 4");
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
+
+  const suggestTitle = (filename: string) => {
+    let base = filename.replace(/\.[^/.]+$/, "");
+    base = base.replace(/[_-_]/g, " ");
+    return base.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const handleBulkFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf');
+    const newItems = files.map((file, idx) => ({
+      id: `${file.name}-${file.size}-${Date.now()}-${idx}`,
+      file,
+      title: suggestTitle(file.name),
+      subject: sharedBulkSubject || 'General',
+      level: sharedBulkLevel || 'Form 4',
+      status: 'pending' as const,
+      progress: 0,
+    }));
+    setBulkItems(prev => [...prev, ...newItems]);
+    e.target.value = '';
+  };
+
+  const applySharedMetadata = () => {
+    setBulkItems(prev => prev.map(item => ({
+      ...item,
+      subject: sharedBulkSubject ? sharedBulkSubject : item.subject,
+      level: sharedBulkLevel ? sharedBulkLevel : item.level,
+    })));
+  };
+
+  const removeBulkItem = (id: string) => {
+    setBulkItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const uploadSingleBulkItem = async (item: any) => {
+    setBulkItems(prev => prev.map(bi => bi.id === item.id ? { ...bi, status: 'uploading', error: undefined } : bi));
+    try {
+      const res = await uploadToCloudinary(item.file, (p) => {});
+      const secureUrl = res.secure_url;
+      const slug = item.title.toLowerCase().replace(/[^\w]+/g, '-');
+
+      await addDoc(collection(db, "materials"), {
+        title: item.title.trim() || suggestTitle(item.file.name),
+        subject: item.subject.trim() || 'General',
+        level: item.level.trim() || 'Form 4',
+        content: secureUrl,
+        type: 'pdf',
+        slug: slug + '-' + Math.random().toString(36).substring(2, 6),
+        date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+        authorId: auth.currentUser?.uid,
+        createdAt: serverTimestamp(),
+      });
+
+      setBulkItems(prev => prev.map(bi => bi.id === item.id ? { ...bi, status: 'success', uploadedUrl: secureUrl } : bi));
+    } catch (err: any) {
+      console.error("Bulk upload error:", err);
+      setBulkItems(prev => prev.map(bi => bi.id === item.id ? { ...bi, status: 'failed', error: err.message || 'Upload failed' } : bi));
+    }
+  };
+
+  const startBulkUpload = async () => {
+    const pendingItems = bulkItems.filter(i => i.status === 'pending' || i.status === 'failed');
+    if (pendingItems.length === 0) return;
+
+    setIsBulkUploading(true);
+    const concurrency = 2;
+    let index = 0;
+
+    const worker = async () => {
+      while (index < pendingItems.length) {
+        const currentItem = pendingItems[index++];
+        await uploadSingleBulkItem(currentItem);
+      }
+    };
+
+    const workers = Array(Math.min(concurrency, pendingItems.length)).fill(null).map(() => worker());
+    await Promise.all(workers);
+    setIsBulkUploading(false);
+  };
 
   const stats = {
     total: realTotal || students.length,
@@ -7299,15 +7384,217 @@ function AdminDashboard({
           <div className="space-y-6">
             <div className="bg-indigo-600/10 border border-indigo-500/20 p-6 rounded-[32px] relative overflow-hidden">
               <FilePlus className="absolute right-[-5%] top-[-10%] w-24 h-24 text-indigo-500/5 -rotate-12" />
-              <h3
-                className={`font-black text-lg ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1`}
-              >
-                New Material
-              </h3>
-              <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest leading-tight">
-                Educational Broadcast
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div>
+                  <h3
+                    className={`font-black text-lg ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1`}
+                  >
+                    New Material
+                  </h3>
+                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest leading-tight">
+                    Educational Broadcast
+                  </p>
+                </div>
+                <div className="flex gap-1 bg-gray-900/60 p-1 rounded-2xl border border-gray-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode("single")}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${uploadMode === "single" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"}`}
+                  >
+                    Single Upload
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode("bulk")}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${uploadMode === "bulk" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"}`}
+                  >
+                    Bulk PDF Upload
+                  </button>
+                </div>
+              </div>
 
+              {uploadMode === "bulk" ? (
+                <div className="mt-6 space-y-5 relative z-10">
+                  <div className={`p-8 border-2 border-dashed rounded-3xl text-center ${theme === "dark" ? "border-gray-800 bg-gray-950/40" : "border-slate-300 bg-slate-50"} hover:border-indigo-500 transition-colors`}>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,application/pdf"
+                      onChange={handleBulkFilesSelected}
+                      className="hidden"
+                      id="bulk-pdf-input"
+                    />
+                    <label htmlFor="bulk-pdf-input" className="cursor-pointer flex flex-col items-center justify-center p-4">
+                      <Upload size={38} className="text-indigo-500 mb-2" />
+                      <span className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                        Select Multiple PDF Files at Once
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1">
+                        Compatible with Android phone storage, folders, and computer files
+                      </span>
+                    </label>
+                  </div>
+
+                  {bulkItems.length > 0 && (
+                    <div className="space-y-4">
+                      <div className={`p-4 rounded-2xl border ${theme === "dark" ? "bg-gray-950/80 border-gray-800" : "bg-white border-slate-200"} space-y-3`}>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-indigo-500">
+                          Apply Shared Subject & Class Level to All Files
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Shared Subject (e.g. Biology, Mathematics)"
+                            value={sharedBulkSubject}
+                            onChange={(e) => setSharedBulkSubject(e.target.value)}
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Shared Level (e.g. Form 3, Form 4)"
+                            value={sharedBulkLevel}
+                            onChange={(e) => setSharedBulkLevel(e.target.value)}
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={applySharedMetadata}
+                          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm"
+                        >
+                          Apply to All {bulkItems.length} Files
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                            Batch Review ({bulkItems.length} files selected)
+                          </span>
+                          <span className="text-xs font-bold text-emerald-500">
+                            {bulkItems.filter(i => i.status === 'success').length} of {bulkItems.length} Published
+                          </span>
+                        </div>
+
+                        <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                          {bulkItems.map((item) => (
+                            <div key={item.id} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-white border-slate-200 shadow-sm"}`}>
+                              <div className="flex-1 space-y-2 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <FileText size={16} className="text-indigo-500 shrink-0" />
+                                  <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setBulkItems(prev => prev.map(bi => bi.id === item.id ? { ...bi, title: val } : bi));
+                                    }}
+                                    className={`w-full font-bold text-xs px-3 py-1.5 rounded-xl border ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px]">
+                                  <input
+                                    type="text"
+                                    placeholder="Subject"
+                                    value={item.subject}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setBulkItems(prev => prev.map(bi => bi.id === item.id ? { ...bi, subject: val } : bi));
+                                    }}
+                                    className={`w-32 px-2.5 py-1 rounded-lg border font-semibold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-300" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Level"
+                                    value={item.level}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setBulkItems(prev => prev.map(bi => bi.id === item.id ? { ...bi, level: val } : bi));
+                                    }}
+                                    className={`w-28 px-2.5 py-1 rounded-lg border font-semibold ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-300" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                                  />
+                                  <span className="text-gray-400">({(item.file.size / 1024 / 1024).toFixed(1)} MB)</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.status === 'pending' && (
+                                  <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-gray-500/10 text-gray-400">
+                                    Pending
+                                  </span>
+                                )}
+                                {item.status === 'uploading' && (
+                                  <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-indigo-500/10 text-indigo-400 animate-pulse flex items-center gap-1.5">
+                                    <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                                    Uploading...
+                                  </span>
+                                )}
+                                {item.status === 'success' && (
+                                  <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-500 flex items-center gap-1.5">
+                                    <CheckCircle size={13} /> Published
+                                  </span>
+                                )}
+                                {item.status === 'failed' && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-rose-500/10 text-rose-500">
+                                      Failed
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => uploadSingleBulkItem(item)}
+                                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold"
+                                    >
+                                      Retry
+                                    </button>
+                                  </div>
+                                )}
+                                {item.status === 'pending' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBulkItem(item.id)}
+                                    className="p-2 text-gray-400 hover:text-rose-500 transition-colors"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-3 flex gap-3">
+                          <button
+                            type="button"
+                            disabled={isBulkUploading || bulkItems.filter(i => i.status === 'pending' || i.status === 'failed').length === 0}
+                            onClick={startBulkUpload}
+                            className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {isBulkUploading ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>Uploading Batch with Concurrency...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload size={16} />
+                                <span>Publish All Pending ({bulkItems.filter(i => i.status === 'pending' || i.status === 'failed').length})</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBulkItems([])}
+                            disabled={isBulkUploading}
+                            className="px-5 py-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all"
+                          >
+                            Clear Batch
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
               <form
                 onSubmit={handlePublish}
                 className="mt-8 space-y-5 relative z-10"
@@ -7659,6 +7946,7 @@ function AdminDashboard({
                   )}
                 </button>
               </form>
+              )}
             </div>
 
             <div className="space-y-4">

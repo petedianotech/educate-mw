@@ -53,7 +53,7 @@ service cloud.firestore {
       function isValidMaterial(data) {
         return data.title is string && data.title.size() <= 200 &&
                data.content is string && data.content.size() <= 1000000 &&
-               data.type in ['pdf', 'video', 'text']; // Removed authorId check since admin can create it
+               data.type in ['pdf', 'video', 'text', 'blog'];
       }
 
       allow read: if true;

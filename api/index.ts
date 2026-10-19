@@ -70,7 +70,7 @@ app.get(["/api/gemini/token", "/gemini/token"], async (req: any, res: any) => {
     const model = allowedModels.includes(requestedModel) ? requestedModel : "gemini-3.8-live";
 
     const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000);
+    const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000).toISOString();
 
     let tokenObj: any;
     try {
@@ -83,7 +83,7 @@ app.get(["/api/gemini/token", "/gemini/token"], async (req: any, res: any) => {
             model,
             config: {
               sessionResumption: {},
-              responseModalities: ["AUDIO"],
+              responseModalities: [Modality.AUDIO],
             },
           },
         },
