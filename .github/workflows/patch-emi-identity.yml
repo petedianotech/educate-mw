@@ -1,0 +1,21 @@
+name: Patch Emi Identity Voice Search
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/patch_emi_live_identity.py"
+      - ".github/workflows/patch-emi-identity.yml"
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/patch_emi_live_identity.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/services/geminiLive.ts server.ts src/App.tsx
+          git commit -m "fix: Emi identity, voice switch, dual subtitles, free-tier models" || echo none
+          git push origin HEAD:main
