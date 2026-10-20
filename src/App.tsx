@@ -2336,7 +2336,6 @@ function EmiChatView({
             <div className="flex items-end gap-2.5 w-full">
               <textarea
                 placeholder="Ask about MSCE, notes, or formulas…"
-                rows={1}
                 className={`flex-1 bg-transparent text-[15px] outline-none ${theme === "dark" ? "text-white placeholder-gray-500" : "text-slate-900 placeholder-slate-400"} font-medium py-3.5 resize-none max-h-40 min-h-[48px] leading-relaxed overflow-y-auto`}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
