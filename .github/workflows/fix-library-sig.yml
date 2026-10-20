@@ -1,0 +1,26 @@
+name: Fix Library signature
+on:
+  push:
+    paths:
+      - "scripts/fix_library_signature.py"
+      - ".github/workflows/fix-library-sig.yml"
+  workflow_dispatch:
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix_library_signature.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/App.tsx
+          git commit -m "fix: LibraryView params valid + pdfViewer state" || echo none
+          git push origin HEAD:main
+      - run: |
+          npm install
+          npx vite build
+        env:
+          VITE_API_BASE_URL: https://educatemw.vercel.app
