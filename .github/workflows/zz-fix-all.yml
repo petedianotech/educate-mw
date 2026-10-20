@@ -1,0 +1,113 @@
+name: Restore and fix all
+on:
+  push:
+    paths:
+      - ".github/workflows/zz-fix-all.yml"
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Dictionary from good commit
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/44deb0f2924cedb5d1ed86675f5d76649b6d68ee/src/components/DictionaryView.tsx" -o src/components/DictionaryView.tsx
+          test $(wc -c < src/components/DictionaryView.tsx) -gt 10000
+
+      - name: Sentence-case titles + KaTeX prompt + math helper
+        run: |
+          python3 << 'ENDPY'
+          import re
+          from pathlib import Path
+
+          def strip_upper(text):
+              def fix(m):
+                  prefix, cls, suffix = m.group(1), m.group(2), m.group(3)
+                  if re.search(r"text-(?:lg|xl|2xl)", cls) and "uppercase" in cls:
+                      cls = re.sub(r"\s*uppercase\s*", " ", cls)
+                      cls = re.sub(r" {2,}", " ", cls).strip()
+                  return prefix + cls + suffix
+              text = re.sub(r"(className=\{`)([^`]*)(`\})", fix, text)
+              text = re.sub(r'(className=")([^"]*)(")', fix, text)
+              return text
+
+          for rel in [
+              "src/App.tsx",
+              "src/components/DictionaryView.tsx",
+              "src/components/FlashcardsView.tsx",
+              "src/components/CommunityView.tsx",
+              "src/components/CertificatesCleanView.tsx",
+          ]:
+              p = Path(rel)
+              if p.exists():
+                  orig = p.read_text()
+                  new = strip_upper(orig)
+                  if new != orig:
+                      p.write_text(new)
+                      print("titles fixed", rel)
+
+          # KaTeX rules in server.ts
+          sp = Path("server.ts")
+          st = sp.read_text()
+          if "Mathematical & Scientific Formatting" not in st:
+              math = (
+                  "\n6. Mathematical & Scientific Formatting (KaTeX) - STRICT:\n"
+                  "   ALWAYS wrap display equations and matrices in $$...$$ on their own lines.\n"
+                  "   ALWAYS wrap inline math in $...$.\n"
+                  "   NEVER output raw LaTeX (\\begin, \\frac, \\times, \\pmatrix) outside $ or $$.\n"
+                  "   NEVER use markdown code fences for math. Example:\n"
+                  "   $$\\det(A) = (3 \\times 6) - (4 \\times 5) = -2$$\n"
+                  "   $$A^{-1} = \\frac{1}{-2} \\begin{pmatrix} 6 & -4 \\\\ -5 & 3 \\end{pmatrix}$$\n"
+              )
+              marker = "json:plot, json:geometry)."
+              if marker in st:
+                  st = st.replace(marker, marker + math, 1)
+                  sp.write_text(st)
+                  print("math rules injected")
+              else:
+                  print("WARNING: marker not found for math rules")
+          else:
+              print("math rules already present")
+
+          # Client safety net
+          ap = Path("src/App.tsx")
+          at = ap.read_text()
+          if "function prepareMathMarkdown" not in at:
+              helper = (
+                  "\nfunction prepareMathMarkdown(text: string): string {\n"
+                  "  if (!text || typeof text !== \"string\") return text;\n"
+                  "  let s = text;\n"
+                  "  s = s.replace(/(\\\\begin\\{(pmatrix|bmatrix|matrix|aligned|align)\\}[\\s\\S]*?\\\\end\\{\\2\\})/g, \"\\\\n$$$$\\\\n$1\\\\n$$$$\\\\n\");\n"
+                  "  return s;\n"
+                  "}\n\n"
+              )
+              for mk in ["export default function App", "function App("]:
+                  if mk in at:
+                      at = at.replace(mk, helper + mk, 1)
+                      break
+          if "prepareMathMarkdown(msg.text)" not in at:
+              at = at.replace("{msg.text}\n                </ReactMarkdown>", "{prepareMathMarkdown(msg.text)}\n                </ReactMarkdown>")
+              at = at.replace("{msg.text}</ReactMarkdown>", "{prepareMathMarkdown(msg.text)}</ReactMarkdown>")
+          ap.write_text(at)
+          print("App math helper OK", "prepareMathMarkdown" in at)
+          ENDPY
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status
+          git commit -m "fix: restore Dictionary, KaTeX math for Emi, sentence-case titles" || echo "nothing"
+          git push origin HEAD:main
+
+      - name: Cleanup workflow files
+        run: |
+          rm -f .github/workflows/zz-fix-all.yml .github/workflows/fix-math-titles.yml
+          git add -A
+          git commit -m "chore: remove one-shot fix workflows" || true
+          git push origin HEAD:main || true
