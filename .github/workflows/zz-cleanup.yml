@@ -1,0 +1,43 @@
+name: Cleanup all non-APK
+on:
+  push:
+    paths: [".github/workflows/zz-cleanup.yml"]
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore App.tsx and delete non-APK workflows
+        run: |
+          set -e
+          curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/02f056c/src/App.tsx" -o src/App.tsx
+          python3 <<'PY'
+          import re
+          from pathlib import Path
+          p = Path("src/App.tsx")
+          text = p.read_text()
+          def strip_upper(m):
+              prefix, cls, suffix = m.group(1), m.group(2), m.group(3)
+              if re.search(r"text-(?:lg|xl|2xl)", cls):
+                  cls = re.sub(r"\s*uppercase\s*", " ", cls)
+                  cls = re.sub(r" {2,}", " ", cls).strip()
+              return f"{prefix}{cls}{suffix}"
+          text = re.sub(r"(className=\{`)([^`]*)(`\})", strip_upper, text)
+          text = re.sub(r'(className=")([^"]*)(")', strip_upper, text)
+          p.write_text(text)
+          print("App restored + sentence-case")
+          PY
+          find .github/workflows -type f ! -name 'android-apk.yml' ! -name 'zz-cleanup.yml' -delete
+          ls -la .github/workflows/
+      - name: Commit and self-delete
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/zz-cleanup.yml
+          git add -A
+          git status
+          git commit -m "chore: only android-apk workflow + App.tsx sentence-case titles" || echo no changes
+          git push origin HEAD:main
