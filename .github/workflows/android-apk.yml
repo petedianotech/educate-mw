@@ -78,14 +78,13 @@ jobs:
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
           VITE_API_BASE_URL: https://educatemw.vercel.app
 
-      - name: Capacitor Android + icon + splash + mic + Google
+      - name: Capacitor Android + icon + splash + mic
         run: |
           test -d dist || exit 1
           npx cap add android || true
           npx cap sync android
           test -f android/gradlew || exit 1
           chmod +x android/gradlew
-
           if [ -f android/variables.gradle ]; then
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/' android/variables.gradle
           fi
@@ -94,7 +93,6 @@ jobs:
               echo 'configurations.all { resolutionStrategy { force "androidx.browser:browser:1.8.0" } }' >> android/app/build.gradle
             fi
           fi
-
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if [ -f "$MANIFEST" ]; then
             for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS INTERNET ACCESS_NETWORK_STATE; do
@@ -103,18 +101,9 @@ jobs:
               fi
             done
           fi
-
           chmod +x scripts/apply_android_icon.sh scripts/apply_android_splash.sh || true
           bash scripts/apply_android_icon.sh || true
           bash scripts/apply_android_splash.sh || true
-
-          # MainActivity Google Sign-In patch applied via script if needed
-          MAIN=$(find android/app/src/main/java -name 'MainActivity.java' -o -name 'MainActivity.kt' 2>/dev/null | head -1)
-          if [ -n "$MAIN" ] && [ -f "$MAIN" ]; then
-            if ! grep -q 'ModifiedMainActivityForSocialLoginPlugin' "$MAIN"; then
-              echo "MainActivity needs SocialLogin patch - skipping inline Java for YAML safety"
-            fi
-          fi
 
       - name: Auto-bump APK versionCode and versionName
         run: |
