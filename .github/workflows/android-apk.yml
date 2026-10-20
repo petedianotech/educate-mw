@@ -14,6 +14,7 @@ on:
       - "server.ts"
       - ".github/workflows/android-apk.yml"
       - "scripts/apply_android_icon.sh"
+      - "scripts/apply_android_splash.sh"
 
 jobs:
   release-apk:
@@ -60,7 +61,7 @@ jobs:
       - name: Install npm dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/app @capacitor/browser
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/app @capacitor/browser @capacitor/splash-screen
           npm install @capgo/capacitor-social-login @capacitor-community/file-opener @capgo/capacitor-file-picker || true
 
       - name: Vite build (web assets for Capacitor)
@@ -77,11 +78,8 @@ jobs:
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
           VITE_API_BASE_URL: https://educatemw.vercel.app
 
-      - name: Capacitor Android + icon + mic + Google MainActivity
+      - name: Capacitor Android + icon + splash + mic + Google
         run: |
-          if [ ! -f capacitor.config.ts ]; then
-            printf '%s\n' "import type { CapacitorConfig } from '@capacitor/cli';" "const config: CapacitorConfig = { appId: 'mw.educate.app', appName: 'Educate MW', webDir: 'dist', server: { androidScheme: 'https' }, android: { allowMixedContent: false, backgroundColor: '#0b1120' } };" "export default config;" > capacitor.config.ts
-          fi
           test -d dist || exit 1
           npx cap add android || true
           npx cap sync android
@@ -106,8 +104,9 @@ jobs:
             done
           fi
 
-          chmod +x scripts/apply_android_icon.sh || true
+          chmod +x scripts/apply_android_icon.sh scripts/apply_android_splash.sh || true
           bash scripts/apply_android_icon.sh || true
+          bash scripts/apply_android_splash.sh || true
 
           MAIN=$(find android/app/src/main/java -name 'MainActivity.java' -o -name 'MainActivity.kt' | head -1)
           if [ -n "$MAIN" ] && [ -f "$MAIN" ]; then
