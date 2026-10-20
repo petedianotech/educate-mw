@@ -3762,8 +3762,6 @@ function LibraryView({
           </div>
         </div>
       </main>
-    </div>
-  
       {pdfViewer && (
         <PdfViewerModal
           url={pdfViewer.url}
@@ -3772,7 +3770,8 @@ function LibraryView({
           onClose={() => setPdfViewer(null)}
         />
       )}
-);
+    </div>
+  );
 }
 
 function LibraryItem({
