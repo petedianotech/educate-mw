@@ -299,8 +299,6 @@ ${this.config.userLevel ? `The student is studying in ${this.config.userLevel}.`
                   },
                 },
               },
-              inputAudioTranscription: {},
-              outputAudioTranscription: {},
               systemInstruction: systemInstructionText,
             },
             callbacks: {
