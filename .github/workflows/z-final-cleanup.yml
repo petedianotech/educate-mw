@@ -1,0 +1,54 @@
+name: Final cleanup keep only APK
+on:
+  push:
+    paths:
+      - ".github/workflows/z-final-cleanup.yml"
+  workflow_dispatch:
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore App + sentence-case + delete non-APK
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/02f056c/src/App.tsx" -o src/App.tsx
+          python3 -c "
+import re
+from pathlib import Path
+p = Path('src/App.tsx')
+text = p.read_text()
+def strip_upper(m):
+    prefix, cls, suffix = m.group(1), m.group(2), m.group(3)
+    if re.search(r'text-(?:lg|xl|2xl)', cls):
+        cls = re.sub(r'\\s*uppercase\\s*', ' ', cls)
+        cls = re.sub(r' {2,}', ' ', cls).strip()
+    return f'{prefix}{cls}{suffix}'
+text = re.sub(r'(className=\\{\\`)([^\\`]*)(\\`\\})', strip_upper, text)
+text = re.sub(r'(className=\")([^\"]*)(\")', strip_upper, text)
+p.write_text(text)
+print('App.tsx restored + sentence-case')
+"
+          cd .github/workflows
+          for f in *; do
+            [ -f "\$f" ] || continue
+            case "\$f" in
+              android-apk.yml) echo KEEP \$f ;;
+              z-final-cleanup.yml) echo KEEP self for now ;;
+              *) echo DELETE \$f; rm -f "\$f" ;;
+            esac
+          done
+          # delete self after commit setup
+          ls -la
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # remove self before commit so only android-apk remains
+          rm -f .github/workflows/z-final-cleanup.yml
+          git add -A
+          git status
+          git commit -m "chore: only android-apk remains + App.tsx sentence-case page titles" || true
+          git push origin HEAD:main
