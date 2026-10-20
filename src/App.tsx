@@ -6056,7 +6056,7 @@ function SubscriptionView({
           className={`${theme === "dark" ? "bg-slate-900 border-blue-500/30" : "bg-white border-blue-200 shadow-lg shadow-blue-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
         >
           <div className="flex items-center justify-between gap-3 mb-4">
-            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-blue-500/15 text-blue-600 border border-amber-500/30">
+            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-blue-500/15 text-blue-600 border border-blue-500/30">
               Complete MSCE Package
             </span>
             <span className="text-[11px] font-bold text-slate-400">
