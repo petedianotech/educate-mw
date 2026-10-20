@@ -3402,8 +3402,7 @@ function NavItem({
 
 // pdf viewer state is local inside LibraryView via hooks below
 function LibraryView({
-  const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
-    onBack,
+  onBack,
   theme,
   onSelectItem,
   onSelectLocalFile,
@@ -3415,6 +3414,7 @@ function LibraryView({
   onSelectLocalFile: (url: string, name: string) => void;
   initialSearch?: string;
 }) {
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
   const [filter, setFilter] = useState<"all" | "offline">("all");
   const [filterSubject, setFilterSubject] = useState("");
   const [materials, setMaterials] = useState<any[]>(() => {
