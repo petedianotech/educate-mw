@@ -1,0 +1,21 @@
+name: Fix Auth JSX
+on:
+  push:
+    paths:
+      - "scripts/fix_auth_jsx.py"
+      - ".github/workflows/fix-auth-jsx.yml"
+  workflow_dispatch:
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix_auth_jsx.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/App.tsx
+          git commit -m "fix: close isApk conditionals in AuthView" || echo none
+          git push origin HEAD:main
