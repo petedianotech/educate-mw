@@ -1,21 +1,39 @@
 #!/bin/bash
+# Generate Android splash: deep blue background, centered app icon, three white loading dots at bottom
 set -e
 ICON=public/app-icon.png
-if [ ! -f "$ICON" ]; then echo "no app-icon.png"; exit 0; fi
+if [ ! -f "$ICON" ]; then
+  echo "no app-icon.png — skip splash"
+  exit 0
+fi
 if ! command -v convert >/dev/null 2>&1; then
   sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick || true
 fi
-if ! command -v convert >/dev/null 2>&1; then exit 0; fi
+if ! command -v convert >/dev/null 2>&1; then
+  echo "ImageMagick missing — skip splash"
+  exit 0
+fi
 RES=android/app/src/main/res
-mkdir -p "$RES/drawable" "$RES/drawable-land" "$RES/values"
-# Full-bleed blue splash with centered icon
+mkdir -p "$RES/drawable" "$RES/drawable-land" "$RES/values" "$RES/drawable-port"
+
+# Portrait 1080x1920: centered icon + three dots near bottom
 convert -size 1080x1920 "xc:#1e3a8a" \
-  \( "$ICON" -resize 420x420 \) -gravity center -composite \
+  \( "$ICON" -resize 400x400 \) -gravity center -geometry +0-80 -composite \
+  -fill white -draw "circle 490,1680 505,1680" \
+  -fill white -draw "circle 540,1680 555,1680" \
+  -fill white -draw "circle 590,1680 605,1680" \
   "$RES/drawable/splash.png"
+
+# Landscape 1920x1080
 convert -size 1920x1080 "xc:#1e3a8a" \
-  \( "$ICON" -resize 360x360 \) -gravity center -composite \
+  \( "$ICON" -resize 320x320 \) -gravity center -geometry +0-40 -composite \
+  -fill white -draw "circle 910,960 922,960" \
+  -fill white -draw "circle 960,960 972,960" \
+  -fill white -draw "circle 1010,960 1022,960" \
   "$RES/drawable-land/splash.png"
-# Also write styles for splash theme if missing
+
+cp "$RES/drawable/splash.png" "$RES/drawable-port/splash.png" 2>/dev/null || true
+
 if [ ! -f "$RES/values/styles.xml" ]; then
   cat > "$RES/values/styles.xml" << 'XML'
 <?xml version="1.0" encoding="utf-8"?>
@@ -32,7 +50,14 @@ if [ ! -f "$RES/values/styles.xml" ]; then
         <item name="android:background">#1e3a8a</item>
         <item name="android:statusBarColor">#1e3a8a</item>
     </style>
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">#1e3a8a</item>
+        <item name="windowSplashScreenBackground">#1e3a8a</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
 </resources>
 XML
 fi
-echo "Splash generated from app-icon.png"
+
+echo "Splash generated: centered app-icon + loading dots on #1e3a8a"
