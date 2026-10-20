@@ -1,0 +1,105 @@
+name: Cleanup non-APK + restore APK + sentence-case
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore android-apk.yml from last good commit + inject version bump
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/fe76bd7/.github/workflows/android-apk.yml" -o .github/workflows/android-apk.yml
+          # Inject version bump step after Capacitor sync (before google-services)
+          python3 << 'PY'
+          from pathlib import Path
+          p = Path(".github/workflows/android-apk.yml")
+          text = p.read_text()
+          bump = '''
+      - name: Auto-bump APK versionCode and versionName
+        run: |
+          RUN_NUMBER=${{ github.run_number }}
+          VERSION_CODE=$((100 + RUN_NUMBER))
+          VERSION_NAME="3.5.${RUN_NUMBER}"
+          echo "Bumping to versionCode=$VERSION_CODE versionName=$VERSION_NAME"
+          if [ -f android/app/build.gradle ]; then
+            sed -i "s/versionCode .*/versionCode $VERSION_CODE/" android/app/build.gradle
+            sed -i "s/versionName \\".*\\"/versionName \\"$VERSION_NAME\\"/" android/app/build.gradle
+            grep -E "versionCode|versionName" android/app/build.gradle || true
+          fi
+'''
+          marker = "      - name: Install google-services.json"
+          if "Auto-bump APK version" not in text:
+              if marker in text:
+                  text = text.replace(marker, bump + "\n" + marker)
+              else:
+                  # fallback: append before Assemble
+                  text = text.replace("      - name: Assemble RELEASE signed APK", bump + "\n      - name: Assemble RELEASE signed APK")
+          p.write_text(text)
+          print("android-apk.yml restored + version bump injected")
+          print("--- preview ---")
+          print(text[text.find("Auto-bump"):text.find("Auto-bump")+400] if "Auto-bump" in text else "NO BUMP")
+          PY
+
+      - name: Sentence-case main page headers
+        run: |
+          python3 << 'PY'
+          import re
+          from pathlib import Path
+          p = Path("src/App.tsx")
+          if not p.exists():
+              print("App.tsx missing"); raise SystemExit(0)
+          text = p.read_text()
+          orig = text
+          # Remove uppercase only from classNames that also contain text-lg / text-xl / text-2xl
+          def strip_upper(m):
+              prefix, cls, suffix = m.group(1), m.group(2), m.group(3)
+              if re.search(r'text-(?:lg|xl|2xl)', cls):
+                  cls = re.sub(r'\s*uppercase\s*', ' ', cls)
+                  cls = re.sub(r' {2,}', ' ', cls).strip()
+              return f'{prefix}{cls}{suffix}'
+          text = re.sub(r'(className=\{`)([^`]*)(`\})', strip_upper, text)
+          text = re.sub(r'(className=")([^"]*)(")', strip_upper, text)
+          if text != orig:
+              p.write_text(text)
+              print("Sentence-case applied to page headers (uppercase removed from text-lg/xl titles)")
+          else:
+              print("No changes needed for titles")
+          PY
+
+      - name: Delete every workflow except android-apk.yml
+        run: |
+          cd .github/workflows
+          for f in *; do
+            [ -f "$f" ] || continue
+            if [ "$f" = "android-apk.yml" ]; then
+              echo "KEEP $f"
+            else
+              echo "DELETE $f"
+              rm -f "$f"
+            fi
+          done
+          echo "Remaining:"
+          ls -la
+          test $(ls -1 *.yml 2>/dev/null | wc -l) -eq 1
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "chore: only android-apk workflow + auto version bump + sentence-case titles
+
+- Restored full android-apk.yml (from fe76bd7) with auto versionCode/versionName bump on every build
+- Deleted ALL non-APK workflows permanently
+- Removed uppercase CSS from main page headers (Study library, Quiz Center, Profile, etc.) for professional sentence-case
+- Going forward: only the APK build workflow exists"
+            git push origin HEAD:main
+          fi
