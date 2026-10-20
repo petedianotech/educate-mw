@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "python3 -c \"import pathlib,base64,zlib; t=''.join(pathlib.Path(f'scripts/App_z{i}.b64').read_text() for i in (0,1)); pathlib.Path('src/App.tsx').write_bytes(zlib.decompress(base64.b64decode(t)))\" && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
