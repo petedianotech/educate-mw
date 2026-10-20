@@ -1,0 +1,22 @@
+name: Restore server.ts
+on:
+  push:
+    paths:
+      - "scripts/server_b64_part*.txt"
+      - "scripts/restore_server_parts.py"
+      - ".github/workflows/restore-server.yml"
+  workflow_dispatch:
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/restore_server_parts.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add server.ts
+          git commit -m "fix: restore server.ts extractGeminiText for Emi chat" || echo none
+          git push origin HEAD:main
