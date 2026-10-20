@@ -1,0 +1,21 @@
+name: Fix server Emi extract
+on:
+  push:
+    paths:
+      - "scripts/fix_server_emi_extract.py"
+      - ".github/workflows/fix-server-emi.yml"
+  workflow_dispatch:
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix_server_emi_extract.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add server.ts
+          git commit -m "fix: extractGeminiText — Emi chat returns real answers" || echo none
+          git push origin HEAD:main
