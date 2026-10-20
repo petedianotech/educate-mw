@@ -781,7 +781,7 @@ export function CertificatesCleanView({
               {/* Unpaid Watermark Cover */}
               {!activeStatus.isUnlocked && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none select-none">
-                  <div className="border-[6px] border-amber-600/40 text-amber-600/40 px-8 py-4 font-black uppercase tracking-[0.25em] text-lg md:text-xl rotate-[-23deg] rounded-3xl bg-white/90 backdrop-blur-[1px] shadow-sm">
+                  <div className="border-[6px] border-amber-600/40 text-amber-600/40 px-8 py-4 font-black tracking-[0.25em] text-lg md:text-xl rotate-[-23deg] rounded-3xl bg-white/90 backdrop-blur-[1px] shadow-sm">
                     {activeStatus.status === 'pending' ? 'CERTIFICATE PENDING ADMIN APPROVAL' : 'UNOFFICIAL PREVIEW ONLY'}
                   </div>
                 </div>
@@ -811,7 +811,7 @@ export function CertificatesCleanView({
                   <div className="text-[8px] md:text-[9px] font-black tracking-[0.35em] uppercase text-indigo-900 leading-none">
                     EDUCATE MALAWI NATIONAL ACADEMY
                   </div>
-                  <h2 className="text-sm md:text-lg lg:text-xl font-black tracking-tight text-indigo-950 font-serif mt-1 uppercase leading-none">
+                  <h2 className="text-sm md:text-lg lg:text-xl font-black tracking-tight text-indigo-950 font-serif mt-1 leading-none">
                     ACADEMIC EXCELLENCE DIRECTORY
                   </h2>
                   <div className="h-[1.5px] w-14 bg-amber-600/40 mt-1.5 mx-auto" />
@@ -852,7 +852,7 @@ export function CertificatesCleanView({
                   OFFICIAL DECREE CREDENTIAL
                 </div>
                 
-                <h1 className="text-xl md:text-2.5xl lg:text-3.5xl font-black font-serif tracking-normal text-indigo-900 mb-3 uppercase">
+                <h1 className="text-xl md:text-2.5xl lg:text-3.5xl font-black font-serif tracking-normal text-indigo-900 mb-3">
                   {certType === 'attendance' ? 'Certificate of Attendance' : 'Certificate of Appreciation'}
                 </h1>
                 
@@ -1098,7 +1098,7 @@ export function CertificatesCleanView({
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
                     <Smartphone className="text-indigo-400 animate-bounce" size={24} />
-                    <h3 className="text-lg font-black tracking-tight uppercase">Educate MW Pay Gateway</h3>
+                    <h3 className="text-lg font-black tracking-tight">Educate MW Pay Gateway</h3>
                   </div>
                   <button 
                     onClick={() => setShowPaymentModal(false)}
@@ -1189,7 +1189,7 @@ export function CertificatesCleanView({
                 <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400 shadow-xl">
                   <ShieldCheck size={36} />
                 </div>
-                <h3 className="text-lg font-black text-emerald-400 uppercase tracking-tight mt-2">Payment Submitted!</h3>
+                <h3 className="text-lg font-black text-emerald-400 tracking-tight mt-2">Payment Submitted!</h3>
                 <p className="text-xs text-gray-400 max-w-sm leading-relaxed px-4">
                   Congratulations! We have submitted your authentication request to the Educate Malawi National Board. The Admin Panel has been notified. 
                 </p>

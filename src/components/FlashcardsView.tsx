@@ -753,7 +753,7 @@ export function FlashcardsView({ onBack, theme = 'dark' }: { onBack: () => void,
             <ChevronLeft size={24} strokeWidth={3} />
           </button>
           <div className="ml-4">
-            <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight uppercase tracking-tight`}>
+            <h2 className={`font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} text-lg leading-tight tracking-tight`}>
               Exam Flashcards
             </h2>
             <p className="text-[10px] text-indigo-500 font-extrabold uppercase tracking-widest mt-0.5">

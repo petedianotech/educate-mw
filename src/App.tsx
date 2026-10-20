@@ -202,6 +202,14 @@ export type ViewState =
   | "achievements"
   | "msce-calculator";
 
+
+function prepareMathMarkdown(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let s = text;
+  s = s.replace(/(\\begin\{(pmatrix|bmatrix|matrix|aligned|align)\}[\s\S]*?\\end\{\2\})/g, "\\n$$$$\\n$1\\n$$$$\\n");
+  return s;
+}
+
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -1718,7 +1726,7 @@ function EmiChatView({
                     },
                   }}
                 >
-                  {msg.text}
+                  {prepareMathMarkdown(msg.text)}
                 </ReactMarkdown>
               </div>
 
