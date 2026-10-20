@@ -1628,7 +1628,7 @@ function EmiChatView({
                   <div>
                     <div className="flex items-center gap-1">
                       <span
-                        className={`text-[12px] font-black uppercase tracking-wider ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
+                        className={`text-[12px] font-semibold tracking-wide ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
                       >
                         Emi AI
                       </span>
@@ -2279,7 +2279,7 @@ function EmiChatView({
                 <div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span
-                      className={`text-[12px] font-black uppercase tracking-wider ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
+                      className={`text-[12px] font-semibold tracking-wide ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
                     >
                       Emi AI
                     </span>
@@ -2873,7 +2873,7 @@ function CallingView({
               }`}
             ></div>
             <span
-              className={`text-[10px] font-black uppercase tracking-wider ${
+              className={`text-[10px] font-semibold tracking-wide ${
                 isMuted
                   ? "text-red-500"
                   : isEmiSpeaking
@@ -2950,7 +2950,7 @@ function CallingView({
         {liveTranscript && (
           <button
             onClick={() => sendVoiceQuery(liveTranscript)}
-            className="mt-1 px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider shadow-md transition-all active:scale-95 animate-in zoom-in-95 cursor-pointer"
+            className="mt-1 px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-semibold tracking-wide shadow-md transition-all active:scale-95 animate-in zoom-in-95 cursor-pointer"
           >
             Tap to Ask Now →
           </button>
@@ -3197,7 +3197,7 @@ function SpectrumVisualizer({
             }`}
           ></div>
           <span
-            className={`text-[9px] font-black uppercase tracking-wider ${
+            className={`text-[9px] font-semibold tracking-wide ${
               isMuted
                 ? "text-red-400"
                 : isUserSpeaking
@@ -3214,7 +3214,7 @@ function SpectrumVisualizer({
         {/* Emi Voice Indicator */}
         <div className="flex items-center gap-1.5">
           <span
-            className={`text-[9px] font-black uppercase tracking-wider ${
+            className={`text-[9px] font-semibold tracking-wide ${
               isEmiSpeaking
                 ? "text-indigo-400 font-extrabold"
                 : theme === "dark"
@@ -4089,7 +4089,7 @@ function QuizzesView({
         {/* Toggle AI Generator Button */}
         <button
           onClick={() => setShowGenerator(prev => !prev)}
-          className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 border ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide flex items-center gap-1.5 transition-all active:scale-95 border ${
             showGenerator
               ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
               : theme === "dark"
@@ -4319,7 +4319,7 @@ function QuizzesView({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-md">
+                        <span className="text-[9px] font-semibold tracking-wide text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-md">
                           {quiz.category || "MSCE"}
                         </span>
                         <span className="text-[9px] font-semibold text-gray-400">
@@ -4354,7 +4354,7 @@ function QuizzesView({
             </div>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${theme === "dark" ? "bg-indigo-500/15 text-indigo-400" : "bg-white/20 text-white"}`}>
+                <span className={`text-[9px] font-semibold tracking-wide px-2 py-0.5 rounded-md ${theme === "dark" ? "bg-indigo-500/15 text-indigo-400" : "bg-white/20 text-white"}`}>
                   Today's Challenge
                 </span>
                 <span className={`text-[10px] font-bold ${theme === "dark" ? "text-emerald-400" : "text-emerald-200"}`}>
@@ -4690,7 +4690,7 @@ function QuizTakingView({
         {/* Animated Accuracy Progress Bar */}
         <div className="w-full max-w-sm mb-8 px-2 text-left">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+            <span className="text-[10px] font-semibold tracking-wide text-gray-500">
               Performance Quotient
             </span>
             <span className="text-xs font-black text-indigo-500">
@@ -4877,7 +4877,7 @@ function QuizTakingView({
               </h4>
               {!isCorrect && (
                 <p
-                  className={`text-[10px] font-black uppercase tracking-widest ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
+                  className={`text-[10px] font-semibold tracking-wide ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
                 >
                   Correct:{" "}
                   <span className="text-emerald-500">
@@ -5449,6 +5449,15 @@ function ProfileView({
   );
 }
 
+
+const EmwDots = () => (
+  <span className="inline-flex gap-1 items-center" aria-label="Loading">
+    <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+    <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+    <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+  </span>
+);
+
 function AuthView({
   onNavigateRegister,
   onNavigateTerms,
@@ -5460,6 +5469,7 @@ function AuthView({
   onNavigatePrivacy?: () => void;
   theme: "light" | "dark";
 }) {
+  const isApk = isNativeApp();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -5580,7 +5590,7 @@ function AuthView({
                   Designed specifically for Malawian secondary school success
                 </p>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+              <span className="text-[10px] font-semibold tracking-wide text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
                 MANEB Aligned
               </span>
             </div>
@@ -5660,11 +5670,12 @@ function AuthView({
               </div>
             </div>
 
-            {/* Transparent Data Privacy Disclosure - NO emojis */}
+            {/* Privacy notice — web only */}
+            {!isApk && (
             <div
-              className={`p-5 rounded-2xl ${theme === "dark" ? "bg-indigo-950/30 border-indigo-900/50" : "bg-indigo-50/70 border-indigo-100"} border space-y-2`}
+              className={`p-5 rounded-2xl ${theme === "dark" ? "bg-blue-950/30 border-blue-900/50" : "bg-blue-50/70 border-blue-100"} border space-y-2`}
             >
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-indigo-600 dark:text-indigo-400">
                 <ShieldCheck size={16} />
                 <span>Student Data Privacy Notice</span>
               </div>
@@ -5735,10 +5746,11 @@ function AuthView({
               <span>WhatsApp: 0987066051</span>
             </a>
           </div>
+          )}
         </div>
 
-        {/* Right Col: Sign-In / Login Form - Designed psychologically for ages 13-20 */}
-        <div className="lg:col-span-5 order-1 lg:order-2">
+        {/* Right Col: Sign-In form */}
+        <div className={`lg:col-span-5 order-1 lg:order-2 ${isApk ? "w-full max-w-md mx-auto" : ""}`}>
           <div
             className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200/80"} rounded-3xl p-5 sm:p-7 border w-full emw-card-elevated`}
           >
@@ -5752,14 +5764,14 @@ function AuthView({
             >
               <button
                 type="button"
-                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold tracking-wide bg-indigo-600 text-white shadow-sm transition-all"
               >
                 Sign In
               </button>
               <button
                 type="button"
                 onClick={onNavigateRegister}
-                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold tracking-wide text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
               >
                 Create Account
               </button>
@@ -6031,7 +6043,7 @@ function SubscriptionView({
           className={`${theme === "dark" ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-300 shadow-lg shadow-amber-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
         >
           <div className="flex items-center justify-between gap-3 mb-4">
-            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
+            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-amber-500/15 text-amber-500 border border-amber-500/30">
               Complete MSCE Package
             </span>
             <span className="text-[11px] font-bold text-slate-400">
@@ -6060,7 +6072,7 @@ function SubscriptionView({
 
           {/* 4. What Pro Unlocks */}
           <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
-            <h3 className={`text-xs font-black uppercase tracking-wider mb-3 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+            <h3 className={`text-xs font-semibold tracking-wide mb-3 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
               Everything Included in Pro:
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -6101,7 +6113,7 @@ function SubscriptionView({
                 </p>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
               Verified
             </span>
           </div>
@@ -6111,7 +6123,7 @@ function SubscriptionView({
             className={`p-4 rounded-2xl border mb-5 ${theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"} flex flex-col sm:flex-row sm:items-center justify-between gap-3`}
           >
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <p className="text-[10px] font-semibold tracking-wide text-slate-400">
                 Receiver Name & Number
               </p>
               <p className={`text-base font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
@@ -6176,7 +6188,7 @@ function SubscriptionView({
         <div className="space-y-3">
           <button
             onClick={() => handleOpenWhatsApp("Educate MW Pro", "K7,000")}
-            className="w-full py-4 px-6 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black uppercase tracking-wider text-xs sm:text-sm rounded-2xl shadow-lg shadow-[#25D366]/20 transition-all active:scale-95 flex items-center justify-center gap-3 cursor-pointer"
+            className="w-full py-4 px-6 bg-[#25D366] hover:bg-[#20bd5a] text-white font-semibold tracking-wide text-xs sm:text-sm rounded-2xl shadow-lg shadow-[#25D366]/20 transition-all active:scale-95 flex items-center justify-center gap-3 cursor-pointer"
           >
             <svg className="w-5 h-5 fill-white shrink-0" viewBox="0 0 24 24">
               <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
@@ -6399,13 +6411,13 @@ function RegisterView({
           <button
             type="button"
             onClick={onBack}
-            className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+            className="flex-1 py-2.5 rounded-xl text-xs font-semibold tracking-wide text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
           >
             Sign In
           </button>
           <button
             type="button"
-            className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all"
+            className="flex-1 py-2.5 rounded-xl text-xs font-semibold tracking-wide bg-indigo-600 text-white shadow-sm transition-all"
           >
             Create Account
           </button>
@@ -7303,7 +7315,7 @@ function AdminDashboard({
                     {s.val}
                   </div>
                   <div
-                    className={`text-[8px] font-black uppercase tracking-widest mt-1 ${s.color}`}
+                    className={`text-[8px] font-semibold tracking-wide mt-1 ${s.color}`}
                   >
                     {s.label}
                   </div>
@@ -7409,7 +7421,7 @@ function AdminDashboard({
                       </div>
                       <button
                         onClick={() => togglePro(student)}
-                        className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${student.isPro ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"}`}
+                        className={`px-3 py-2 rounded-xl text-[9px] font-semibold tracking-wide transition-all ${student.isPro ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"}`}
                       >
                         {student.isPro ? "Demote" : "Make Pro"}
                       </button>
@@ -7439,14 +7451,14 @@ function AdminDashboard({
                   <button
                     type="button"
                     onClick={() => setUploadMode("single")}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${uploadMode === "single" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"}`}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${uploadMode === "single" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"}`}
                   >
                     Single Upload
                   </button>
                   <button
                     type="button"
                     onClick={() => setUploadMode("bulk")}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${uploadMode === "bulk" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"}`}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${uploadMode === "bulk" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"}`}
                   >
                     Bulk PDF Upload
                   </button>
@@ -7478,7 +7490,7 @@ function AdminDashboard({
                   {bulkItems.length > 0 && (
                     <div className="space-y-4">
                       <div className={`p-4 rounded-2xl border ${theme === "dark" ? "bg-gray-950/80 border-gray-800" : "bg-white border-slate-200"} space-y-3`}>
-                        <h4 className="text-xs font-black uppercase tracking-wider text-indigo-500">
+                        <h4 className="text-xs font-semibold tracking-wide text-indigo-500">
                           Apply Shared Subject & Class Level to All Files
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -7508,7 +7520,7 @@ function AdminDashboard({
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                          <span className="text-xs font-semibold tracking-wide text-gray-400">
                             Batch Review ({bulkItems.length} files selected)
                           </span>
                           <span className="text-xs font-bold text-emerald-500">
@@ -7644,7 +7656,7 @@ function AdminDashboard({
                     <div className="flex items-center gap-2 min-w-0">
                       <Pencil size={16} className="text-amber-400 shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                        <p className="text-[10px] font-semibold tracking-wide text-amber-400">
                           Editing Published Material
                         </p>
                         <p className={`text-xs font-bold truncate ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
@@ -7655,7 +7667,7 @@ function AdminDashboard({
                     <button
                       type="button"
                       onClick={cancelEditingMaterial}
-                      className="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all"
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-semibold tracking-wide bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all"
                     >
                       Cancel Edit
                     </button>
@@ -7721,7 +7733,7 @@ function AdminDashboard({
                         <button
                           type="button"
                           onClick={() => setMaterialUrlSource("drive")}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                          className={`px-3 py-1 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${
                             materialUrlSource === "drive"
                               ? "bg-indigo-600 text-white shadow-sm"
                               : "text-gray-400 hover:text-white"
@@ -7732,7 +7744,7 @@ function AdminDashboard({
                         <button
                           type="button"
                           onClick={() => setMaterialUrlSource("cloudinary")}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                          className={`px-3 py-1 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${
                             materialUrlSource === "cloudinary"
                               ? "bg-indigo-600 text-white shadow-sm"
                               : "text-gray-400 hover:text-white"
@@ -7812,7 +7824,7 @@ function AdminDashboard({
                         <button
                           type="button"
                           onClick={() => setMaterialUrlSource("drive")}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                          className={`px-3 py-1 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${
                             materialUrlSource === "drive"
                               ? "bg-indigo-600 text-white shadow-sm"
                               : "text-gray-400 hover:text-white"
@@ -7823,7 +7835,7 @@ function AdminDashboard({
                         <button
                           type="button"
                           onClick={() => setMaterialUrlSource("cloudinary")}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                          className={`px-3 py-1 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${
                             materialUrlSource === "cloudinary"
                               ? "bg-indigo-600 text-white shadow-sm"
                               : "text-gray-400 hover:text-white"
@@ -8333,7 +8345,7 @@ function AdminDashboard({
                 </p>
               </div>
               {pendingCerts.length > 0 && (
-                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/25 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1 font-sans">
+                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/25 px-4 py-2 rounded-2xl text-[10px] font-semibold tracking-wide animate-pulse flex items-center gap-1 font-sans">
                   <Award size={12} /> {pendingCerts.length} Pending Approval
                 </span>
               )}
@@ -8579,7 +8591,7 @@ function AppSettingsModal({
                 <p className={`font-black tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm md:text-base`}>
                   Push Notifications
                 </p>
-                <p className="text-[10px] md:text-xs text-blue-500 font-black uppercase tracking-widest mt-0.5">
+                <p className="text-[10px] md:text-xs text-blue-500 font-semibold tracking-wide mt-0.5">
                   Available Soon
                 </p>
               </div>
@@ -8697,7 +8709,7 @@ function LegalPageView({
             <button
               type="button"
               onClick={() => setActiveTab("privacy")}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                 activeTab === "privacy"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -8708,7 +8720,7 @@ function LegalPageView({
             <button
               type="button"
               onClick={() => setActiveTab("terms")}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                 activeTab === "terms"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -9694,7 +9706,7 @@ function MaterialDetailView({
         </p>
         <button
           onClick={onBack}
-          className="mt-6 px-10 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-600/30"
+          className="mt-6 px-10 py-4 bg-indigo-600 text-white rounded-2xl font-semibold tracking-wide text-xs shadow-xl shadow-indigo-600/30"
         >
           Explore Library
         </button>
@@ -9767,7 +9779,7 @@ function MaterialDetailView({
                     className="my-8 p-6 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col items-center text-center"
                   >
                     <ScrollText size={40} className="text-indigo-500 mb-4" />
-                    <h4 className="text-sm font-black uppercase tracking-widest mb-1">
+                    <h4 className="text-sm font-semibold tracking-wide mb-1">
                       {para.trim().includes("cloudinary.com")
                         ? "Official Syllabus Document"
                         : "Reference Syllabus Document"}
@@ -9842,7 +9854,7 @@ function MaterialDetailView({
             </p>
             <button
               onClick={onBack}
-              className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-indigo-600/30 hover:scale-105 active:scale-95 transition-all"
+              className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-5 rounded-2xl font-semibold tracking-wide text-[11px] shadow-2xl shadow-indigo-600/30 hover:scale-105 active:scale-95 transition-all"
             >
               Start Subject Quiz
             </button>
@@ -9915,7 +9927,7 @@ function LocalMaterialView({
           </div>
           <button
             onClick={onBack}
-            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/30 active:scale-95 transition-all"
+            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold tracking-wide text-[10px] shadow-lg shadow-indigo-600/30 active:scale-95 transition-all"
           >
             Exit Reader
           </button>
@@ -9978,7 +9990,7 @@ function PwaInstallPrompt({
             className="text-indigo-600 dark:text-indigo-400 animate-spin"
             style={{ animationDuration: "4s" }}
           />
-          <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+          <span className="text-[10px] font-semibold tracking-wide text-indigo-700 dark:text-indigo-300">
             FAST LAUNCH ACTIVE
           </span>
         </div>
@@ -10037,13 +10049,13 @@ function PwaInstallPrompt({
         <div className="flex flex-col gap-2 w-full">
           <button
             onClick={onInstall}
-            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black uppercase tracking-wider text-[11px] rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold tracking-wide text-[11px] rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <Download size={14} strokeWidth={2.5} /> Install Now
           </button>
           <button
             onClick={onDismiss}
-            className="w-full py-3 text-[11px] font-black uppercase tracking-wider text-gray-500 hover:text-gray-400"
+            className="w-full py-3 text-[11px] font-semibold tracking-wide text-gray-500 hover:text-gray-400"
           >
             Maybe Later
           </button>
@@ -10081,10 +10093,10 @@ function EmiProAdvertisingBanner({
         </div>
         <div className="text-left">
           <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-500/30">
+            <span className="text-[9px] font-semibold tracking-wide bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-500/30">
               EXAM READY
             </span>
-            <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500/25 text-amber-300 px-2 py-0.5 rounded-md">
+            <span className="text-[9px] font-semibold tracking-wide bg-amber-500/25 text-amber-300 px-2 py-0.5 rounded-md">
               LIMITED FREE ACCOUNTS
             </span>
           </div>
@@ -10104,7 +10116,7 @@ function EmiProAdvertisingBanner({
       <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 relative z-10 justify-end">
         <button
           onClick={onUpgrade}
-          className="flex-1 sm:flex-none px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black uppercase tracking-wider text-[10px] rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-center"
+          className="flex-1 sm:flex-none px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-semibold tracking-wide text-[10px] rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-center"
         >
           Unlock Unlimited PRO Access
         </button>
