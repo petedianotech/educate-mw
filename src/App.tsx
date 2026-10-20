@@ -5711,9 +5711,10 @@ function AuthView({
                 </button>
               </div>
             </div>
-          </div>
+            )}
 
-          {/* WhatsApp Support Banner for Confused / Questioning Students */}
+          {/* WhatsApp — web only */}
+          {!isApk && (
           <div
             className={`p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
               theme === "dark"
