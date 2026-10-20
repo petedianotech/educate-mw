@@ -28,7 +28,7 @@ let socialReady = false;
 
 async function ensureNativeGoogle() {
   if (socialReady) return;
-  const { SocialLogin } = await import("@capgo/capacitor-social-login");
+  const { SocialLogin } = await import(/* @vite-ignore */ "@capgo/capacitor-social-login");
   await SocialLogin.initialize({
     google: { webClientId: GOOGLE_WEB_CLIENT_ID },
   });
@@ -38,7 +38,7 @@ async function ensureNativeGoogle() {
 export async function signInWithGoogleNativeAware(): Promise<void> {
   if (isNative()) {
     await ensureNativeGoogle();
-    const { SocialLogin } = await import("@capgo/capacitor-social-login");
+    const { SocialLogin } = await import(/* @vite-ignore */ "@capgo/capacitor-social-login");
     // No scopes option — required on Android without custom MainActivity
     const login = await SocialLogin.login({
       provider: "google",

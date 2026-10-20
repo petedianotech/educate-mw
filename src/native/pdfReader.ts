@@ -20,7 +20,7 @@ export async function openPdf(source: string, title?: string): Promise<void> {
     return;
   }
   try {
-    const { FileOpener } = await import("@capacitor-community/file-opener");
+    const { FileOpener } = await import(/* @vite-ignore */ "@capacitor-community/file-opener");
     await FileOpener.open({
       filePath: source,
       contentType: "application/pdf",
@@ -29,7 +29,7 @@ export async function openPdf(source: string, title?: string): Promise<void> {
   } catch (e) {
     console.warn("FileOpener failed:", e);
     try {
-      const { Browser } = await import("@capacitor/browser");
+      const { Browser } = await import(/* @vite-ignore */ "@capacitor/browser");
       await Browser.open({ url: source });
     } catch {
       throw new Error(
@@ -69,7 +69,7 @@ export async function pickDevicePdfs(multiple = true): Promise<PickedPdf[]> {
       input.click();
     });
   }
-  const { FilePicker } = await import("@capgo/capacitor-file-picker");
+  const { FilePicker } = await import(/* @vite-ignore */ "@capgo/capacitor-file-picker");
   const result = await FilePicker.pickFiles({
     types: ["application/pdf"],
     multiple,
