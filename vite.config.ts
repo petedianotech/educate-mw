@@ -108,7 +108,7 @@ export default defineConfig(({mode}) => {
                 cacheName: 'google-fonts-cache',
                 expiration: {
                   maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                  maxAgeSeconds: 60 * 60 * 24 * 365
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -122,7 +122,7 @@ export default defineConfig(({mode}) => {
                 cacheName: 'gstatic-fonts-cache',
                 expiration: {
                   maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                  maxAgeSeconds: 60 * 60 * 24 * 365
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -136,7 +136,7 @@ export default defineConfig(({mode}) => {
                 cacheName: 'dicebear-avatars',
                 expiration: {
                   maxEntries: 50,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  maxAgeSeconds: 60 * 60 * 24 * 30
                 }
               }
             },
@@ -147,7 +147,7 @@ export default defineConfig(({mode}) => {
                 cacheName: 'external-images',
                 expiration: {
                   maxEntries: 20,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  maxAgeSeconds: 60 * 60 * 24 * 30
                 }
               }
             }
@@ -167,6 +167,15 @@ export default defineConfig(({mode}) => {
       sourcemap: false,
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
+        // Capacitor native plugins are APK-only; keep web build from resolving them
+        external: [
+          '@capacitor-community/file-opener',
+          '@capacitor/browser',
+          '@capgo/capacitor-file-picker',
+          '@capgo/capacitor-social-login',
+          '@capacitor/core',
+          '@capacitor/splash-screen',
+        ],
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
@@ -182,7 +191,6 @@ export default defineConfig(({mode}) => {
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };
