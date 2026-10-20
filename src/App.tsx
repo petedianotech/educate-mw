@@ -22,6 +22,7 @@ import {
 
 import { signInWithGoogleNativeAware, isNativeApp } from "./native/googleAuth";
 import { openPdf, pickDevicePdfs } from "./native/pdfReader";
+import { PdfViewerModal } from "./components/PdfViewerModal";
 import { apiUrl } from "./lib/api";
 import {
   collection,
@@ -2693,7 +2694,7 @@ function CallingView({
         </button>
 
         <div className="flex flex-col items-center">
-          <span className="text-[10px] font-black tracking-[0.2em] text-indigo-500 uppercase">
+          <span className="text-[10px] font-semibold tracking-wide text-blue-600">
             Live Voice Tutor
           </span>
           <span
@@ -3399,8 +3400,10 @@ function NavItem({
   );
 }
 
+// pdf viewer state is local inside LibraryView via hooks below
 function LibraryView({
-  onBack,
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
+    onBack,
   theme,
   onSelectItem,
   onSelectLocalFile,
@@ -3480,7 +3483,7 @@ function LibraryView({
     };
   }, []);
 
-  const handleDownload = async (item: any) => {
+    const handleDownload = async (item: any) => {
     setDownloadedIds((prev) => {
       const current = prev || [];
       const next = current.includes(item.id)
@@ -3495,7 +3498,7 @@ function LibraryView({
     if (item.type === "pdf" && item.content) {
       try {
         if (isNativeApp()) {
-          await openPdf(item.content, item.title);
+          setPdfViewer({ url: item.content, title: item.title || 'PDF' });
         } else {
           await triggerExplicitDownload(item.content, item.title);
         }
@@ -3760,7 +3763,16 @@ function LibraryView({
         </div>
       </main>
     </div>
-  );
+  
+      {pdfViewer && (
+        <PdfViewerModal
+          url={pdfViewer.url}
+          title={pdfViewer.title}
+          theme={theme}
+          onClose={() => setPdfViewer(null)}
+        />
+      )}
+);
 }
 
 function LibraryItem({
@@ -6028,10 +6040,10 @@ function SubscriptionView({
           <ArrowLeft size={20} strokeWidth={2.5} />
         </button>
         <div className="text-center">
-          <h1 className={`text-base font-black uppercase tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+          <h1 className={`text-base font-bold tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
             Educate MW Pro
           </h1>
-          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
             One-Time Payment • Full Access
           </p>
         </div>
@@ -6041,10 +6053,10 @@ function SubscriptionView({
       <div className="flex-1 px-4 sm:px-6 py-6 pb-28 max-w-2xl mx-auto w-full space-y-5">
         {/* 2 & 3. Value Proposition & Single Fixed Price Card */}
         <div
-          className={`${theme === "dark" ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-300 shadow-lg shadow-amber-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
+          className={`${theme === "dark" ? "bg-slate-900 border-blue-500/30" : "bg-white border-blue-200 shadow-lg shadow-blue-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
         >
           <div className="flex items-center justify-between gap-3 mb-4">
-            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-amber-500/15 text-amber-500 border border-amber-500/30">
+            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-blue-500/15 text-blue-600 border border-amber-500/30">
               Complete MSCE Package
             </span>
             <span className="text-[11px] font-bold text-slate-400">
@@ -6062,7 +6074,7 @@ function SubscriptionView({
               </p>
             </div>
             <div className="flex items-baseline gap-1.5 mt-2 sm:mt-0">
-              <span className="text-4xl sm:text-5xl font-black text-amber-500 tracking-tight">
+              <span className="text-4xl sm:text-5xl font-black text-blue-600 tracking-tight">
                 K7,000
               </span>
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -6086,7 +6098,7 @@ function SubscriptionView({
                 "Official MANEB Marking Guides",
               ].map((benefit, i) => (
                 <div key={i} className="flex items-center gap-2.5">
-                  <CheckCircle2 size={16} className="text-amber-500 shrink-0" strokeWidth={2.5} />
+                  <CheckCircle2 size={16} className="text-blue-600 shrink-0" strokeWidth={2.5} />
                   <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
                     {benefit}
                   </span>
@@ -6102,8 +6114,8 @@ function SubscriptionView({
         >
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
-                <span className="text-xs font-black text-red-500">AM</span>
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center shrink-0">
+                <span className="text-xs font-bold text-blue-600">AM</span>
               </div>
               <div>
                 <h3 className={`text-sm font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
@@ -6114,7 +6126,7 @@ function SubscriptionView({
                 </p>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-blue-500/10 text-blue-600 border border-blue-500/25">
               Verified
             </span>
           </div>
@@ -6130,7 +6142,7 @@ function SubscriptionView({
               <p className={`text-base font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                 S. Lifa <span className="text-xs font-semibold text-slate-400">(Teacher / Administrator)</span>
               </p>
-              <p className="text-sm font-black text-red-500">
+              <p className="text-sm font-bold text-blue-700">
                 0999136433
               </p>
             </div>
@@ -6151,29 +6163,29 @@ function SubscriptionView({
           {/* 3 Clear Numbered Steps */}
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-lg bg-red-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
                 1
               </span>
               <div>
                 <p className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
-                  Dial <span className="text-red-500 font-black">*211#</span> on your Airtel SIM and select <span className="font-black">Send Money</span>.
+                  Dial <span className="text-blue-700 font-bold">*211#</span> on your Airtel SIM and select <span className="font-black">Send Money</span>.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-lg bg-red-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
                 2
               </span>
               <div>
                 <p className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
-                  Enter number <span className="font-black text-red-500">0999136433</span> and amount <span className="font-black">K7,000</span> (Receiver name will show as <span className="font-black">S. Lifa</span>).
+                  Enter number <span className="font-bold text-blue-700">0999136433</span> and amount <span className="font-black">K7,000</span> (Receiver name will show as <span className="font-black">S. Lifa</span>).
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-lg bg-red-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
                 3
               </span>
               <div>

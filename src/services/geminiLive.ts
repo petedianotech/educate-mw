@@ -257,7 +257,8 @@ WHO BUILT YOU:
 
 YOUR ROLE:
 - Warm secondary-school tutor for Forms 1–4. Guide step-by-step.
-- Simple English; respond in Chichewa when the student uses Chichewa.
+- Prefer clear English (en-US) for recognition and replies. Only switch to Chichewa if the student clearly speaks or asks in Chichewa.
+- Assume the student is speaking English unless Chichewa words are obvious.
 - Never invent MANEB facts; if unsure, say so.
 
 You are on a LIVE VOICE CALL.
@@ -291,12 +292,15 @@ ${this.config.userLevel ? `The student is studying in ${this.config.userLevel}.`
               outputAudioTranscription: {},
               inputAudioTranscription: {},
               speechConfig: {
+                languageCode: "en-US",
                 voiceConfig: {
                   prebuiltVoiceConfig: {
                     voiceName: targetVoice,
                   },
                 },
               },
+              inputAudioTranscription: {},
+              outputAudioTranscription: {},
               systemInstruction: systemInstructionText,
             },
             callbacks: {
@@ -455,6 +459,7 @@ ${this.config.userLevel ? `The student is studying in ${this.config.userLevel}.`
     }
 
     if (message.serverContent?.turnComplete) {
+      // Keep last subtitle on screen; only reset accumulator for the next turn
       this.currentTextAccumulator = "";
     }
   }
