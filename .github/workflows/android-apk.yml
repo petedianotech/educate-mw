@@ -1,1 +1,216 @@
-PLACEHOLDER_WILL_REPLACE
+name: Build Release APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "android-config/**"
+      - "public/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "vite.config.*"
+      - "index.html"
+      - "server.ts"
+      - ".github/workflows/android-apk.yml"
+      - "scripts/apply_android_icon.sh"
+      - "scripts/apply_android_splash.sh"
+
+jobs:
+  release-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Require Android signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            eval "val=\$$v"
+            if [ -z "$val" ]; then echo "::error::Missing secret $v"; exit 1; fi
+          done
+          echo "Signing secrets OK"
+
+      - name: Restore CommunityView if empty/broken
+        run: |
+          F=src/components/CommunityView.tsx
+          mkdir -p src/components
+          SIZE=$(wc -c < "$F" 2>/dev/null || echo 0)
+          if [ ! -f "$F" ] || [ "$SIZE" -lt 1000 ] || ! grep -q "export function CommunityView" "$F" 2>/dev/null; then
+            curl -fsSL "https://raw.githubusercontent.com/petedianotech/educate-mw/25831e2/src/components/CommunityView.tsx" -o "$F"
+          fi
+          grep -q "export function CommunityView" "$F"
+
+      - name: Install npm dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/app @capacitor/browser @capacitor/splash-screen
+          npm install @capgo/capacitor-social-login @capacitor-community/file-opener @capgo/capacitor-file-picker || true
+
+      - name: Vite build (web assets for Capacitor)
+        run: npx vite build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+          VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
+          VITE_API_BASE_URL: https://educatemw.vercel.app
+
+      - name: Capacitor Android + icon + splash + mic + Google
+        run: |
+          test -d dist || exit 1
+          npx cap add android || true
+          npx cap sync android
+          test -f android/gradlew || exit 1
+          chmod +x android/gradlew
+
+          if [ -f android/variables.gradle ]; then
+            sed -i 's/minSdkVersion = .*/minSdkVersion = 23/' android/variables.gradle
+          fi
+          if [ -f android/app/build.gradle ]; then
+            if ! grep -q 'androidx.browser:browser:1.8.0' android/app/build.gradle; then
+              echo 'configurations.all { resolutionStrategy { force "androidx.browser:browser:1.8.0" } }' >> android/app/build.gradle
+            fi
+          fi
+
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if [ -f "$MANIFEST" ]; then
+            for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS INTERNET ACCESS_NETWORK_STATE; do
+              if ! grep -q "android.permission.$perm" "$MANIFEST"; then
+                sed -i "s|<application|<uses-permission android:name=\"android.permission.$perm\" />\n    <application|" "$MANIFEST"
+              fi
+            done
+          fi
+
+          chmod +x scripts/apply_android_icon.sh scripts/apply_android_splash.sh || true
+          bash scripts/apply_android_icon.sh || true
+          bash scripts/apply_android_splash.sh || true
+
+          MAIN=$(find android/app/src/main/java -name 'MainActivity.java' -o -name 'MainActivity.kt' | head -1)
+          if [ -n "$MAIN" ] && [ -f "$MAIN" ]; then
+            if ! grep -q 'ModifiedMainActivityForSocialLoginPlugin' "$MAIN"; then
+              if echo "$MAIN" | grep -q '\.java$'; then
+                cat > "$MAIN" << 'JAVA'
+package mw.educate.app;
+
+import android.content.Intent;
+import android.util.Log;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginHandle;
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+    if (requestCode >= 900 && requestCode < 1000) {
+      PluginHandle pluginHandle = getBridge().getPlugin("SocialLogin");
+      if (pluginHandle == null) {
+        Log.i("Google Activity Result", "SocialLogin login handle is null");
+        return;
+      }
+      Plugin plugin = pluginHandle.getInstance();
+      if (!(plugin instanceof SocialLoginPlugin)) {
+        Log.i("Google Activity Result", "SocialLogin plugin instance is not SocialLoginPlugin");
+        return;
+      }
+      ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+    }
+  }
+
+  @Override
+  public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+}
+JAVA
+              fi
+            fi
+          fi
+
+      - name: Auto-bump APK versionCode and versionName
+        run: |
+          RUN_NUMBER=${{ github.run_number }}
+          VERSION_CODE=$((100 + RUN_NUMBER))
+          VERSION_NAME="3.5.${RUN_NUMBER}"
+          echo "Bumping to versionCode=$VERSION_CODE versionName=$VERSION_NAME"
+          if [ -f android/app/build.gradle ]; then
+            sed -i "s/versionCode .*/versionCode $VERSION_CODE/" android/app/build.gradle
+            sed -i "s/versionName \".*\"/versionName \"$VERSION_NAME\"/" android/app/build.gradle
+            grep -E "versionCode|versionName" android/app/build.gradle || true
+          fi
+
+      - name: Install google-services.json
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+        run: |
+          mkdir -p android/app
+          cp android-config/google-services.json android/app/google-services.json
+          if [ -n "$VITE_FIREBASE_API_KEY" ]; then
+            sed -i "s|PLACEHOLDER_API_KEY|$VITE_FIREBASE_API_KEY|g" android/app/google-services.json || true
+          fi
+          if [ -f android/build.gradle ] && ! grep -q google-services android/build.gradle; then
+            sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
+          fi
+          if [ -f android/app/build.gradle ] && ! grep -q com.google.gms.google-services android/app/build.gradle; then
+            echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+          fi
+
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+          test -s "$GITHUB_WORKSPACE/release.keystore"
+
+      - name: Assemble RELEASE signed APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+
+      - name: Upload EducateMW-release.apk
+        run: |
+          mkdir -p artifacts-apk
+          find android/app/build/outputs/apk/release -name "*.apk" -exec cp -v {} artifacts-apk/ \;
+          test "$(ls -A artifacts-apk)" || { echo "No release APK"; exit 1; }
+          f=$(ls artifacts-apk/*.apk | head -1)
+          mv "$f" artifacts-apk/EducateMW-release.apk
+          ls -lah artifacts-apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EducateMW-release-apk
+          path: artifacts-apk/EducateMW-release.apk
+          if-no-files-found: error
+          retention-days: 30
