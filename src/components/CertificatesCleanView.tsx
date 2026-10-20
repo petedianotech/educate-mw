@@ -482,7 +482,7 @@ export function CertificatesCleanView({
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md flex items-center justify-center p-0.5 bg-blue-600 border border-blue-500/30">
             <img 
-              src="/app-icon.jpg" 
+              src="/app-icon.png" 
               alt="Educate MW Logo" 
               className="w-full h-full object-cover rounded-[13px]" 
               crossOrigin="anonymous"
@@ -793,7 +793,7 @@ export function CertificatesCleanView({
                 <div className="flex items-center gap-2 md:gap-3 shrink-0">
                   <div className="w-12 h-12 rounded-full border-2 border-blue-950 bg-blue-600 p-0.5 flex items-center justify-center shadow-md overflow-hidden">
                     <img 
-                      src="/app-icon.jpg" 
+                      src="/app-icon.png" 
                       alt="Educate MW Logo" 
                       className="w-full h-full object-cover rounded-full" 
                       crossOrigin="anonymous"
@@ -966,7 +966,7 @@ export function CertificatesCleanView({
               <div className="flex items-center gap-2 mb-2.5 justify-center">
                 <div className="w-8 h-8 rounded-lg overflow-hidden border border-blue-500/30 shadow-md bg-blue-600 p-0.5 shrink-0">
                   <img 
-                    src="/app-icon.jpg" 
+                    src="/app-icon.png" 
                     alt="Educate MW Logo" 
                     className="w-full h-full object-cover rounded-[6px]" 
                     referrerPolicy="no-referrer"

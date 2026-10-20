@@ -1292,7 +1292,7 @@ function HomeView({
               >
                 <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm border border-blue-500/30 bg-blue-600 p-0.5 flex items-center justify-center transition-transform group-hover:scale-105 active:scale-95">
                   <img
-                    src="/app-icon.jpg"
+                    src="/app-icon.png"
                     alt="Educate MW"
                     className="w-full h-full object-cover rounded-[10px]"
                     referrerPolicy="no-referrer"
@@ -6014,10 +6014,10 @@ function SubscriptionView({
           <ArrowLeft size={20} strokeWidth={2.5} />
         </button>
         <div className="text-center">
-          <h1 className={`text-base font-black uppercase tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+          <h1 className={`text-base font-bold tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
             Educate MW Pro
           </h1>
-          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
             One-Time Payment • Full Access
           </p>
         </div>
@@ -6027,10 +6027,10 @@ function SubscriptionView({
       <div className="flex-1 px-4 sm:px-6 py-6 pb-28 max-w-2xl mx-auto w-full space-y-5">
         {/* 2 & 3. Value Proposition & Single Fixed Price Card */}
         <div
-          className={`${theme === "dark" ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-300 shadow-lg shadow-amber-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
+          className={`${theme === "dark" ? "bg-slate-900 border-blue-500/30" : "bg-white border-blue-200 shadow-lg shadow-blue-500/5"} rounded-3xl p-6 sm:p-7 border-2 relative overflow-hidden`}
         >
           <div className="flex items-center justify-between gap-3 mb-4">
-            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
+            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-blue-500/15 text-blue-600 border border-blue-500/30">
               Complete MSCE Package
             </span>
             <span className="text-[11px] font-bold text-slate-400">
@@ -6048,7 +6048,7 @@ function SubscriptionView({
               </p>
             </div>
             <div className="flex items-baseline gap-1.5 mt-2 sm:mt-0">
-              <span className="text-4xl sm:text-5xl font-black text-amber-500 tracking-tight">
+              <span className="text-4xl sm:text-5xl font-black text-blue-600 tracking-tight">
                 K7,000
               </span>
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -6072,7 +6072,7 @@ function SubscriptionView({
                 "Official MANEB Marking Guides",
               ].map((benefit, i) => (
                 <div key={i} className="flex items-center gap-2.5">
-                  <CheckCircle2 size={16} className="text-amber-500 shrink-0" strokeWidth={2.5} />
+                  <CheckCircle2 size={16} className="text-blue-600 shrink-0" strokeWidth={2.5} />
                   <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
                     {benefit}
                   </span>
@@ -8515,7 +8515,7 @@ function AppSettingsModal({
         <div className="mb-10 flex flex-col items-center">
           <div className="w-24 h-24 rounded-[24px] p-1 bg-blue-600 overflow-hidden shadow-xl shadow-blue-600/20 mb-4 border border-blue-500/30">
             <img 
-              src="/app-icon.jpg" 
+              src="/app-icon.png" 
               alt="Educate MW Logo" 
               className="w-full h-full object-cover rounded-[20px]" 
               referrerPolicy="no-referrer"
@@ -9962,7 +9962,7 @@ function PwaInstallPrompt({
             className={`relative w-20 h-20 rounded-[22px] overflow-hidden shadow-xl p-1 bg-blue-600 border border-blue-500/30`}
           >
             <img
-              src="/app-icon.jpg"
+              src="/app-icon.png"
               alt="Educate MW App Icon"
               className="w-full h-full object-cover rounded-[18px]"
               referrerPolicy="no-referrer"
@@ -10145,7 +10145,7 @@ function EmiLoader({
               <div className="flex items-center gap-2 sm:gap-2.5 logo-container select-none">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-sm shadow-blue-600/20 border border-blue-500/30 bg-blue-600 p-0.5 flex items-center justify-center">
                   <img
-                    src="/app-icon.jpg"
+                    src="/app-icon.png"
                     alt="Educate MW"
                     className="w-full h-full object-cover rounded-[9px]"
                     referrerPolicy="no-referrer"
@@ -10179,7 +10179,7 @@ function EmiLoader({
               className={`w-9 h-9 rounded-xl p-0.5 bg-blue-600 shadow-md flex items-center justify-center z-10 overflow-hidden border border-blue-500/30`}
             >
               <img
-                src="/app-icon.jpg"
+                src="/app-icon.png"
                 alt="Educate MW"
                 className="w-full h-full object-cover rounded-[9px]"
                 referrerPolicy="no-referrer"
@@ -10222,7 +10222,7 @@ function EmiSpinner({
         className={`rounded-xl p-0.5 bg-blue-600 flex items-center justify-center shadow-md overflow-hidden border border-blue-500/30 ${innerSize}`}
       >
         <img
-          src="/app-icon.jpg"
+          src="/app-icon.png"
           alt="Educate MW"
           className="w-full h-full object-cover rounded-[7px]"
           referrerPolicy="no-referrer"
