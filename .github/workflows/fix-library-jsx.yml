@@ -1,0 +1,21 @@
+name: Fix Library JSX
+on:
+  push:
+    paths:
+      - "scripts/fix_library_jsx.py"
+      - ".github/workflows/fix-library-jsx.yml"
+  workflow_dispatch:
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix_library_jsx.py
+      - run: |
+          git config user.name "Peter Damiano"
+          git config user.email "petedianotech@gmail.com"
+          git add src/App.tsx
+          git commit -m "fix: PdfViewerModal inside LibraryView root (Vite/Vercel build)" || echo none
+          git push origin HEAD:main
