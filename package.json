@@ -9,8 +9,8 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "prebuild": "python3 scripts/patch_emi_ui.py 2>/dev/null || true",
-    "predev": "python3 scripts/patch_emi_ui.py 2>/dev/null || true"
+    "prebuild": "python3 scripts/patch_emi_ui.py 2>/dev/null || true; python3 scripts/patch_server_attachments.py 2>/dev/null || true",
+    "predev": "python3 scripts/patch_emi_ui.py 2>/dev/null || true; python3 scripts/patch_server_attachments.py 2>/dev/null || true"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
