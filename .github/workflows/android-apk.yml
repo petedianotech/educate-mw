@@ -122,15 +122,22 @@ jobs:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
         run: |
           mkdir -p android/app
-          cp android-config/google-services.json android/app/google-services.json
-          if [ -n "$VITE_FIREBASE_API_KEY" ]; then
+          if [ -f android-config/google-services.json ]; then
+            cp android-config/google-services.json android/app/google-services.json
+          fi
+          if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -f android/app/google-services.json ]; then
             sed -i "s|PLACEHOLDER_API_KEY|$VITE_FIREBASE_API_KEY|g" android/app/google-services.json || true
           fi
-          if [ -f android/build.gradle ] && ! grep -q google-services android/build.gradle; then
-            sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
-          fi
-          if [ -f android/app/build.gradle ] && ! grep -q com.google.gms.google-services android/app/build.gradle; then
-            echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+          # Only apply plugin when project_id is present (avoid assemble crash)
+          if [ -f android/app/google-services.json ] && grep -q '"project_id"' android/app/google-services.json 2>/dev/null; then
+            if [ -f android/build.gradle ] && ! grep -q google-services android/build.gradle; then
+              sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
+            fi
+            if [ -f android/app/build.gradle ] && ! grep -q com.google.gms.google-services android/app/build.gradle; then
+              echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+            fi
+          else
+            echo "Skipping google-services plugin (json missing or invalid)"
           fi
 
       - name: Decode release keystore
@@ -147,11 +154,32 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set +e
+          echo "=== styles.xml ==="
+          cat app/src/main/res/values/styles.xml 2>/dev/null || true
+          echo "=== assembleRelease ==="
           ./gradlew assembleRelease --no-daemon --stacktrace \
             -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
             -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD" 2>&1 | tee /tmp/gradle.log
+          RC=${PIPESTATUS[0]}
+          if [ "$RC" -ne 0 ]; then
+            echo "=== GRADLE FAILURE SNIPPET ==="
+            grep -E "error:|ERROR|FAILURE|What went wrong|AAPT|Resource|cannot find|Unresolved|Theme" /tmp/gradle.log | tail -50 || true
+            echo "Retry without google-services plugin..."
+            sed -i "/com.google.gms.google-services/d" app/build.gradle || true
+            ./gradlew assembleRelease --no-daemon --stacktrace \
+              -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
+              -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD" 2>&1 | tee /tmp/gradle2.log
+            RC=${PIPESTATUS[0]}
+            if [ "$RC" -ne 0 ]; then
+              grep -E "error:|ERROR|FAILURE|What went wrong|AAPT|Resource|cannot find|Unresolved|Theme" /tmp/gradle2.log | tail -50 || true
+            fi
+          fi
+          exit $RC
 
       - name: Upload EducateMW-release.apk
         run: |
