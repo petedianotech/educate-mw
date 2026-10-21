@@ -1,8 +1,8 @@
 /**
  * Google Sign-In for web (popup) and Android APK (account picker).
- * Do NOT pass scopes on Android — Capgo requires MainActivity changes for scopes
- * and throws: "You CANNOT use scopes without modifying the main activity".
- * Basic login still returns idToken for Firebase Auth (email/profile in token claims).
+ * Native path uses Capacitor.Plugins (never ES-import the plugin —
+ * Vite marks it external and APK WebView then fails with
+ * "Failed to resolve module specifier '@capgo/capacitor-social-login'").
  */
 import {
   GoogleAuthProvider,
@@ -18,28 +18,48 @@ export const GOOGLE_WEB_CLIENT_ID =
 function isNative(): boolean {
   try {
     const w = window as any;
-    return !!(w.Capacitor?.isNativePlatform?.() || w.Capacitor?.getPlatform?.() === "android");
+    return !!(
+      w.Capacitor?.isNativePlatform?.() ||
+      w.Capacitor?.getPlatform?.() === "android"
+    );
   } catch {
     return false;
   }
+}
+
+function getSocialLoginPlugin(): any {
+  const w = window as any;
+  const fromPlugins = w.Capacitor?.Plugins?.SocialLogin;
+  if (fromPlugins) return fromPlugins;
+  if (w.Capacitor?.Plugins?.CapgoSocialLogin) return w.Capacitor.Plugins.CapgoSocialLogin;
+  return null;
 }
 
 let socialReady = false;
 
 async function ensureNativeGoogle() {
   if (socialReady) return;
-  const { SocialLogin } = await import(/* @vite-ignore */ "@capgo/capacitor-social-login");
-  await SocialLogin.initialize({
-    google: { webClientId: GOOGLE_WEB_CLIENT_ID },
-  });
+  const SocialLogin = getSocialLoginPlugin();
+  if (!SocialLogin) {
+    throw new Error(
+      "Google Sign-In plugin not available on this device. Update the APK or use phone/email sign-in.",
+    );
+  }
+  if (typeof SocialLogin.initialize === "function") {
+    await SocialLogin.initialize({
+      google: { webClientId: GOOGLE_WEB_CLIENT_ID },
+    });
+  }
   socialReady = true;
 }
 
 export async function signInWithGoogleNativeAware(): Promise<void> {
   if (isNative()) {
     await ensureNativeGoogle();
-    const { SocialLogin } = await import(/* @vite-ignore */ "@capgo/capacitor-social-login");
-    // No scopes option — required on Android without custom MainActivity
+    const SocialLogin = getSocialLoginPlugin();
+    if (!SocialLogin?.login) {
+      throw new Error("Google Sign-In is not available. Please use phone or email.");
+    }
     const login = await SocialLogin.login({
       provider: "google",
       options: {},
@@ -47,10 +67,11 @@ export async function signInWithGoogleNativeAware(): Promise<void> {
     const idToken =
       (login as any)?.result?.idToken ||
       (login as any)?.idToken ||
-      (login as any)?.authentication?.idToken;
+      (login as any)?.authentication?.idToken ||
+      (login as any)?.result?.accessToken?.idToken;
     if (!idToken) {
       throw new Error(
-        "Google returned no ID token. Confirm SHA-1 and Web client ID in Firebase.",
+        "Google returned no ID token. Confirm SHA-1 and Web client ID in Firebase Console.",
       );
     }
     const credential = GoogleAuthProvider.credential(idToken);
