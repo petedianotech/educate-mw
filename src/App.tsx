@@ -6183,7 +6183,7 @@ function SubscriptionView({
         <div className="space-y-3">
           <button
             onClick={() => handleOpenWhatsApp("Educate MW Pro", "K7,000")}
-            className="w-full py-4 px-6 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black uppercase tracking-wider text-xs sm:text-sm rounded-2xl shadow-lg shadow-[#25D366]/20 transition-all active:scale-95 flex items-center justify-center gap-3 cursor-pointer"
+            className="w-full py-4 px-6 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold tracking-tight text-sm rounded-2xl shadow-lg shadow-[#25D366]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-3 cursor-pointer"
           >
             <svg className="w-5 h-5 fill-white shrink-0" viewBox="0 0 24 24">
               <path d="M12.012 2c-5.506 0-9.989 4.478-9.989 9.984 0 1.758.459 3.474 1.33 4.982l-1.413 5.161 5.282-1.385a9.914 9.914 0 0 0 4.79 1.226h.004c5.505 0 9.988-4.478 9.988-9.984s-4.483-9.984-9.989-9.984zm5.836 14.127c-.246.692-1.433 1.32-1.998 1.405-.512.076-1.16.108-1.872-.118-.431-.137-.985-.32-1.694-.626-2.981-1.287-4.927-4.287-5.076-4.487-.149-.199-1.216-1.614-1.216-3.079 0-1.465.769-2.184 1.042-2.483.273-.298.596-.372.794-.372.199 0 .398 0 .571.008.184.009.429-.069.671.511.249.597.845 2.064.92 2.213.075.149.124.323.025.521-.099.199-.149.323-.298.497-.149.174-.314.388-.447.521-.148.148-.326.335-.127.682.199.345.893 1.474 1.918 2.388 1.139 1.016 2.099 1.331 2.397 1.48.298.149.472.124.645-.074.173-.198.744-.868.942-1.166.199-.298.398-.249.671-.149.273.099 1.736.819 2.034.968.298.149.496.223.57.345.075.122.075.718-.173 1.413z"/>
@@ -6198,12 +6198,12 @@ function SubscriptionView({
 
         {/* Free Plan Limits Transparency Box */}
         <div
-          className={`${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-slate-100/80 border-slate-200"} rounded-2xl p-4 border`}
+          className={`${theme === "dark" ? "bg-indigo-950/40 border-indigo-500/20" : "bg-indigo-50/80 border-indigo-200"} rounded-2xl p-4 border`}
         >
           <div className="flex items-center gap-2 mb-2">
             <Shield size={14} className="text-indigo-500" />
             <h4 className={`text-xs font-bold uppercase tracking-wider ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-              Free Tier Status & Daily Limits
+              Free tier status & daily limits
             </h4>
           </div>
           <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"} leading-relaxed`}>
@@ -9374,7 +9374,7 @@ function VideosView({
           <h1
             className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight`}
           >
-            Video Lessons & Tutorials
+            Video lessons & tutorials
           </h1>
           <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-widest mt-0.5">
             MSCE & JCE Curriculum Visual Guides

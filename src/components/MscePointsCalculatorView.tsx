@@ -1097,11 +1097,11 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
       <div className={`px-4 md:px-6 py-2.5 shrink-0 border-b ${theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-slate-200'} flex items-center gap-2 overflow-x-auto hide-scrollbar`}>
         <button
           onClick={() => setActiveTab('calculator')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shrink-0 flex items-center gap-2 ${
-            activeTab === 'calculator'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/15'
-              : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
+          className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wider transition-all shrink-0 flex items-center gap-2 ${
+ activeTab === 'calculator'
+ ? 'bg-blue-600 text-white shadow-md shadow-blue-600/15'
+ : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+ }`}
         >
           <Calculator size={14} />
           <span>Points Calculator</span>
@@ -1114,11 +1114,11 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
 
         <button
           onClick={() => setActiveTab('directory')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shrink-0 flex items-center gap-2 ${
-            activeTab === 'directory'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/15'
-              : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
+          className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wider transition-all shrink-0 flex items-center gap-2 ${
+ activeTab === 'directory'
+ ? 'bg-blue-600 text-white shadow-md shadow-blue-600/15'
+ : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+ }`}
         >
           <Building2 size={14} />
           <span>Malawi Universities ({MALAWI_PROGRAMMES.length} Courses)</span>
@@ -1162,7 +1162,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                         ? 'Select your subject grades below'
                         : stats.enteredCount < 6 
                           ? `Add ${6 - stats.enteredCount} more subject(s) to complete`
-                          : `MSCE Best 6 Aggregate: ${stats.best6Sum} Points`}
+                          : `MSCE Best 6 aggregate: ${stats.best6Sum} Points`}
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed">
                       {stats.enteredCount === 0 
@@ -1194,7 +1194,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
 
               {/* Quick Presets Bar */}
               <div className="mt-5 pt-4 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Example Presets:</span>
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider">Example presets</span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => loadPreset('medicine')}
@@ -1235,7 +1235,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
             {/* Subject Grade Inputs Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
-                <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
+                <h3 className={`text-xs font-bold tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
                   Select Subject Grades ({subjects.length} Subjects)
                 </h3>
                 <span className="text-[11px] text-slate-400 font-medium">
@@ -1351,7 +1351,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className={`text-base font-bold tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    University Degree Matches ({filteredProgrammes.length})
+                    University degree matches ({filteredProgrammes.length})
                   </h3>
                   <p className="text-xs text-slate-400">
                     {stats.enteredCount >= 6 
@@ -1370,7 +1370,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                         : theme === 'dark' ? 'bg-gray-900 text-slate-400 border border-gray-800' : 'bg-slate-200 text-slate-700'
                     }`}
                   >
-                    All Courses
+                    All courses
                   </button>
                   {stats.enteredCount >= 6 && (
                     <>
@@ -1484,7 +1484,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
 
                       {/* University & Degree Title */}
                       <div className="mb-2">
-                        <div className="text-[11px] text-blue-500 font-bold uppercase tracking-wider">
+                        <div className="text-[11px] text-blue-500 font-bold tracking-wider">
                           {prog.university} • <span className="text-slate-400 font-medium">{prog.location}</span>
                         </div>
                         <h4 className={`text-base font-bold mt-1 leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
@@ -1558,7 +1558,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
           <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in duration-200">
             
             <div className={`p-6 rounded-3xl border ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-              <div className="flex items-center gap-2 text-blue-500 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-blue-500 text-xs font-bold tracking-wider">
                 <Building2 size={16} /> Accredited Higher Education Institutions in Malawi
               </div>
               <h2 className={`text-lg font-bold mt-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
@@ -1665,7 +1665,7 @@ export function MscePointsCalculatorView({ onBack, theme = 'dark', profile, onUp
                       </div>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-indigo-500/10 text-blue-500 border border-indigo-500/20 self-start sm:self-auto">
+                    <span className="px-3 py-1 rounded-full text-[9.5px] font-bold tracking-wider bg-indigo-500/10 text-blue-500 border border-indigo-500/20 self-start sm:self-auto">
                       {uni.type}
                     </span>
                   </div>
