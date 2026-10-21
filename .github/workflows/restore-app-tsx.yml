@@ -1,0 +1,27 @@
+name: Restore App.tsx from blobs
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/blobs/app_zlib/**"
+      - "scripts/restore_app_from_blobs.py"
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore App.tsx
+        run: python3 scripts/restore_app_from_blobs.py
+      - name: Commit if changed
+        run: |
+          git config user.name "educate-mw-bot"
+          git config user.email "bot@educatemw.local"
+          git add src/App.tsx
+          if git diff --staged --quiet; then
+            echo "No App.tsx change"
+          else
+            git commit -m "chore: restore Emi UI App.tsx (chats sidebar, attach, stop/retry, live call)"
+            git push
+          fi
