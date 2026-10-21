@@ -34,11 +34,6 @@
     "ws": "^8.20.1"
   },
   "devDependencies": {
-    "@capacitor-community/file-opener": "^8.0.1",
-    "@capacitor/browser": "^8.0.5",
-    "@capacitor/cli": "^8.5.3",
-    "@capgo/capacitor-file-picker": "^8.2.7",
-    "@capgo/capacitor-social-login": "^8.7.4",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-legacy": "^6.0.2",

@@ -60,8 +60,11 @@ jobs:
       - name: Install npm dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/app @capacitor/browser @capacitor/splash-screen
-          npm install @capgo/capacitor-social-login @capacitor-community/file-opener @capgo/capacitor-file-picker || true
+          # Pin Capacitor 6.x (stable, Node 20 compatible) — do NOT use v8
+          npm install @capacitor/core@6.2.2 @capacitor/cli@6.2.2 @capacitor/android@6.2.2 @capacitor/app@6.2.2 @capacitor/browser@6.2.2 @capacitor/splash-screen@6.2.2
+          npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 || true
+          # file-picker has no v6; optional
+          npm install @capgo/capacitor-file-picker || true
 
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
@@ -124,28 +127,19 @@ jobs:
             cp android-config/google-services.json android/app/google-services.json
           fi
           if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -f android/app/google-services.json ]; then
+            # Soft-replace placeholder API key if present
             sed -i "s|PLACEHOLDER_API_KEY|$VITE_FIREBASE_API_KEY|g" android/app/google-services.json || true
-          fi
-          # Only apply plugin when project_id is present (avoid assemble crash)
-          if [ -f android/app/google-services.json ] && grep -q '"project_id"' android/app/google-services.json 2>/dev/null; then
-            if [ -f android/build.gradle ] && ! grep -q google-services android/build.gradle; then
-              sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" android/build.gradle || true
-            fi
-            if [ -f android/app/build.gradle ] && ! grep -q com.google.gms.google-services android/app/build.gradle; then
-              echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
-            fi
-          else
-            echo "Skipping google-services plugin (json missing or invalid)"
+            sed -i "s|\"current_key\": \"[^\"]*\"|\"current_key\": \"$VITE_FIREBASE_API_KEY\"|g" android/app/google-services.json || true
           fi
 
-      - name: Decode release keystore
+      - name: Decode keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
-          test -s "$GITHUB_WORKSPACE/release.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.keystore
+          test -s release.keystore
 
-      - name: Assemble RELEASE signed APK
+      - name: Assemble signed release APK
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}

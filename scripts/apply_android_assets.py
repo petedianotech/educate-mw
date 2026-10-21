@@ -41,6 +41,11 @@ def apply_assets():
     os.makedirs(anydpi_dir, exist_ok=True)
     os.makedirs(drawable_dir, exist_ok=True)
     
+    # Never leave a PNG background next to the XML (duplicate resource crash)
+    bg_png = os.path.join(drawable_dir, "ic_launcher_background.png")
+    if os.path.exists(bg_png):
+        os.remove(bg_png)
+    
     fg_resized = img.resize((432, 432), Image.Resampling.LANCZOS)
     fg_resized.save(os.path.join(drawable_dir, "ic_launcher_foreground.png"))
     
@@ -80,7 +85,7 @@ def apply_assets():
     
     splash_p.convert("RGB").save(os.path.join(drawable_dir, "splash.png"))
     
-    os.makedirs("public", exist_ok=True)
+    # Also save to public for web reference
     splash_p.convert("RGB").save("public/splash.png")
 
     # Landscape 1920x1080
@@ -93,10 +98,9 @@ def apply_assets():
     splash_l.paste(icon_splash_l, (l_x, l_y), icon_splash_l)
     
     draw_l = ImageDraw.Draw(splash_l)
-    dot_yl = 960
     for dx in [910, 960, 1010]:
-        draw_l.ellipse([dx - 6, dot_yl - 6, dx + 6, dot_yl + 6], fill=(255, 255, 255, 255))
-        
+        draw_l.ellipse([dx - 6, 960 - 6, dx + 6, 960 + 6], fill=(255, 255, 255, 255))
+    
     splash_l.convert("RGB").save(os.path.join(drawable_land, "splash.png"))
 
     # Also ensure styles.xml has splash background theme
