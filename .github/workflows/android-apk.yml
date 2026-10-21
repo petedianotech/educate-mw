@@ -14,6 +14,7 @@ on:
       - "server.ts"
       - ".github/workflows/android-apk.yml"
       - "scripts/apply_android_assets.py"
+      - "scripts/patch_emi_ui.py"
 
 jobs:
   release-apk:
@@ -70,6 +71,9 @@ jobs:
             @capacitor/splash-screen@6.0.4
           npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 || true
           npm install @capgo/capacitor-file-picker || true
+
+      - name: Patch Emi UI upgrades
+        run: python3 scripts/patch_emi_ui.py || true
 
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
@@ -128,7 +132,7 @@ jobs:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
         run: |
           mkdir -p android/app
-          if [ -f android-config/google-services.json ]; then
+          if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -f android-config/google-services.json ]; then
             cp android-config/google-services.json android/app/google-services.json
           fi
           if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -f android/app/google-services.json ]; then
