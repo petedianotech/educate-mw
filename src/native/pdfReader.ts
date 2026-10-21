@@ -1,4 +1,4 @@
-/** APK PDF helpers — no static Capacitor import (keeps vite build clean). */
+/** APK PDF helpers — only window.Capacitor.Plugins (never import Capacitor packages). */
 
 function isNative(): boolean {
   try {
@@ -13,6 +13,16 @@ export function isNativeApp(): boolean {
   return isNative();
 }
 
+function getPlugin(...names: string[]): any {
+  try {
+    const plugins = (window as any).Capacitor?.Plugins || {};
+    for (const n of names) {
+      if (plugins[n]) return plugins[n];
+    }
+  } catch {}
+  return null;
+}
+
 export async function openPdf(source: string, title?: string): Promise<void> {
   if (!source) return;
   if (!isNative()) {
@@ -20,24 +30,28 @@ export async function openPdf(source: string, title?: string): Promise<void> {
     return;
   }
   try {
-    const { FileOpener } = await import(/* @vite-ignore */ "@capacitor-community/file-opener");
-    await FileOpener.open({
-      filePath: source,
-      contentType: "application/pdf",
-      openWithDefault: true,
-    });
+    const FileOpener = getPlugin("FileOpener", "CapacitorCommunityFileOpener");
+    if (FileOpener?.open) {
+      await FileOpener.open({
+        filePath: source,
+        contentType: "application/pdf",
+        openWithDefault: true,
+      });
+      return;
+    }
+    const Browser = getPlugin("Browser");
+    if (Browser?.open) {
+      await Browser.open({ url: source });
+      return;
+    }
+    window.open(source, "_blank");
   } catch (e) {
     console.warn("FileOpener failed:", e);
-    try {
-      const { Browser } = await import(/* @vite-ignore */ "@capacitor/browser");
-      await Browser.open({ url: source });
-    } catch {
-      throw new Error(
-        title
-          ? `Could not open “${title}”. Install a PDF viewer app.`
-          : "Could not open this PDF on your device.",
-      );
-    }
+    throw new Error(
+      title
+        ? `Could not open “${title}”. Install a PDF viewer app.`
+        : "Could not open this PDF on your device.",
+    );
   }
 }
 
@@ -69,8 +83,28 @@ export async function pickDevicePdfs(multiple = true): Promise<PickedPdf[]> {
       input.click();
     });
   }
-  const mod: any = await import(/* @vite-ignore */ "@capgo/capacitor-file-picker");
-  const FilePicker = mod.FilePicker || mod.CapgoFilePicker || mod.default;
+  const FilePicker = getPlugin("FilePicker", "CapgoFilePicker");
+  if (!FilePicker?.pickFiles) {
+    // Fallback: web-style input even on native if plugin missing
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/pdf,.pdf";
+      input.multiple = multiple;
+      input.onchange = () => {
+        const files = Array.from(input.files || []);
+        resolve(
+          files.map((f) => ({
+            name: f.name,
+            path: URL.createObjectURL(f),
+            mimeType: f.type,
+            size: f.size,
+          })),
+        );
+      };
+      input.click();
+    });
+  }
   const result = await FilePicker.pickFiles({
     types: ["application/pdf"],
     multiple,

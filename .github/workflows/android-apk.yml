@@ -61,7 +61,7 @@ jobs:
       - name: Install npm dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          # Capacitor 6.x only (Node 20). Plugins use their own 6.0.x tags, not 6.2.x
+          # Capacitor 6.x only (Node 20 compatible)
           npm install \
             @capacitor/core@6.2.2 \
             @capacitor/cli@6.2.2 \
@@ -69,8 +69,8 @@ jobs:
             @capacitor/app@6.0.3 \
             @capacitor/browser@6.0.6 \
             @capacitor/splash-screen@6.0.4
-          npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 || true
-          npm install @capgo/capacitor-file-picker || true
+          npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 --legacy-peer-deps || true
+          # Skip file-picker v8 (requires Capacitor 8); native code uses Capacitor.Plugins only
 
       - name: Patch Emi UI upgrades
         run: python3 scripts/patch_emi_ui.py || true
@@ -132,7 +132,7 @@ jobs:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
         run: |
           mkdir -p android/app
-          if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -f android-config/google-services.json ]; then
+          if [ -f android-config/google-services.json ]; then
             cp android-config/google-services.json android/app/google-services.json
           fi
           if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -f android/app/google-services.json ]; then
