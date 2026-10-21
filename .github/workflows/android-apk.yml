@@ -14,7 +14,6 @@ on:
       - "server.ts"
       - ".github/workflows/android-apk.yml"
       - "scripts/apply_android_assets.py"
-      - "scripts/patch_emi_ui.py"
 
 jobs:
   release-apk:
@@ -61,7 +60,6 @@ jobs:
       - name: Install npm dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          # Capacitor 6.x only (Node 20 compatible)
           npm install \
             @capacitor/core@6.2.2 \
             @capacitor/cli@6.2.2 \
@@ -70,12 +68,8 @@ jobs:
             @capacitor/browser@6.0.6 \
             @capacitor/splash-screen@6.0.4
           npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 --legacy-peer-deps || true
-          # Skip file-picker v8 (requires Capacitor 8); native code uses Capacitor.Plugins only
 
-      - name: Patch Emi UI upgrades
-        run: python3 scripts/patch_emi_ui.py || true
-
-      - name: Vite build (web assets for Capacitor)
+      - name: Vite build (stable App.tsx — experimental Emi UI patch disabled)
         run: npx vite build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -114,6 +108,10 @@ jobs:
           fi
           pip install pillow
           python3 scripts/apply_android_assets.py
+          test -s android/app/src/main/res/drawable/splash.png
+          test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          echo "Icon/splash files:"
+          ls -la android/app/src/main/res/drawable/splash.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
 
       - name: Auto-bump APK versionCode and versionName
         run: |
@@ -157,7 +155,6 @@ jobs:
           set +e
           echo "=== styles.xml ==="
           cat app/src/main/res/values/styles.xml 2>/dev/null || true
-          echo "=== assembleRelease ==="
           ./gradlew assembleRelease --no-daemon --stacktrace \
             -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
             -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
@@ -165,9 +162,7 @@ jobs:
             -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD" 2>&1 | tee /tmp/gradle.log
           RC=${PIPESTATUS[0]}
           if [ "$RC" -ne 0 ]; then
-            echo "=== GRADLE FAILURE SNIPPET ==="
-            grep -E "error:|ERROR|FAILURE|What went wrong|AAPT|Resource|cannot find|Unresolved|Theme" /tmp/gradle.log | tail -50 || true
-            echo "Retry without google-services plugin..."
+            grep -E "error:|ERROR|FAILURE|What went wrong|AAPT|Resource" /tmp/gradle.log | tail -40 || true
             sed -i "/com.google.gms.google-services/d" app/build.gradle || true
             ./gradlew assembleRelease --no-daemon --stacktrace \
               -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
@@ -175,9 +170,6 @@ jobs:
               -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
               -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD" 2>&1 | tee /tmp/gradle2.log
             RC=${PIPESTATUS[0]}
-            if [ "$RC" -ne 0 ]; then
-              grep -E "error:|ERROR|FAILURE|What went wrong|AAPT|Resource|cannot find|Unresolved|Theme" /tmp/gradle2.log | tail -50 || true
-            fi
           fi
           exit $RC
 
