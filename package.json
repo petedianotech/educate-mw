@@ -8,7 +8,9 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prebuild": "bash scripts/restore_emi_app.sh 2>/dev/null || true",
+    "predev": "bash scripts/restore_emi_app.sh 2>/dev/null || true"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
