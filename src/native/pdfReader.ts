@@ -69,7 +69,8 @@ export async function pickDevicePdfs(multiple = true): Promise<PickedPdf[]> {
       input.click();
     });
   }
-  const { FilePicker } = await import(/* @vite-ignore */ "@capgo/capacitor-file-picker");
+  const mod: any = await import(/* @vite-ignore */ "@capgo/capacitor-file-picker");
+  const FilePicker = mod.FilePicker || mod.CapgoFilePicker || mod.default;
   const result = await FilePicker.pickFiles({
     types: ["application/pdf"],
     multiple,

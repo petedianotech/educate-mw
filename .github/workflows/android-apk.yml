@@ -13,8 +13,7 @@ on:
       - "index.html"
       - "server.ts"
       - ".github/workflows/android-apk.yml"
-      - "scripts/apply_android_icon.sh"
-      - "scripts/apply_android_splash.sh"
+      - "scripts/apply_android_assets.py"
 
 jobs:
   release-apk:
@@ -101,9 +100,8 @@ jobs:
               fi
             done
           fi
-          chmod +x scripts/apply_android_icon.sh scripts/apply_android_splash.sh || true
-          bash scripts/apply_android_icon.sh || true
-          bash scripts/apply_android_splash.sh || true
+          pip install pillow
+          python3 scripts/apply_android_assets.py
 
       - name: Auto-bump APK versionCode and versionName
         run: |
