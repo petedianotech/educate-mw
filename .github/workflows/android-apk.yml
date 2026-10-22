@@ -9,6 +9,7 @@ on:
       - "public/**"
       - "capacitor.config.ts"
       - "package.json"
+      - "package-lock.json"
       - "vite.config.*"
       - "index.html"
       - "server.ts"
@@ -59,7 +60,12 @@ jobs:
 
       - name: Install npm dependencies
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          # Prefer npm ci; fall back to npm install if lock is out of sync
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
           npm install \
             @capacitor/core@6.2.2 \
             @capacitor/cli@6.2.2 \
@@ -69,7 +75,7 @@ jobs:
             @capacitor/splash-screen@6.0.4
           npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 --legacy-peer-deps || true
 
-      - name: Vite build (stable App.tsx — experimental Emi UI patch disabled)
+      - name: Vite build (web assets for Capacitor)
         run: npx vite build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -106,16 +112,8 @@ jobs:
               fi
             done
           fi
-          # Copy pre-generated custom app-icon mipmaps and splash screens
-          if [ -d android-config/res ]; then
-            mkdir -p android/app/src/main/res
-            cp -r android-config/res/* android/app/src/main/res/
-          fi
-          # Also run generation script to ensure all densities and themes are generated fresh
-          node scripts/generate_android_assets.cjs || (pip install pillow && python3 scripts/apply_android_assets.py) || true
-          # Remove any default vector foregrounds that override custom icon
-          rm -f android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml 2>/dev/null || true
-          rm -f android/app/src/main/res/drawable/ic_launcher_foreground.xml 2>/dev/null || true
+          pip install pillow
+          python3 scripts/apply_android_assets.py
           test -s android/app/src/main/res/drawable/splash.png
           test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
           echo "Icon/splash files:"
