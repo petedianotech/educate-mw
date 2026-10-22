@@ -1,6 +1,4 @@
-import type { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
+const config: any = {
   appId: 'mw.educate.app',
   appName: 'Educate MW',
   webDir: 'dist',
