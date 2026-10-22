@@ -60,7 +60,6 @@ jobs:
 
       - name: Install npm dependencies
         run: |
-          # Prefer npm ci; fall back to npm install if lock is out of sync
           if [ -f package-lock.json ]; then
             npm ci || npm install
           else
@@ -92,7 +91,9 @@ jobs:
       - name: Capacitor Android + icon + splash + mic
         run: |
           test -d dist || exit 1
-          npx cap add android || true
+          # Repo has incomplete android/ (no gradlew) — always regenerate
+          rm -rf android
+          npx cap add android
           npx cap sync android
           test -f android/gradlew || exit 1
           chmod +x android/gradlew
@@ -116,7 +117,6 @@ jobs:
           python3 scripts/apply_android_assets.py
           test -s android/app/src/main/res/drawable/splash.png
           test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          echo "Icon/splash files:"
           ls -la android/app/src/main/res/drawable/splash.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
 
       - name: Auto-bump APK versionCode and versionName
