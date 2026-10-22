@@ -170,10 +170,52 @@ Core Instructions & Pedagogical Guidelines:
 
   app.post(["/api/gemini/chat", "/gemini/chat"], async (req, res) => {
     try {
-      const { messages, userMessage, useSearch, userLevel, isPro } = req.body;
+      const { messages, userMessage, useSearch, userLevel, isPro, tone, attachments } = req.body;
       const isProUser = Boolean(isPro);
 
-      const systemInstruction = getEmiSystemInstruction(userLevel, isProUser);
+      let systemInstruction = getEmiSystemInstruction(userLevel, isProUser);
+      if (tone === "maneb-prep") {
+        systemInstruction += `\n\nTEACHING TONE - MANEB EXAM PREPARATION:
+Focus intensely on MANEB examination techniques, official marking scheme points, key definitions that score full marks, common student mistakes to avoid, and exact formula substitutions.`;
+      } else if (tone === "concise") {
+        systemInstruction += `\n\nTEACHING TONE - QUICK & CONCISE:
+Provide direct, high-density summaries, essential formulas, and bullet points. Keep explanations brief and suitable for rapid revision before a test.`;
+      } else if (tone === "socratic") {
+        systemInstruction += `\n\nTEACHING TONE - SOCRATIC COACH:
+Encourage the student by asking thoughtful leading questions. Help them discover the next step rather than immediately revealing full solutions.`;
+      } else {
+        systemInstruction += `\n\nTEACHING TONE - STEP-BY-STEP TEACHER:
+Break down every problem into numbered steps (Step 1, Step 2, etc.) with lined-notebook clarity. Explain the concept and mathematical reasoning behind each transition.`;
+      }
+
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        systemInstruction += `\n\nATTACHMENT INSTRUCTIONS:
+The student has provided an attached image, handwritten homework photo, diagram, or educational document. Carefully analyze the image, transcribe the problem statement accurately, identify what is given and required, and solve it with crystal-clear notebook-style steps.`;
+      }
+
+      // Build user parts including attachments
+      const userParts: any[] = [];
+      if (attachments && Array.isArray(attachments)) {
+        for (const att of attachments) {
+          if (att && att.data && att.mimeType) {
+            userParts.push({
+              inlineData: {
+                mimeType: att.mimeType,
+                data: att.data,
+              },
+            });
+          }
+        }
+      }
+
+      const promptText = (userMessage?.text || "").trim();
+      if (promptText) {
+        userParts.push({ text: promptText });
+      } else if (userParts.length > 0) {
+        userParts.push({
+          text: "Please analyze this homework/exam question and solve it step-by-step for a Malawian secondary school student using clear mathematical steps and formulas.",
+        });
+      }
 
       const contents = [
         ...(messages || []).map((m: any) => ({
@@ -182,7 +224,7 @@ Core Instructions & Pedagogical Guidelines:
         })),
         {
           role: 'user',
-          parts: [{ text: userMessage.text || '' }]
+          parts: userParts.length > 0 ? userParts : [{ text: 'Hello Emi!' }]
         }
       ];
 

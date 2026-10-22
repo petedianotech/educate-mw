@@ -174,6 +174,13 @@ import {
   Award,
   Pencil,
   ExternalLink,
+  RotateCcw,
+  Pin,
+  PinOff,
+  SlidersHorizontal,
+  Image as ImageIcon,
+  History,
+  Check,
 } from "lucide-react";
 
 export type ViewState =
@@ -206,7 +213,12 @@ export type ViewState =
 function prepareMathMarkdown(text: string): string {
   if (!text || typeof text !== "string") return text;
   let s = text;
-  s = s.replace(/(\\begin\{(pmatrix|bmatrix|matrix|aligned|align)\}[\s\S]*?\\end\{\2\})/g, "\\n$$$$\\n$1\\n$$$$\\n");
+  // Convert \[ ... \] to $$ ... $$ display equations
+  s = s.replace(/\\\[([\s\S]*?)\\\]/g, "\n\n$$$$ $1 $$$$\n\n");
+  // Convert \( ... \) to $ ... $ inline math
+  s = s.replace(/\\\(([\s\S]*?)\\\)/g, " $$$1$$ ");
+  // Ensure un-bracketed matrices and cases are wrapped in $$...$$
+  s = s.replace(/(^|[^\$])(\\begin\{(?:pmatrix|bmatrix|vmatrix|matrix|aligned|align|cases)\}[\s\S]*?\\end\{(?:pmatrix|bmatrix|vmatrix|matrix|aligned|align|cases)\})([^\$]|$)/g, "$1\n\n$$$$\n$2\n$$$$\n\n$3");
   return s;
 }
 
@@ -1519,27 +1531,66 @@ function BlogPreviewCard({
   );
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string; // base64 without prefix
+  previewUrl?: string;
+  size: number;
+};
+
 type Message = {
   id: string;
   sender: "user" | "ai";
   text: string;
   timestamp: string;
+  attachments?: AttachmentItem[];
+  isError?: boolean;
+  queryPrompt?: string;
+  queryAttachments?: AttachmentItem[];
 };
 
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    sender: "user",
-    text: "Explain Newton's First Law of Motion with an example.",
-    timestamp: "9:40 AM",
+type EmiTone = "step-by-step" | "maneb-prep" | "concise" | "socratic";
+
+interface EmiConversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  isPinned?: boolean;
+  updatedAt: number;
+  tone: EmiTone;
+}
+
+const TONE_CONFIGS: Record<
+  EmiTone,
+  { label: string; badge: string; description: string; icon: string }
+> = {
+  "step-by-step": {
+    label: "Step-by-Step",
+    badge: "Teacher",
+    description: "Detailed, patient guidance explaining each step clearly",
+    icon: "👨‍🏫",
   },
-  {
-    id: "2",
-    sender: "ai",
-    text: "Newton's First Law of Motion states that an object at rest stays at rest, and an object in motion stays in motion with the same speed and in the same direction unless acted upon by an external force.\n\nExample: When you are sitting in a moving car, if the car suddenly stops, your body tends to keep moving forward due to inertia.",
-    timestamp: "9:42 AM",
+  "maneb-prep": {
+    label: "MANEB Prep",
+    badge: "Exam Scheme",
+    description: "Focuses on official marking points, formulas & past paper tips",
+    icon: "🎯",
   },
-];
+  concise: {
+    label: "Quick & Concise",
+    badge: "Fast Revision",
+    description: "Direct summaries, key formulas & bullets for rapid revision",
+    icon: "⚡",
+  },
+  socratic: {
+    label: "Socratic Coach",
+    badge: "Guided Thinking",
+    description: "Asks guiding questions to help you solve problems yourself",
+    icon: "💡",
+  },
+};
 
 function EmiChatView({
   onBack,
@@ -1556,36 +1607,108 @@ function EmiChatView({
   onUpdateProfile: (p: any) => void;
   onGoPro: () => void;
 }) {
-  const [messages, setMessages] = useState<Message[]>(() => {
+  const userKey = profile?.uid || "guest";
+  const convosStorageKey = `mw_emi_convos_${userKey}`;
+
+  // Multi-conversation state with migration from legacy mw_emi_chat_{uid}
+  const [conversations, setConversations] = useState<EmiConversation[]>(() => {
     try {
-      const saved = localStorage.getItem(
-        `mw_emi_chat_${profile?.uid || "guest"}`,
-      );
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+      const savedConvos = localStorage.getItem(convosStorageKey);
+      if (savedConvos) {
+        const parsed = JSON.parse(savedConvos);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      // Migrate legacy single-chat messages if present
+      const legacySaved = localStorage.getItem(`mw_emi_chat_${userKey}`);
+      if (legacySaved) {
+        const legacyMsgs = JSON.parse(legacySaved);
+        if (Array.isArray(legacyMsgs) && legacyMsgs.length > 0) {
+          const firstQuestion =
+            legacyMsgs.find((m: any) => m.sender === "user")?.text?.slice(0, 36) ||
+            "General Study Chat";
+          return [
+            {
+              id: "convo-legacy",
+              title: firstQuestion,
+              messages: legacyMsgs,
+              updatedAt: Date.now(),
+              tone: "step-by-step",
+            },
+          ];
+        }
+      }
+    } catch {}
+    return [
+      {
+        id: "convo-" + Date.now(),
+        title: "New Study Chat",
+        messages: [],
+        updatedAt: Date.now(),
+        tone: "step-by-step",
+      },
+    ];
   });
 
+  const [activeConvoId, setActiveConvoId] = useState<string>(() => {
+    return conversations[0]?.id || "convo-" + Date.now();
+  });
+
+  // Current conversation and messages
+  const activeConvo = useMemo(() => {
+    return (
+      conversations.find((c) => c.id === activeConvoId) ||
+      conversations[0] || {
+        id: activeConvoId,
+        title: "Study Chat",
+        messages: [],
+        updatedAt: Date.now(),
+        tone: "step-by-step" as EmiTone,
+      }
+    );
+  }, [conversations, activeConvoId]);
+
+  const messages = activeConvo.messages || [];
+
+  // Persist conversations
   useEffect(() => {
     try {
-      localStorage.setItem(
-        `mw_emi_chat_${profile?.uid || "guest"}`,
-        JSON.stringify(messages),
-      );
-    } catch (e) {}
-  }, [messages, profile?.uid]);
+      localStorage.setItem(convosStorageKey, JSON.stringify(conversations));
+    } catch {}
+  }, [conversations, convosStorageKey]);
 
+  // Tone state
+  const currentTone = activeConvo.tone || "step-by-step";
+  const setTone = (newTone: EmiTone) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === activeConvoId ? { ...c, tone: newTone } : c)),
+    );
+  };
+
+  // UI States
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [lastQuery, setLastQuery] = useState("");
   const [loadingStatus, setLoadingStatus] = useState("Emi is thinking...");
   const [isCalling, setIsCalling] = useState(false);
   const [activeSpeechId, setActiveSpeechId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(
-    null,
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isToneMenuOpen, setIsToneMenuOpen] = useState(false);
+  const [editingConvoId, setEditingConvoId] = useState<string | null>(null);
+  const [editingTitleText, setEditingTitleText] = useState("");
+
+  // Attachments state
+  const [pendingAttachments, setPendingAttachments] = useState<AttachmentItem[]>(
+    [],
   );
+  const [isCompressingFile, setIsCompressingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stop response controller & retry memory
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [lastQuery, setLastQuery] = useState("");
+  const [lastAttachments, setLastAttachments] = useState<AttachmentItem[]>([]);
+
+  // Modals
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackMsgId, setFeedbackMsgId] = useState("");
@@ -1595,6 +1718,476 @@ function EmiChatView({
   const [feedbackText, setFeedbackText] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
+  // Helper to update current messages
+  const updateActiveMessages = (
+    updater: (prevMsgs: Message[]) => Message[],
+    customTitle?: string,
+  ) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConvoId) {
+          const updatedMsgs = updater(c.messages || []);
+          let newTitle = c.title;
+          if (customTitle) {
+            newTitle = customTitle;
+          } else if (c.title === "New Study Chat" && updatedMsgs.length > 0) {
+            const firstUser = updatedMsgs.find((m) => m.sender === "user");
+            if (firstUser?.text) {
+              newTitle = firstUser.text.slice(0, 38).trim() + (firstUser.text.length > 38 ? "…" : "");
+            }
+          }
+          return {
+            ...c,
+            title: newTitle,
+            messages: updatedMsgs,
+            updatedAt: Date.now(),
+          };
+        }
+        return c;
+      }),
+    );
+  };
+
+  // Conversation operations
+  const startNewChat = () => {
+    const newId = "convo-" + Date.now();
+    const newChat: EmiConversation = {
+      id: newId,
+      title: "New Study Chat",
+      messages: [],
+      updatedAt: Date.now(),
+      tone: currentTone,
+    };
+    setConversations((prev) => [newChat, ...prev]);
+    setActiveConvoId(newId);
+    setInput("");
+    setPendingAttachments([]);
+    setIsHistoryOpen(false);
+  };
+
+  const togglePinConversation = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c)),
+    );
+  };
+
+  const deleteConversation = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setConversations((prev) => {
+      const remaining = prev.filter((c) => c.id !== id);
+      if (remaining.length === 0) {
+        const freshId = "convo-" + Date.now();
+        return [
+          {
+            id: freshId,
+            title: "New Study Chat",
+            messages: [],
+            updatedAt: Date.now(),
+            tone: "step-by-step",
+          },
+        ];
+      }
+      return remaining;
+    });
+    if (activeConvoId === id) {
+      const other = conversations.find((c) => c.id !== id);
+      if (other) setActiveConvoId(other.id);
+    }
+  };
+
+  const startRenameConversation = (
+    convo: EmiConversation,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    setEditingConvoId(convo.id);
+    setEditingTitleText(convo.title);
+  };
+
+  const saveRenameConversation = (id: string, e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTitleText.trim()) {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, title: editingTitleText.trim() } : c,
+        ),
+      );
+    }
+    setEditingConvoId(null);
+  };
+
+  // Sorted conversation list: Pinned first, then by updatedAt desc
+  const sortedConversations = useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+  }, [conversations]);
+
+  // File / Photo attachment handler with canvas compression for photos
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      setIsCompressingFile(true);
+      const isImg = file.type.startsWith("image/");
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (!result) {
+          setIsCompressingFile(false);
+          return;
+        }
+
+        if (isImg && file.size > 1.2 * 1024 * 1024) {
+          // Compress large image via canvas
+          const img = new window.Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDim = 1280;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+            const base64Data = compressedDataUrl.split(",")[1];
+
+            setPendingAttachments((prev) => [
+              ...prev,
+              {
+                id: Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+                name: file.name,
+                mimeType: "image/jpeg",
+                data: base64Data,
+                previewUrl: compressedDataUrl,
+                size: Math.round(base64Data.length * 0.75),
+              },
+            ]);
+            setIsCompressingFile(false);
+          };
+          img.src = result;
+        } else {
+          // Small image or PDF/document
+          const base64Data = result.split(",")[1];
+          setPendingAttachments((prev) => [
+            ...prev,
+            {
+              id: Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+              name: file.name,
+              mimeType: file.type || "application/octet-stream",
+              data: base64Data,
+              previewUrl: isImg ? result : undefined,
+              size: file.size,
+            },
+          ]);
+          setIsCompressingFile(false);
+        }
+      };
+
+      reader.onerror = () => setIsCompressingFile(false);
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removePendingAttachment = (id: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  // Stop response button
+  const handleStopResponse = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setLoadingStatus("Stopped.");
+  };
+
+  // Send message
+  const handleSend = async (
+    textToSend: string,
+    attachmentsToSend?: AttachmentItem[],
+  ) => {
+    const trimmed = textToSend.trim();
+    const currentAtts = attachmentsToSend || pendingAttachments;
+
+    if ((!trimmed && currentAtts.length === 0) || isLoading) return;
+
+    // Daily limit check
+    const today = new Date().toLocaleDateString("en-CA");
+    const isPro = profile?.isPro;
+    const aiPointsLastReset = profile?.aiPointsLastReset || "";
+    let currentPoints =
+      aiPointsLastReset === today
+        ? (profile?.aiPoints ?? appSettings.freeDailyLimit)
+        : appSettings.freeDailyLimit;
+
+    if (!isPro && currentPoints < 1) {
+      const errorMsg: Message = {
+        id: Date.now().toString() + "-err",
+        sender: "ai",
+        text: "You have used your free questions for today. Upgrade to PRO for unlimited questions and full past paper answers!",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      updateActiveMessages((prev) => [...prev, errorMsg]);
+      setIsLoading(false);
+      setTimeout(onGoPro, 2500);
+      return;
+    }
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      sender: "user",
+      text: trimmed,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      attachments: currentAtts.length > 0 ? currentAtts : undefined,
+    };
+
+    updateActiveMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setPendingAttachments([]);
+    setLastQuery(trimmed);
+    setLastAttachments(currentAtts);
+    setIsLoading(true);
+    setLoadingStatus(
+      currentAtts.length > 0
+        ? "Analyzing attached problem..."
+        : "Emi is solving step-by-step...",
+    );
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 70000);
+
+    try {
+      if (!isPro && auth.currentUser) {
+        currentPoints -= 1;
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        await setDoc(
+          userRef,
+          { aiPoints: currentPoints, aiPointsLastReset: today },
+          { merge: true },
+        );
+        onUpdateProfile({
+          ...profile,
+          aiPoints: currentPoints,
+          aiPointsLastReset: today,
+        });
+      }
+
+      if (auth.currentUser) {
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        const newApiUsage = {
+          count: (profile?.apiUsage?.count || 0) + 1,
+          lastUsed: Date.now(),
+        };
+        await setDoc(
+          userRef,
+          { apiUsage: newApiUsage, lastActiveAt: Date.now() },
+          { merge: true },
+        );
+        onUpdateProfile({
+          ...profile,
+          apiUsage: newApiUsage,
+          lastActiveAt: Date.now(),
+        });
+        try {
+          await setDoc(
+            doc(db, "settings", "global"),
+            { totalApiCalls: increment(1) },
+            { merge: true },
+          );
+        } catch {}
+      }
+
+      const response = await fetch(apiUrl("/api/gemini/chat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: messages.slice(-10),
+          userMessage: { sender: "user", text: trimmed },
+          attachments: currentAtts.map((a) => ({
+            mimeType: a.mimeType,
+            data: a.data,
+            name: a.name,
+          })),
+          tone: currentTone,
+          userLevel: profile?.level || "Form 4",
+          isPro: Boolean(profile?.isPro),
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server Error: ${response.status}`);
+      }
+
+      const dataItems = await response.json();
+      const responseText =
+        dataItems.text || "Sorry, I couldn't find an answer to that.";
+
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        text: responseText,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+
+      updateActiveMessages((prev) => [...prev, aiMessage]);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError") {
+        if (!abortControllerRef.current) {
+          // Manually stopped by student
+          return;
+        }
+      }
+
+      console.error("Chat error:", error);
+      let errorText =
+        "Network connection issue. Please check your internet or retry below.";
+      if (error.name === "AbortError") {
+        errorText =
+          "The question timed out. Please tap Retry below to try again.";
+      } else if (error.message?.includes("QUOTA_EXCEEDED")) {
+        errorText =
+          "Emi AI is at maximum capacity right now. Please tap Retry in a few seconds.";
+      } else if (error.message) {
+        errorText = `EMI AI error: ${error.message}`;
+      }
+
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        text: errorText,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        isError: true,
+        queryPrompt: trimmed,
+        queryAttachments: currentAtts,
+      };
+
+      updateActiveMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleRetry = (queryPrompt?: string, atts?: AttachmentItem[]) => {
+    const q = queryPrompt || lastQuery;
+    const a = atts || lastAttachments;
+    if (q || (a && a.length > 0)) {
+      handleSend(q, a);
+    }
+  };
+
+  // Feedback
+  const openFeedback = (msgId: string, type: "positive" | "negative") => {
+    setFeedbackMsgId(msgId);
+    setFeedbackType(type);
+    setFeedbackText("");
+    setFeedbackModalOpen(true);
+  };
+
+  const submitFeedback = async () => {
+    if (!feedbackMsgId) return;
+    setSubmittingFeedback(true);
+    try {
+      const msgIndex = messages.findIndex((m) => m.id === feedbackMsgId);
+      if (msgIndex !== -1) {
+        const msg = messages[msgIndex];
+        let prompt = "";
+        for (let i = msgIndex - 1; i >= 0; i--) {
+          if (messages[i].sender === "user") {
+            prompt = messages[i].text;
+            break;
+          }
+        }
+        await addDoc(collection(db, "ai_feedback"), {
+          messageId: msg.id,
+          prompt,
+          generation: msg.text,
+          type: feedbackType,
+          comment: feedbackText,
+          userEmail: profile?.email || "Unknown",
+          userName: profile?.name || "Unknown",
+          userLevel: profile?.level || "Unknown",
+          createdAt: serverTimestamp(),
+        });
+      }
+      setFeedbackModalOpen(false);
+    } catch (err) {
+      console.error("Feedback error", err);
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
+
+  const speakText = (text: string, id: string) => {
+    if ("speechSynthesis" in window) {
+      if (activeSpeechId === id) {
+        window.speechSynthesis.cancel();
+        setActiveSpeechId(null);
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.onend = () => setActiveSpeechId(null);
+      utterance.onerror = () => setActiveSpeechId(null);
+      setActiveSpeechId(id);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Render chat bubbles with notebook maths styling
   const chatBubbles = useMemo(() => {
     return messages.map((msg) => (
       <div
@@ -1602,82 +2195,154 @@ function EmiChatView({
         className={`flex ${msg.sender === "user" ? "justify-end" : "w-full"}`}
       >
         <div
-          className={`${msg.sender === "user" ? "max-w-[85%]" : "w-full"} relative group`}
+          className={`${msg.sender === "user" ? "max-w-[88%] sm:max-w-[80%]" : "w-full"} relative group`}
         >
           {msg.sender === "user" ? (
             <div
-              className={`p-4 shadow-sm relative bg-indigo-600 text-white rounded-2xl rounded-tr-sm font-medium`}
+              className="p-4 shadow-sm relative bg-indigo-600 text-white rounded-2xl rounded-tr-sm font-medium"
             >
-              <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">
-                {msg.text}
-              </p>
+              {/* Attached media preview chips inside user bubble */}
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {msg.attachments.map((att, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl overflow-hidden bg-white/10 border border-white/20 p-2"
+                    >
+                      {att.mimeType.startsWith("image/") && att.previewUrl ? (
+                        <img
+                          src={att.previewUrl}
+                          alt={att.name}
+                          className="max-h-60 max-w-full rounded-lg object-contain mx-auto"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs font-semibold py-1">
+                          <FileIcon size={18} />
+                          <span className="truncate">{att.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {msg.text && (
+                <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">
+                  {msg.text}
+                </p>
+              )}
               <div className="flex items-center gap-1.5 mt-2 justify-end text-white/70 text-[10px] font-bold">
                 <span>{msg.timestamp}</span>
-                <CheckCheck size={10} strokeWidth={3} />
+                <CheckCheck size={11} strokeWidth={3} />
               </div>
             </div>
           ) : (
             <div
-              className={`p-4 md:p-5 shadow-sm relative ${theme === "dark" ? "bg-gray-900/80 border border-gray-800/80 text-gray-200" : "bg-white border border-slate-200/90 text-slate-800"} rounded-2xl md:rounded-3xl font-medium`}
+              className={`p-4 sm:p-5 shadow-sm relative ${
+                msg.isError
+                  ? theme === "dark"
+                    ? "bg-rose-950/30 border border-rose-900/60 text-rose-200"
+                    : "bg-rose-50/80 border border-rose-200 text-rose-900"
+                  : theme === "dark"
+                    ? "bg-gray-900/85 border border-gray-800 text-gray-200"
+                    : "bg-white border border-slate-200/90 text-slate-800"
+              } rounded-2xl sm:rounded-3xl font-medium`}
             >
-              {/* Elegant Header Inside Full-Width Card */}
-              <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100 dark:border-gray-900/50">
+              {/* Assistant Header */}
+              <div className="flex items-center justify-between mb-3 border-b pb-2.5 border-slate-100 dark:border-gray-800/80">
                 <div className="flex items-center gap-2.5">
                   <div
-                    className={`w-8 h-8 rounded-full ${theme === "dark" ? "bg-indigo-500/10 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"} border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}
+                    className={`w-8 h-8 rounded-full ${
+                      theme === "dark"
+                        ? "bg-indigo-500/10 border-indigo-500/20"
+                        : "bg-indigo-50 border-indigo-200"
+                    } border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}
                   >
                     <img
                       src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
                       alt="Emi"
                       className="w-full h-full object-contain p-0.5"
                     />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <span
-                        className={`text-[12px] font-black uppercase tracking-wider ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
+                        className={`text-[12px] font-black uppercase tracking-wider ${
+                          theme === "dark" ? "text-indigo-400" : "text-indigo-600"
+                        }`}
                       >
                         Emi AI
                       </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-gray-800">
+                        {TONE_CONFIGS[currentTone].badge}
+                      </span>
                     </div>
-                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">
-                      Secondary School Guide
-                    </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      speakText(msg.text, msg.id);
-                    }}
-                    className={`w-8 h-8 rounded-full flex justify-center items-center ${activeSpeechId === msg.id ? "bg-red-500 text-white animate-pulse" : theme === "dark" ? "bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900/80" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"} transition-colors`}
-                    title={
-                      activeSpeechId === msg.id ? "Stop voice" : "Read aloud"
-                    }
-                  >
-                    {activeSpeechId === msg.id ? (
-                      <Pause size={14} />
-                    ) : (
-                      <Volume2 size={14} />
-                    )}
-                  </button>
-                  <span className="text-[10px] text-gray-500 font-bold">
+                  {!msg.isError && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speakText(msg.text, msg.id);
+                      }}
+                      className={`w-7 h-7 rounded-full flex justify-center items-center ${
+                        activeSpeechId === msg.id
+                          ? "bg-red-500 text-white animate-pulse"
+                          : theme === "dark"
+                            ? "bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900/80"
+                            : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                      } transition-colors`}
+                      title={activeSpeechId === msg.id ? "Stop voice" : "Read aloud"}
+                    >
+                      {activeSpeechId === msg.id ? <Pause size={13} /> : <Volume2 size={13} />}
+                    </button>
+                  )}
+                  <span className="text-[10px] text-gray-400 font-bold">
                     {msg.timestamp}
                   </span>
                 </div>
               </div>
 
+              {/* Real Paper Maths & Markdown Styling Container */}
               <div
-                className={`prose prose-sm max-w-none ${theme === "dark" ? "prose-invert prose-p:text-gray-200" : "prose-p:text-slate-800"} prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-900/80`}
+                className={`prose prose-sm max-w-none ${
+                  theme === "dark"
+                    ? "prose-invert prose-p:text-gray-200"
+                    : "prose-p:text-slate-800"
+                } prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-900/80`}
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
                   components={{
+                    p({ children, ...props }) {
+                      const textContent = React.Children.toArray(children)
+                        .map((c) => (typeof c === "string" ? c : ""))
+                        .join("");
+                      const stepMatch = textContent.match(
+                        /^(Step\s+\d+|Nkhanu\s+\d+|Method\s+\d*|Example\s+\d*|Given:|To Find:|Solution:|Formula:|Proof:|Final Answer:?)/i,
+                      );
+                      if (stepMatch) {
+                        return (
+                          <div className="my-3 p-3.5 sm:p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border-l-4 border-l-indigo-600 dark:border-l-indigo-400 border border-indigo-100 dark:border-indigo-900/40 relative shadow-sm">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider mb-2 shadow-sm">
+                              <span>{stepMatch[0].replace(/:$/, "")}</span>
+                            </div>
+                            <div className="text-[14px] leading-relaxed font-medium">
+                              {children}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <p className="leading-relaxed my-2" {...props}>
+                          {children}
+                        </p>
+                      );
+                    },
                     code({ className, children, ...props }) {
                       const match = /language-(\w+)/.exec(className || "");
                       const childStr = String(children).replace(/\n$/, "");
@@ -1730,341 +2395,74 @@ function EmiChatView({
                 </ReactMarkdown>
               </div>
 
-              <div className="flex gap-4 mt-4 border-t pt-3 border-slate-100 dark:border-gray-900/40 opacity-100 transition-opacity">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopy(msg.text, msg.id);
-                  }}
-                  className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${copiedId === msg.id ? "text-emerald-500" : "text-gray-400 hover:text-indigo-400"}`}
-                >
-                  {copiedId === msg.id ? (
-                    <>
-                      <CheckCircle size={14} /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} /> Copy
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFeedback(msg.id, "positive");
-                  }}
-                  className="text-gray-400 hover:text-emerald-500 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"
-                >
-                  <ThumbsUp size={12} /> Helpful
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFeedback(msg.id, "negative");
-                  }}
-                  className="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"
-                >
-                  <ThumbsDown size={12} /> Issue
-                </button>
-              </div>
+              {/* Retry button for failed messages */}
+              {msg.isError && (
+                <div className="mt-3 pt-2 flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      handleRetry(msg.queryPrompt, msg.queryAttachments)
+                    }
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md active:scale-95 transition-all"
+                  >
+                    <RotateCcw size={14} />
+                    <span>Retry Question</span>
+                  </button>
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    Tap to retry with current question & attachments
+                  </span>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              {!msg.isError && (
+                <div className="flex gap-4 mt-4 border-t pt-2.5 border-slate-100 dark:border-gray-800/60 opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopy(msg.text, msg.id);
+                    }}
+                    className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${
+                      copiedId === msg.id
+                        ? "text-emerald-500"
+                        : "text-gray-400 hover:text-indigo-400"
+                    }`}
+                  >
+                    {copiedId === msg.id ? (
+                      <>
+                        <CheckCircle size={14} /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} /> Copy
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFeedback(msg.id, "positive");
+                    }}
+                    className="text-gray-400 hover:text-emerald-500 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"
+                  >
+                    <ThumbsUp size={12} /> Helpful
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFeedback(msg.id, "negative");
+                    }}
+                    className="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase"
+                  >
+                    <ThumbsDown size={12} /> Issue
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
     ));
-  }, [messages, theme, activeSpeechId, copiedId]);
-
-  const openFeedback = (msgId: string, type: "positive" | "negative") => {
-    setFeedbackMsgId(msgId);
-    setFeedbackType(type);
-    setFeedbackText("");
-    setFeedbackModalOpen(true);
-  };
-
-  const submitFeedback = async () => {
-    if (!feedbackMsgId) return;
-    setSubmittingFeedback(true);
-    try {
-      const msgIndex = messages.findIndex((m) => m.id === feedbackMsgId);
-      if (msgIndex === -1) return;
-      const msg = messages[msgIndex];
-      let prompt = "";
-      for (let i = msgIndex - 1; i >= 0; i--) {
-        if (messages[i].sender === "user") {
-          prompt = messages[i].text;
-          break;
-        }
-      }
-
-      await addDoc(collection(db, "ai_feedback"), {
-        messageId: msg.id,
-        prompt: prompt,
-        generation: msg.text,
-        type: feedbackType,
-        comment: feedbackText,
-        userEmail: profile?.email || "Unknown",
-        userName: profile?.name || "Unknown",
-        userLevel: profile?.level || "Unknown",
-        createdAt: serverTimestamp(),
-      });
-      setFeedbackModalOpen(false);
-      alert("Thank you for your feedback!");
-    } catch (err) {
-      console.error("Feedback error", err);
-    } finally {
-      setSubmittingFeedback(false);
-    }
-  };
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const [isAdDismissed, setIsAdDismissed] = useState(() => {
-    try {
-      const dismissedAt = localStorage.getItem(
-        `mw_pro_ad_dismissed_at_${profile?.uid || "guest"}`,
-      );
-      if (dismissedAt) {
-        const elapsed = Date.now() - parseInt(dismissedAt, 10);
-        // Hide the ad banner for 3 days (3 * 24 * 60 * 60 * 1000)
-        if (elapsed < 3 * 24 * 60 * 60 * 1000) {
-          return true;
-        }
-      }
-    } catch {}
-    return false;
-  });
-
-  const handleDismissAd = () => {
-    try {
-      localStorage.setItem(
-        `mw_pro_ad_dismissed_at_${profile?.uid || "guest"}`,
-        Date.now().toString(),
-      );
-    } catch {}
-    setIsAdDismissed(true);
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      setLoadingStatus("Working...");
-      return;
-    }
-    setLoadingStatus("Working...");
-  }, [isLoading]);
-
-  const speakText = (text: string, id: string) => {
-    if ("speechSynthesis" in window) {
-      if (activeSpeechId === id) {
-        window.speechSynthesis.cancel();
-        setActiveSpeechId(null);
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      utterance.onend = () => setActiveSpeechId(null);
-      utterance.onerror = () => setActiveSpeechId(null);
-      setActiveSpeechId(id);
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const startLongPress = (e: React.MouseEvent | React.TouchEvent) => {
-    // Only trigger if clicking the main container, not buttons
-    if (e.target !== e.currentTarget) return;
-
-    endLongPress();
-    const timer = setTimeout(() => {
-      setShowDeleteConfirm(true);
-    }, 1200);
-    setLongPressTimer(timer);
-  };
-
-  const endLongPress = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-  };
-
-  const clearChat = () => {
-    setMessages([]);
-    setShowDeleteConfirm(false);
-  };
-
-  const handleSend = async (text: string) => {
-    if (!text.trim() || isLoading) return;
-
-    // --- CHECK LIMITS ---
-    const today = new Date().toLocaleDateString("en-CA");
-    const isPro = profile?.isPro;
-    const aiPointsLastReset = profile?.aiPointsLastReset || "";
-    let currentPoints =
-      aiPointsLastReset === today
-        ? (profile?.aiPoints ?? appSettings.freeDailyLimit)
-        : appSettings.freeDailyLimit;
-
-    if (!isPro && currentPoints < 1) {
-      // Show go pro message
-      const errorMsg: Message = {
-        id: Date.now().toString() + "-err",
-        sender: "ai",
-        text: "Oops! You've used up your free AI questions for today. Upgrading to PRO will give you unlimited questions!",
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-      setIsLoading(false);
-      setTimeout(onGoPro, 3000);
-      return;
-    }
-    // --- END LIMITS ---
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      sender: "user",
-      text,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setLastQuery(text);
-    setIsLoading(true);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-    try {
-      if (!isPro && auth.currentUser) {
-        currentPoints -= 1; // 1 point per question
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        await setDoc(
-          userRef,
-          { aiPoints: currentPoints, aiPointsLastReset: today },
-          { merge: true },
-        );
-        onUpdateProfile({
-          ...profile,
-          aiPoints: currentPoints,
-          aiPointsLastReset: today,
-        });
-      }
-
-      if (auth.currentUser) {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        const newApiUsage = {
-          count: (profile?.apiUsage?.count || 0) + 1,
-          lastUsed: Date.now(),
-        };
-        await setDoc(
-          userRef,
-          { apiUsage: newApiUsage, lastActiveAt: Date.now() },
-          { merge: true },
-        );
-        onUpdateProfile({
-          ...profile,
-          apiUsage: newApiUsage,
-          lastActiveAt: Date.now(),
-        });
-
-        // Add to global count
-        try {
-          await setDoc(
-            doc(db, "settings", "global"),
-            { totalApiCalls: increment(1) },
-            { merge: true },
-          );
-        } catch (e) {}
-      }
-
-      const response = await fetch(apiUrl("/api/gemini/chat"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: messages.slice(-10),
-          userMessage: { sender: "user", text },
-          userLevel: profile?.level || "Form 4",
-          isPro: Boolean(profile?.isPro),
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server Error: ${response.status}`);
-      }
-
-      const dataItems = await response.json();
-
-      let responseText =
-        dataItems.text || "Sorry, I couldn't find an answer to that.";
-      responseText = responseText.replace(/\$/g, "");
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: "ai",
-        text: responseText,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      console.error("Chat Correlation Error:", error);
-      let errorText =
-        "I'm having trouble connecting right now. Please try again later.";
-
-      if (error.name === "AbortError") {
-        errorText =
-          "Request timed out. The server is taking too long to respond. Please try again.";
-      } else if (error.message && error.message.includes("QUOTA_EXCEEDED")) {
-        errorText =
-          "Emi AI is currently very busy (maximum capacity reached). Please try again in a few moments or upgrade to PRO.";
-      } else if (error.message && error.message.includes("504")) {
-        errorText = "Server timeout (504). Please try again in a few moments.";
-      } else if (error.message) {
-        errorText = `EMI AI error: ${error.message}`;
-      }
-
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: "ai",
-        text: errorText,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [messages, theme, activeSpeechId, copiedId, currentTone]);
 
   if (isCalling) {
     return (
@@ -2080,351 +2478,717 @@ function EmiChatView({
 
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col ${theme === "dark" ? "emw-page-bg-dark text-white" : "emw-page-bg text-slate-900"} animate-in slide-in-from-right duration-300`}
+      className={`absolute inset-0 z-50 flex flex-col ${
+        theme === "dark" ? "emw-page-bg-dark text-white" : "emw-page-bg text-slate-900"
+      } animate-in slide-in-from-right duration-300 overflow-hidden`}
     >
-      {/* Header */}
+      {/* Top Header */}
       <div
-        className={`${theme === "dark" ? "bg-gray-950/90 border-gray-800/80" : "bg-white/90 border-slate-200/80 shadow-sm"} backdrop-blur-xl border-b pt-3 pb-2.5 px-4 sm:px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`}
+        className={`${
+          theme === "dark"
+            ? "bg-gray-950/90 border-gray-800/80"
+            : "bg-white/95 border-slate-200/80 shadow-sm"
+        } backdrop-blur-xl border-b pt-3 pb-2.5 px-3 sm:px-5 flex justify-between items-center shrink-0 z-20 sticky top-0`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Back button */}
           <button
             onClick={onBack}
-            className={`w-10 h-10 ${theme === "dark" ? "bg-gray-900 border-gray-800 text-gray-300" : "bg-slate-100 border-slate-200 text-slate-600"} shadow-sm rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform border`}
+            className={`w-9 h-9 sm:w-10 sm:h-10 ${
+              theme === "dark"
+                ? "bg-gray-900 border-gray-800 text-gray-300"
+                : "bg-slate-100 border-slate-200 text-slate-600"
+            } shadow-sm rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform border`}
+            title="Back"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={22} />
           </button>
-          <div className="flex items-center gap-2">
+
+          {/* Conversation History Drawer Button */}
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className={`h-9 sm:h-10 px-2.5 sm:px-3 rounded-2xl flex items-center gap-1.5 border transition-all ${
+              theme === "dark"
+                ? "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800"
+                : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
+            }`}
+            title="Chat History"
+          >
+            <History size={16} className="text-indigo-500" />
+            <span className="text-xs font-bold max-sm:hidden">Chats</span>
+            <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              {conversations.length}
+            </span>
+          </button>
+
+          {/* Emi Avatar & Status */}
+          <div className="flex items-center gap-2 pl-1">
             <div
-              className={`w-10 h-10 rounded-full ${theme === "dark" ? "bg-indigo-900/40 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"} border flex items-center justify-center overflow-hidden shadow-inner`}
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${
+                theme === "dark"
+                  ? "bg-indigo-900/40 border-indigo-500/20"
+                  : "bg-indigo-50 border-indigo-200"
+              } border flex items-center justify-center overflow-hidden shadow-inner`}
             >
               <img
                 src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
                 alt="Emi"
-                className="w-full h-full object-contain p-1"
+                className="w-full h-full object-contain p-0.5"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2
-                className={`font-bold text-[17px] ${theme === "dark" ? "text-white" : "text-slate-900"} leading-none mb-1 flex items-center gap-1`}
+                className={`font-black text-[14px] sm:text-[15px] ${
+                  theme === "dark" ? "text-white" : "text-slate-900"
+                } leading-none mb-1 flex items-center gap-1 truncate max-w-[120px] sm:max-w-none`}
               >
-                Emi AI{" "}
-                <Sparkles
-                  size={14}
-                  className="text-indigo-400"
-                  fill="currentColor"
-                />
+                Emi AI <Sparkles size={12} className="text-indigo-400" fill="currentColor" />
               </h2>
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-emerald-500/90 text-[10px] font-bold tracking-wide uppercase font-sans">
-                  Online · Ready to help
+                <span className="text-emerald-500/90 text-[9px] sm:text-[10px] font-bold tracking-wide uppercase">
+                  Online
                 </span>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          {profile?.isPro ? (
-            <div className="px-2 py-1 rounded-md bg-yellow-400 text-black text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 shadow-lg shadow-yellow-500/20">
-              <Crown size={12} /> PRO
-            </div>
-          ) : (
-            <div
-              onClick={onGoPro}
-              className="flex flex-col items-end mr-1 cursor-pointer group active:scale-95 transition-transform"
+
+        {/* Right side controls: Tone Pill, Live Voice Call, PRO points */}
+        <div className="flex items-center gap-2">
+          {/* Tone Selector Pill */}
+          <div className="relative">
+            <button
+              onClick={() => setIsToneMenuOpen(!isToneMenuOpen)}
+              className={`h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl border flex items-center gap-1 text-[11px] font-bold transition-all ${
+                theme === "dark"
+                  ? "bg-gray-900 border-gray-800 text-gray-300 hover:border-indigo-500/40"
+                  : "bg-indigo-50/70 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100"
+              }`}
+              title="Answer Instructions & Tone"
             >
-              <span
-                className={`text-[10px] font-black uppercase tracking-tighter ${theme === "dark" ? "text-gray-400" : "text-slate-500"}`}
+              <span>{TONE_CONFIGS[currentTone].icon}</span>
+              <span className="max-md:hidden">{TONE_CONFIGS[currentTone].label}</span>
+              <ChevronDown size={12} className="opacity-60" />
+            </button>
+
+            {isToneMenuOpen && (
+              <div
+                className={`absolute right-0 mt-2 w-64 rounded-2xl p-2 border shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 ${
+                  theme === "dark"
+                    ? "bg-gray-950 border-gray-800 text-white"
+                    : "bg-white border-slate-200 text-slate-900"
+                }`}
               >
-                Points
-              </span>
-              <span
-                className={`text-xs font-black leading-none ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
-              >
-                {profile?.aiPointsLastReset ===
-                new Date().toLocaleDateString("en-CA")
-                  ? (profile?.aiPoints ?? appSettings.freeDailyLimit)
-                  : appSettings.freeDailyLimit}
-              </span>
-            </div>
-          )}
+                <div className="px-2.5 py-1.5 border-b border-gray-100 dark:border-gray-800/80 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                    Teaching Style / Tone
+                  </span>
+                </div>
+                {(Object.keys(TONE_CONFIGS) as EmiTone[]).map((tKey) => {
+                  const cfg = TONE_CONFIGS[tKey];
+                  const isSelected = currentTone === tKey;
+                  return (
+                    <button
+                      key={tKey}
+                      onClick={() => {
+                        setTone(tKey);
+                        setIsToneMenuOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-xl flex items-start gap-2.5 transition-colors ${
+                        isSelected
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : theme === "dark"
+                            ? "hover:bg-gray-900 text-gray-300"
+                            : "hover:bg-slate-100 text-slate-800"
+                      }`}
+                    >
+                      <span className="text-base shrink-0">{cfg.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold leading-none">
+                            {cfg.label}
+                          </span>
+                          {isSelected && <Check size={13} className="shrink-0" />}
+                        </div>
+                        <p
+                          className={`text-[10px] mt-1 leading-snug line-clamp-2 ${
+                            isSelected
+                              ? "text-white/80"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        >
+                          {cfg.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Voice Call Button */}
           <button
             onClick={() => setIsCalling(true)}
-            className={`w-10 h-10 relative group ${theme === "dark" ? "bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"} rounded-full flex items-center justify-center shrink-0 transition-all`}
+            className={`w-8 h-8 sm:w-9 sm:h-9 relative group ${
+              theme === "dark"
+                ? "bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30"
+                : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+            } rounded-full flex items-center justify-center shrink-0 transition-all`}
             title="Start Live Call"
           >
-            <Phone size={18} fill="currentColor" />
+            <Phone size={16} fill="currentColor" />
           </button>
         </div>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto px-5 pt-6 pb-32 space-y-7 hide-scrollbar"
-        onMouseDown={startLongPress}
-        onMouseUp={endLongPress}
-        onMouseLeave={endLongPress}
-        onTouchStart={startLongPress}
-        onTouchEnd={endLongPress}
-      >
-        {/* Intro Card */}
+      {/* Messages Scroll Area */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-5 pb-36 space-y-6 hide-scrollbar">
+        {/* Intro Card when messages empty */}
         {messages.length === 0 && (
           <div
-            className={`${theme === "dark" ? "bg-gradient-to-br from-indigo-900/30 to-gray-900 border-indigo-500/20" : "bg-white border-indigo-100 shadow-sm"} rounded-3xl p-6 border flex flex-col gap-4 text-center items-center mt-4`}
+            className={`${
+              theme === "dark"
+                ? "bg-gradient-to-br from-indigo-950/40 to-gray-900 border-indigo-500/20"
+                : "bg-white border-indigo-100 shadow-sm"
+            } rounded-3xl p-6 border flex flex-col gap-4 text-center items-center mt-2 max-w-lg mx-auto`}
           >
             <div
-              className={`w-24 h-24 ${theme === "dark" ? "bg-indigo-950/20 border-indigo-500/10" : "bg-indigo-50 border-indigo-100"} shadow-md rounded-2xl flex items-center justify-center shrink-0 border transform -rotate-3 hover:rotate-0 transition-transform overflow-hidden`}
+              className={`w-20 h-20 ${
+                theme === "dark"
+                  ? "bg-indigo-950/30 border-indigo-500/20"
+                  : "bg-indigo-50 border-indigo-100"
+              } shadow-md rounded-2xl flex items-center justify-center shrink-0 border transform -rotate-2 hover:rotate-0 transition-transform overflow-hidden`}
             >
               <img
                 src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
                 alt="Emi AI"
-                className="w-full h-full object-contain p-1.5"
+                className="w-full h-full object-contain p-1"
               />
             </div>
             <div>
               <h3
-                className={`font-black text-[22px] ${theme === "dark" ? "text-white" : "text-slate-900"} mb-1.5`}
+                className={`font-black text-xl ${
+                  theme === "dark" ? "text-white" : "text-slate-900"
+                } mb-1`}
               >
-                How can I help?
+                How can Emi help you today?
               </h3>
-              <p className="text-[14px] text-gray-500 font-medium leading-relaxed max-w-[250px]">
-                Ask about Form 1–4 topics, past papers, or exam tips —
-                text or live voice.
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium leading-relaxed max-w-xs mx-auto">
+                Ask secondary syllabus questions, upload a photo of your homework, or practice MSCE exam problems.
               </p>
             </div>
-          </div>
-        )}
 
-        {/* Grid Suggestions */}
-        {messages.length === 0 && (
-          <div className="mt-6 mb-2">
-            <div className="grid grid-cols-2 gap-3">
-              <SuggestionCard
-                icon={<FlaskConical size={20} className="text-[#9F4FFD]" />}
-                bgColor="bg-purple-50"
-                text="Explain photosynthesis in simple terms"
+            {/* Quick Suggestion Chips */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full mt-2 text-left">
+              <button
+                type="button"
                 onClick={() =>
-                  handleSend("Explain photosynthesis in simple terms")
+                  handleSend("Solve for x: 3x^2 - 5x - 2 = 0 step-by-step")
                 }
-                theme={theme}
-              />
-              <SuggestionCard
-                icon={
-                  <Calculator
-                    size={20}
-                    fill="currentColor"
-                    className="text-[#3A82F7]"
-                  />
-                }
-                bgColor="bg-blue-50"
-                text="Solve for x: 5x + 12 = 3(x + 8)"
-                onClick={() => handleSend("Solve for x: 5x + 12 = 3(x + 8)")}
-                theme={theme}
-              />
-              <SuggestionCard
-                icon={
-                  <BookOpen
-                    size={20}
-                    fill="currentColor"
-                    className="text-[#20CA78]"
-                  />
-                }
-                bgColor="bg-emerald-50"
-                text="Give me tips to study better"
-                onClick={() => handleSend("Give me tips to study better")}
-                theme={theme}
-              />
-              <SuggestionCard
-                icon={
-                  <Sprout
-                    size={20}
-                    fill="currentColor"
-                    className="text-[#20CA78]"
-                  />
-                }
-                bgColor="bg-green-50"
-                text="Explain crop rotation in agriculture"
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <Calculator size={16} className="text-indigo-500 shrink-0" />
+                <span className="line-clamp-2">Solve quadratic: 3x² - 5x - 2 = 0</span>
+              </button>
+              <button
+                type="button"
                 onClick={() =>
-                  handleSend("Explain crop rotation in agriculture")
+                  handleSend("Explain photosynthesis and write the chemical equation")
                 }
-                theme={theme}
-              />
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <FlaskConical size={16} className="text-emerald-500 shrink-0" />
+                <span className="line-clamp-2">Explain photosynthesis & equation</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleSend("Explain the causes of the 1915 Chilembwe Uprising")
+                }
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <BookOpen size={16} className="text-amber-500 shrink-0" />
+                <span className="line-clamp-2">1915 Chilembwe Uprising causes</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleSend("Give me memory tips to memorize all 12 cranial nerves")
+                }
+                className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <BrainCircuit size={16} className="text-purple-500 shrink-0" />
+                <span className="line-clamp-2">Memory tips for cranial nerves</span>
+              </button>
             </div>
           </div>
         )}
 
-        {messages.length > 0 && messages.some((m) => m.sender === "user") && (
-          <div className="flex items-center gap-4 my-6">
-            <div
-              className={`flex-1 h-[1px] ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"}`}
-            ></div>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
-              Today
-            </span>
-            <div
-              className={`flex-1 h-[1px] ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"}`}
-            ></div>
-          </div>
-        )}
-
-        {/* Chat Bubbles */}
-        <div className="space-y-6 animate-in fade-in duration-300">
+        {/* Bubbles */}
+        <div className="space-y-5 animate-in fade-in duration-300">
           {chatBubbles}
+
+          {/* Loading Indicator with Stop Response Banner */}
           {isLoading && (
             <div
-              className={`p-5 md:p-6 shadow-sm relative ${theme === "dark" ? "bg-gray-950 border-y border-gray-900 text-gray-200 animate-pulse" : "bg-white border-y border-slate-200 text-slate-800 animate-pulse"} -mx-5 md:mx-0 md:rounded-3xl md:border font-medium flex flex-col gap-2`}
+              className={`p-4 sm:p-5 shadow-sm relative ${
+                theme === "dark"
+                  ? "bg-gray-950 border border-gray-900 text-gray-200"
+                  : "bg-white border border-slate-200 text-slate-800"
+              } rounded-2xl sm:rounded-3xl font-medium flex flex-col gap-2`}
             >
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-8 h-8 rounded-full ${theme === "dark" ? "bg-indigo-500/10 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"} border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}
-                >
-                  <img
-                    src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
-                    alt="Emi"
-                    className="w-full h-full object-contain p-0.5"
-                  />
-                  <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      className={`text-[12px] font-black uppercase tracking-wider ${theme === "dark" ? "text-indigo-400" : "text-indigo-600"}`}
-                    >
-                      Emi AI
-                    </span>
-                    <div className="flex gap-1 ml-1">
-                      <span
-                        className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0ms" }}
-                      ></span>
-                      <span
-                        className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "150ms" }}
-                      ></span>
-                      <span
-                        className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "300ms" }}
-                      ></span>
-                    </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-8 h-8 rounded-full ${
+                      theme === "dark"
+                        ? "bg-indigo-500/10 border-indigo-500/20"
+                        : "bg-indigo-50 border-indigo-200"
+                    } border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative`}
+                  >
+                    <img
+                      src="https://i.ibb.co/cS5rBBny/emi-AI-logo.png"
+                      alt="Emi"
+                      className="w-full h-full object-contain p-0.5"
+                    />
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white dark:border-gray-950 rounded-full animate-ping pointer-events-none" />
                   </div>
-                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">
-                    Working...
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`text-[12px] font-black uppercase tracking-wider ${
+                          theme === "dark" ? "text-indigo-400" : "text-indigo-600"
+                        }`}
+                      >
+                        Emi AI
+                      </span>
+                      <div className="flex gap-1 ml-1">
+                        <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">
+                      {loadingStatus}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Direct inline Stop Button */}
+                <button
+                  type="button"
+                  onClick={handleStopResponse}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-xs font-bold transition-all active:scale-95"
+                >
+                  <Square size={12} fill="currentColor" />
+                  <span>Stop</span>
+                </button>
               </div>
-              <span
-                className={`text-[13.5px] leading-relaxed pl-10 ${theme === "dark" ? "text-gray-400" : "text-slate-500"} font-bold`}
-              >
-                {loadingStatus}
-              </span>
             </div>
           )}
-          <div ref={messagesEndRef} className="h-4" />
+          <div ref={messagesEndRef} className="h-2" />
         </div>
       </div>
 
-      {/* Input Area */}
+      {/* Floating Bottom Input Bar */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-40 ${theme === "dark" ? "bg-gray-950/85 border-gray-800" : "bg-white/90 border-slate-200 shadow-[0_-4px_30px_rgba(0,0,0,0.08)]"} backdrop-blur-xl border-t pb-safe-4`}
+        className={`absolute bottom-0 left-0 right-0 z-40 ${
+          theme === "dark"
+            ? "bg-gray-950/90 border-gray-800"
+            : "bg-white/95 border-slate-200 shadow-[0_-4px_30px_rgba(0,0,0,0.06)]"
+        } backdrop-blur-xl border-t pb-safe-4`}
       >
-        {/* Beautiful Dynamic PRO Advertising Banner */}
-        {!profile?.isPro &&
-          !isAdDismissed &&
-          messages.filter((m) => m.sender === "user").length >= 1 && (
-            <EmiProAdvertisingBanner
-              onUpgrade={onGoPro}
-              onDismiss={handleDismissAd}
-              theme={theme}
-            />
+        <div className="p-3 sm:p-4 pt-2.5 max-w-4xl mx-auto">
+          {/* Pending Attachments Preview Chips */}
+          {pendingAttachments.length > 0 && (
+            <div className="flex items-center gap-2 mb-2 overflow-x-auto pb-1 hide-scrollbar">
+              {pendingAttachments.map((att) => (
+                <div
+                  key={att.id}
+                  className={`flex items-center gap-2 p-1.5 pr-2.5 rounded-xl border text-xs font-medium shrink-0 animate-in fade-in zoom-in-95 ${
+                    theme === "dark"
+                      ? "bg-gray-900 border-gray-700 text-gray-200"
+                      : "bg-slate-100 border-slate-300 text-slate-800"
+                  }`}
+                >
+                  {att.previewUrl ? (
+                    <img
+                      src={att.previewUrl}
+                      alt={att.name}
+                      className="w-8 h-8 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                      <FileIcon size={16} />
+                    </div>
+                  )}
+                  <div className="max-w-[130px] sm:max-w-[180px] min-w-0">
+                    <p className="truncate text-[11px] font-bold">{att.name}</p>
+                    <p className="text-[9px] text-gray-400">
+                      {Math.round(att.size / 1024)} KB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePendingAttachment(att.id)}
+                    className="p-1 text-gray-400 hover:text-rose-500 rounded-full transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
 
-        <div className="p-4 pt-3">
+          {/* Main Input Box */}
           <div
-            className={`flex flex-col ${theme === "dark" ? "bg-gray-900/95 border-gray-700/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)]" : "bg-white border-slate-200 shadow-xl shadow-indigo-500/5"} rounded-[22px] p-2 pl-4 border transition-all duration-300 focus-within:border-indigo-500/50 focus-within:ring-4 focus-within:ring-indigo-500/15`}
+            className={`flex flex-col ${
+              theme === "dark"
+                ? "bg-gray-900/95 border-gray-700/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+                : "bg-white border-slate-200 shadow-xl shadow-indigo-500/5"
+            } rounded-[22px] p-2 pl-3 border transition-all duration-300 focus-within:border-indigo-500/50 focus-within:ring-4 focus-within:ring-indigo-500/15`}
           >
-            <div className="flex items-end gap-2.5 w-full">
+            <div className="flex items-end gap-2 w-full">
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*,application/pdf"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+
+              {/* Upload Attachment Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isCompressingFile}
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-all ${
+                  pendingAttachments.length > 0
+                    ? "bg-indigo-600 text-white"
+                    : theme === "dark"
+                      ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                } mb-1`}
+                title="Attach homework photo or PDF"
+              >
+                {isCompressingFile ? (
+                  <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                ) : (
+                  <Paperclip size={18} />
+                )}
+              </button>
+
+              {/* Textarea */}
               <textarea
-                placeholder="Ask about MSCE, notes, or formulas…"
-                className={`flex-1 bg-transparent text-[15px] outline-none ${theme === "dark" ? "text-white placeholder-gray-500" : "text-slate-900 placeholder-slate-400"} font-medium py-3.5 resize-none max-h-40 min-h-[48px] leading-relaxed overflow-y-auto`}
+                placeholder={
+                  pendingAttachments.length > 0
+                    ? "Ask a question about this attachment..."
+                    : "Ask about MSCE, formulas, or past papers…"
+                }
+                className={`flex-1 bg-transparent text-[14.5px] outline-none ${
+                  theme === "dark"
+                    ? "text-white placeholder-gray-500"
+                    : "text-slate-900 placeholder-slate-400"
+                } font-medium py-2.5 resize-none max-h-36 min-h-[44px] leading-relaxed overflow-y-auto`}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    if (input.trim() && !isLoading) {
+                    if ((input.trim() || pendingAttachments.length > 0) && !isLoading) {
                       handleSend(input);
                     }
                   }
                 }}
-                rows={Math.min(5, input.split("\n").length || 1)}
+                rows={Math.min(4, input.split("\n").length || 1)}
               />
-              <button
-                className={`w-[44px] h-[44px] rounded-2xl flex items-center justify-center shrink-0 transition-all ${
-                  !input.trim() || isLoading
-                    ? theme === "dark"
-                      ? "bg-gray-800 text-gray-600"
-                      : "bg-slate-200 text-slate-400"
-                    : "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-                } mb-1.5`}
-                onClick={() => handleSend(input)}
-                disabled={!input.trim() || isLoading}
-              >
-                <Send
-                  size={18}
-                  fill={!input.trim() || isLoading ? "none" : "currentColor"}
-                />
-              </button>
-            </div>
-            <div className="flex justify-between items-center text-[10px] text-gray-400 px-1 mt-0.5 pb-1 max-sm:hidden">
-              <span>
-                Press{" "}
-                <kbd className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-[8px] font-mono">
-                  Enter
-                </kbd>{" "}
-                to send,{" "}
-                <kbd className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-[8px] font-mono">
-                  Shift+Enter
-                </kbd>{" "}
-                for a new line.
-              </span>
+
+              {/* Send or Stop Button (Gemini / ChatGPT / Grok style) */}
+              {isLoading ? (
+                <button
+                  type="button"
+                  onClick={handleStopResponse}
+                  className="w-[42px] h-[42px] rounded-2xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 flex items-center justify-center shrink-0 transition-all mb-1 animate-in zoom-in-95"
+                  title="Stop generating"
+                >
+                  <Square size={16} fill="currentColor" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`w-[42px] h-[42px] rounded-2xl flex items-center justify-center shrink-0 transition-all ${
+                    !input.trim() && pendingAttachments.length === 0
+                      ? theme === "dark"
+                        ? "bg-gray-800 text-gray-600"
+                        : "bg-slate-200 text-slate-400"
+                      : "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                  } mb-1`}
+                  onClick={() => handleSend(input)}
+                  disabled={!input.trim() && pendingAttachments.length === 0}
+                  title="Send message"
+                >
+                  <Send
+                    size={17}
+                    fill={
+                      !input.trim() && pendingAttachments.length === 0
+                        ? "none"
+                        : "currentColor"
+                    }
+                  />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Slide-in Conversation History Drawer */}
+      {isHistoryOpen && (
+        <div className="fixed inset-0 z-[100] flex animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsHistoryOpen(false)}
+          />
+          <div
+            className={`relative w-full max-w-xs sm:max-w-sm h-full ${
+              theme === "dark"
+                ? "bg-gray-950 border-r border-gray-800 text-white"
+                : "bg-white border-r border-slate-200 text-slate-900"
+            } p-5 flex flex-col shadow-2xl z-10 animate-in slide-in-from-left duration-250`}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                  <History size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm uppercase tracking-wide">
+                    Saved Chats
+                  </h3>
+                  <p className="text-[10px] text-gray-400 font-medium">
+                    {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* New Chat Button */}
+            <div className="pt-4 pb-3">
+              <button
+                onClick={startNewChat}
+                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <Plus size={16} />
+                <span>New Study Chat</span>
+              </button>
+            </div>
+
+            {/* List of Conversations */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 hide-scrollbar">
+              {sortedConversations.map((convo) => {
+                const isActive = convo.id === activeConvoId;
+                const isEditing = editingConvoId === convo.id;
+
+                return (
+                  <div
+                    key={convo.id}
+                    onClick={() => {
+                      setActiveConvoId(convo.id);
+                      setIsHistoryOpen(false);
+                    }}
+                    className={`group relative p-3 rounded-2xl border transition-all cursor-pointer ${
+                      isActive
+                        ? theme === "dark"
+                          ? "bg-indigo-950/40 border-indigo-500/50 shadow-sm"
+                          : "bg-indigo-50/80 border-indigo-300 shadow-sm"
+                        : theme === "dark"
+                          ? "bg-gray-900/60 border-gray-800 hover:border-gray-700"
+                          : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {isEditing ? (
+                      <form
+                        onSubmit={(e) => saveRenameConversation(convo.id, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5"
+                      >
+                        <input
+                          type="text"
+                          value={editingTitleText}
+                          onChange={(e) => setEditingTitleText(e.target.value)}
+                          autoFocus
+                          className={`flex-1 text-xs font-bold px-2 py-1 rounded-lg outline-none ${
+                            theme === "dark"
+                              ? "bg-gray-800 text-white border border-indigo-500"
+                              : "bg-white text-slate-900 border border-indigo-400"
+                          }`}
+                        />
+                        <button
+                          type="submit"
+                          className="p-1 rounded-lg bg-indigo-600 text-white text-xs"
+                        >
+                          <Check size={12} />
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            {convo.isPinned && (
+                              <Pin
+                                size={12}
+                                className="text-amber-500 fill-amber-500 shrink-0"
+                              />
+                            )}
+                            <h4
+                              className={`text-xs font-bold truncate ${
+                                isActive
+                                  ? "text-indigo-600 dark:text-indigo-400"
+                                  : ""
+                              }`}
+                            >
+                              {convo.title}
+                            </h4>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {convo.messages?.length || 0} message{convo.messages?.length === 1 ? "" : "s"} · {TONE_CONFIGS[convo.tone || "step-by-step"].badge}
+                          </p>
+                        </div>
+
+                        {/* Action buttons on item */}
+                        <div className="flex items-center gap-1 opacity-75 group-hover:opacity-100 transition-opacity">
+                          {/* Pin button */}
+                          <button
+                            type="button"
+                            onClick={(e) => togglePinConversation(convo.id, e)}
+                            className={`p-1.5 rounded-lg text-xs transition-colors ${
+                              convo.isPinned
+                                ? "text-amber-500 hover:text-amber-600"
+                                : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            }`}
+                            title={convo.isPinned ? "Unpin chat" : "Pin chat"}
+                          >
+                            {convo.isPinned ? (
+                              <PinOff size={13} />
+                            ) : (
+                              <Pin size={13} />
+                            )}
+                          </button>
+
+                          {/* Rename button */}
+                          <button
+                            type="button"
+                            onClick={(e) => startRenameConversation(convo, e)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 transition-colors"
+                            title="Rename chat"
+                          >
+                            <Pencil size={13} />
+                          </button>
+
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={(e) => deleteConversation(convo.id, e)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 transition-colors"
+                            title="Delete chat"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom Clear Active Chat option */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHistoryOpen(false);
+                  setShowDeleteConfirm(true);
+                }}
+                className="w-full py-2.5 rounded-xl text-rose-500 hover:bg-rose-500/10 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Trash2 size={14} />
+                <span>Clear Current Conversation</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowDeleteConfirm(false)}
-          ></div>
+          />
           <div
-            className={`relative ${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"} p-8 rounded-[2.5rem] border shadow-2xl max-w-xs w-full text-center`}
+            className={`relative ${
+              theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200"
+            } p-7 rounded-[2rem] border shadow-2xl max-w-xs w-full text-center`}
           >
-            <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Trash2 size={32} />
+            <div className="w-14 h-14 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={28} />
             </div>
             <h3
-              className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} mb-2`}
+              className={`text-lg font-black ${
+                theme === "dark" ? "text-white" : "text-slate-900"
+              } mb-2`}
             >
-              Clear Chat?
+              Clear Current Chat?
             </h3>
-            <p className="text-xs text-gray-500 font-bold mb-8 leading-relaxed px-4">
-              This will permanently delete all messages in this conversation.
-              This action cannot be undone.
+            <p className="text-xs text-gray-500 font-medium mb-6 leading-relaxed">
+              This will reset the messages in this chat conversation.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest ${theme === "dark" ? "bg-gray-800 text-gray-400" : "bg-slate-100 text-slate-500"}`}
+                className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wider ${
+                  theme === "dark" ? "bg-gray-800 text-gray-400" : "bg-slate-100 text-slate-500"
+                }`}
               >
                 Cancel
               </button>
               <button
-                onClick={clearChat}
-                className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20"
+                onClick={() => {
+                  updateActiveMessages(() => []);
+                  setShowDeleteConfirm(false);
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-red-600/20"
               >
-                Delete
+                Clear
               </button>
             </div>
           </div>
@@ -2433,62 +3197,63 @@ function EmiChatView({
 
       {/* Feedback Modal */}
       {feedbackModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setFeedbackModalOpen(false)}
-          ></div>
+          />
           <div
-            className={`relative ${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-white border-slate-200"} p-8 rounded-[2.5rem] border shadow-2xl max-w-[22rem] w-full text-center`}
+            className={`relative ${
+              theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-white border-slate-200"
+            } p-7 rounded-[2rem] border shadow-2xl max-w-sm w-full text-center`}
           >
             <div
-              className={`w-14 h-14 ${feedbackType === "positive" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"} rounded-2xl flex items-center justify-center mx-auto mb-6`}
+              className={`w-12 h-12 ${
+                feedbackType === "positive"
+                  ? "bg-emerald-500/10 text-emerald-500"
+                  : "bg-rose-500/10 text-rose-500"
+              } rounded-2xl flex items-center justify-center mx-auto mb-4`}
             >
-              {feedbackType === "positive" ? (
-                <ThumbsUp size={28} />
-              ) : (
-                <ThumbsDown size={28} />
-              )}
+              {feedbackType === "positive" ? <ThumbsUp size={24} /> : <ThumbsDown size={24} />}
             </div>
             <h3
-              className={`text-xl font-black mb-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}
+              className={`text-lg font-black mb-1.5 ${
+                theme === "dark" ? "text-white" : "text-slate-900"
+              }`}
             >
-              {feedbackType === "positive" ? "Great Answer!" : "Report Issue"}
+              {feedbackType === "positive" ? "Helpful Answer" : "Report Issue"}
             </h3>
-            <p
-              className={`text-xs mb-6 ${theme === "dark" ? "text-gray-400" : "text-slate-500"} font-bold`}
-            >
-              {feedbackType === "positive"
-                ? "Let us know how this helped you (optional)."
-                : "Tell us what was wrong or missing so we can improve Emi (optional)."}
+            <p className="text-xs text-gray-400 font-medium mb-4">
+              Help us refine Emi AI for secondary school students.
             </p>
 
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              autoFocus
-              placeholder={
-                feedbackType === "positive"
-                  ? "Example: Perfect explanation of algebra!"
-                  : "Example: The formula was wrong..."
-              }
+              placeholder="Add optional notes..."
               rows={3}
-              className={`w-full p-4 rounded-2xl mb-6 text-sm font-bold resize-none ${theme === "dark" ? "bg-gray-900 border-gray-800 text-white" : "bg-slate-100 text-slate-900 border-transparent"} border focus:border-indigo-500 outline-none transition-colors text-left`}
+              className={`w-full p-3 rounded-xl mb-5 text-xs font-medium resize-none ${
+                theme === "dark"
+                  ? "bg-gray-900 border-gray-800 text-white"
+                  : "bg-slate-100 text-slate-900 border-transparent"
+              } border focus:border-indigo-500 outline-none transition-colors text-left`}
             />
 
-            <div className="flex gap-3">
+            <div className="flex gap-2.5">
               <button
                 onClick={() => setFeedbackModalOpen(false)}
-                className={`flex-1 py-4 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-200 text-slate-800"} font-bold rounded-2xl transition-all active:scale-95 text-[10px] uppercase tracking-widest`}
+                className={`flex-1 py-3 ${
+                  theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-200 text-slate-800"
+                } font-bold rounded-xl text-xs uppercase tracking-wider`}
               >
                 Cancel
               </button>
               <button
                 onClick={submitFeedback}
                 disabled={submittingFeedback}
-                className={`flex-1 py-4 ${feedbackType === "positive" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-indigo-600 hover:bg-indigo-700"} text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50 text-[10px] uppercase tracking-widest flex items-center justify-center gap-2`}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md text-xs uppercase tracking-wider disabled:opacity-50"
               >
-                {submittingFeedback ? "Sending..." : "Submit"}
+                {submittingFeedback ? "Saving..." : "Submit"}
               </button>
             </div>
           </div>
@@ -5538,6 +6303,181 @@ function AuthView({
 
   const whatsappHelpUrl =
     "https://wa.me/265987066051?text=Hello%20Educate%20MW%2C%20I%20need%20help%20with%20logging%20in%20or%20have%20questions%20about%20the%20app.";
+
+  if (isNativeApp()) {
+    return (
+      <div
+        className={`flex flex-col min-h-full ${theme === "dark" ? "emw-page-bg-dark text-gray-100" : "emw-page-bg text-slate-900"} p-4 sm:p-6 justify-center items-center animate-in fade-in duration-300 overflow-y-auto`}
+      >
+        <div className="w-full max-w-sm mx-auto py-6">
+          {/* Native Mobile Brand Header */}
+          <div className="flex flex-col items-center mb-6 text-center">
+            <div className="w-20 h-20 rounded-[22px] flex items-center justify-center shadow-lg shadow-indigo-600/25 mb-3.5 overflow-hidden p-[2.5px] bg-gradient-to-br from-indigo-500 to-indigo-700 border border-indigo-400/20">
+              <img
+                src="/app-icon.png"
+                alt="Educate MW"
+                className="w-full h-full object-cover rounded-[19px]"
+              />
+            </div>
+            <h1 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"} tracking-tight uppercase`}>
+              Educate MW
+            </h1>
+            <p className="text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mt-1">
+              Malawi Secondary Study Companion
+            </p>
+          </div>
+
+          {/* Clean Native Mobile Card */}
+          <div
+            className={`${theme === "dark" ? "bg-gray-900 border-gray-800" : "bg-white border-slate-200/90 shadow-xl shadow-indigo-500/5"} rounded-3xl p-5 sm:p-6 border`}
+          >
+            {/* Fast Tabs */}
+            <div
+              className={`flex rounded-2xl p-1 mb-5 border ${
+                theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-100 border-slate-200"
+              }`}
+            >
+              <button
+                type="button"
+                className="flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 text-white shadow-sm"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={onNavigateRegister}
+                className="flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+              >
+                Create Account
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Google Native One-Tap */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className={`w-full ${
+                  theme === "dark"
+                    ? "bg-white text-gray-900 hover:bg-gray-100"
+                    : "bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50"
+                } font-bold py-3.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 text-sm`}
+              >
+                {loading ? (
+                  <div className={`w-5 h-5 border-2 ${theme === "dark" ? "border-gray-900/30 border-t-gray-900" : "border-gray-500/30 border-t-gray-700"} rounded-full animate-spin`} />
+                ) : (
+                  <>
+                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                    <span>Continue with Google</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center gap-2 w-full py-1">
+                <div className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`} />
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  or phone / email
+                </span>
+                <div className={`h-px ${theme === "dark" ? "bg-gray-800" : "bg-slate-200"} flex-1`} />
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-3.5">
+                <div>
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5 ml-1">
+                    Phone or Email
+                  </label>
+                  <div className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+                    <User size={18} className="text-gray-400 mr-2.5 shrink-0" />
+                    <input
+                      type="text"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="e.g. 0991234567 or email"
+                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5 ml-1">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                    >
+                      {showPassword ? <><EyeOff size={12} /> Hide</> : <><Eye size={12} /> Show</>}
+                    </button>
+                  </div>
+                  <div className={`${theme === "dark" ? "bg-gray-950 border-gray-800" : "bg-slate-50 border-slate-200"} rounded-xl p-3 flex items-center border focus-within:border-indigo-500/50 transition-all`}>
+                    <Lock size={18} className="text-gray-400 mr-2.5 shrink-0" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter password"
+                      className={`bg-transparent outline-none flex-1 ${theme === "dark" ? "text-white" : "text-slate-900"} text-sm font-medium placeholder-gray-400`}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-left">
+                    <p className="text-red-500 text-xs font-semibold leading-relaxed">
+                      {error}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full emw-btn-primary text-white font-bold py-3.5 rounded-xl active:scale-95 transition-all mt-1 flex items-center justify-center gap-3 disabled:opacity-50 text-sm"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    "Sign In"
+                  )}
+                </button>
+              </form>
+
+              <div className="pt-2 text-center">
+                <a
+                  href={whatsappHelpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-1.5 hover:underline"
+                >
+                  <MessageCircle size={14} />
+                  <span>Trouble signing in? WhatsApp Help</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-800 text-center">
+              <button
+                type="button"
+                onClick={onNavigateRegister}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold ${
+                  theme === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-800"
+                } hover:opacity-90 transition-opacity`}
+              >
+                Create Free Student Account
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center mt-5 text-[11px] text-gray-500 font-medium">
+            © {new Date().getFullYear()} Educate MW · MANEB Syllabus
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

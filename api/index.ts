@@ -150,17 +150,14 @@ app.post(["/api/payment/webhook", "/payment/webhook"], async (req: any, res: any
 
 app.post(["/api/gemini/chat", "/gemini/chat"], async (req: any, res: any) => {
   try {
-    const { messages, userMessage, useSearch, userLevel, isPro, hasAttachment, attachmentType, attachmentName } = req.body;
+    const { messages, userMessage, useSearch, userLevel, isPro, hasAttachment, attachmentType, attachmentName, tone, attachments } = req.body;
     const isProUser = Boolean(isPro);
 
-    const systemInstruction = `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher.
-Your primary goal is to help Malawian students. When they attach an image or PDF, treat it as exam material, solve step-by-step, and use $...$ / $$...$$ for math understand their school subjects,
-build confidence, and prepare effectively to pass their exams, including the
-Junior Certificate of Education (JCE) and the Malawi School Certificate of
-Education (MSCE).
+    let systemInstruction = `Role: You are Emi AI, a warm, patient, and encouraging Malawi secondary school teacher.
+Your primary goal is to help Malawian students understand their school subjects, build confidence, and prepare effectively to pass their exams, including the Junior Certificate of Education (JCE) and the Malawi School Certificate of Education (MSCE).
 ${userLevel ? `\nCRITICAL CONTEXT: The student you are currently teaching is in ${userLevel}. You MUST tailor your vocabulary, examples, and depth of content specifically to the ${userLevel} syllabus level.` : ''}
 ${isProUser ? `\nSUBSCRIPTION STATUS: PRO SUBSCRIBER. NEVER mention upgrading or payments.` : `\nSUBSCRIPTION STATUS: STANDARD USER. Focus on academic tutoring.`}
-${hasAttachment ? `\nATTACHMENT: Student attached a ${attachmentType || 'file'} named "${attachmentName || 'file'}". Infer exam-style content, solve carefully, and ask clarifying questions if needed.` : ''}
+${hasAttachment || (attachments && attachments.length > 0) ? `\nATTACHMENT: Student attached educational material (image, handwritten homework, or document). Carefully examine all details, transcribe the problem accurately, and solve step-by-step with real notebook clarity.` : ''}
 
 Instructions:
 1. Curriculum: MANEB / Malawi secondary syllabus. Local examples when helpful.
@@ -170,6 +167,38 @@ Instructions:
 5. Math formatting: ALWAYS use $...$ for inline and $$...$$ for display equations/matrices (KaTeX). Never leave raw LaTeX outside delimiters.
 6. When solving systems/matrices use $$\\begin{pmatrix}...\\end{pmatrix}$$.`;
 
+    if (tone === "maneb-prep") {
+      systemInstruction += `\n7. Tone: MANEB Exam Prep mode. Emphasize marking schemes, exam tips, and scoring full marks.`;
+    } else if (tone === "concise") {
+      systemInstruction += `\n7. Tone: Quick & Concise mode. Direct summaries, essential formulas, and fast revision.`;
+    } else if (tone === "socratic") {
+      systemInstruction += `\n7. Tone: Socratic Coach mode. Ask questions to help the student derive the answer.`;
+    } else {
+      systemInstruction += `\n7. Tone: Step-by-Step Teacher mode. Clear numbered steps with notebook-style explanation.`;
+    }
+
+    const userParts: any[] = [];
+    if (attachments && Array.isArray(attachments)) {
+      for (const att of attachments) {
+        if (att && att.data && att.mimeType) {
+          userParts.push({
+            inlineData: {
+              mimeType: att.mimeType,
+              data: att.data,
+            },
+          });
+        }
+      }
+    }
+    const promptText = (userMessage?.text || "").trim();
+    if (promptText) {
+      userParts.push({ text: promptText });
+    } else if (userParts.length > 0) {
+      userParts.push({
+        text: "Please analyze this homework/exam question and solve it step-by-step for a Malawian student with clear mathematical formulas.",
+      });
+    }
+
     const contents = [
       ...(messages || []).map((m: any) => ({
         role: m.sender === 'user' ? 'user' : 'model',
@@ -177,7 +206,7 @@ Instructions:
       })),
       {
         role: 'user',
-        parts: [{ text: userMessage?.text || '' }]
+        parts: userParts.length > 0 ? userParts : [{ text: 'Hello Emi!' }]
       }
     ];
 
