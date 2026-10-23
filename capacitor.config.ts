@@ -11,14 +11,13 @@ const config: any = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2500,
+      launchShowDuration: 2200,
       launchAutoHide: true,
+      launchFadeOutDuration: 300,
       backgroundColor: '#1e3a8a',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
-      showSpinner: true,
-      androidSpinnerStyle: 'small',
-      spinnerColor: '#ffffff',
+      showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
     },
