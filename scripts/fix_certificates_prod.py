@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Certificate signatories: Damiano MD; Lifa & Muthipo same teacher role."""
 from pathlib import Path
+import re
 
 p = Path("src/components/CertificatesCleanView.tsx")
 if not p.exists():
@@ -10,24 +11,35 @@ if not p.exists():
 t = p.read_text(encoding="utf-8")
 orig = t
 
-# Signature 1: P. Damiano — Managing Director (replace S. Liffa)
-if "P. Damiano" not in t:
-    t = t.replace("S. Liffa", "P. Damiano")
-    t = t.replace("Teacher & Mentor", "Managing Director", 1)
-    print("Damiano set")
+# Normalize names first
+t = t.replace("S. Liffa", "P. Damiano")
+
+# Role lines under each name (order-independent simple replacements)
+replacements = [
+    ("Teacher & Mentor", "Managing Director"),  # was under Damiano/Liffa slot
+    ("Director of Academic Affairs", "Teacher & Academic Lead"),
+    ("Teacher & Registrar", "Teacher & Academic Lead"),
+]
+for a, b in replacements:
+    if a in t:
+        t = t.replace(a, b)
+        print(f"{a} -> {b}")
+
+# If Damiano block still says Teacher & Academic Lead as first role only, force Managing Director under Damiano
+# Pattern: after P. Damiano label, next role line
+t = re.sub(
+    r"(P\. Damiano\s*</div>\s*<div className=\"text-\[5\.5px\][^\"]*\"[^>]*>\s*)Teacher & Academic Lead",
+    r"\1Managing Director",
+    t,
+    count=1,
+)
+
+if "P. Damiano" not in t and "S. Liffa" not in t:
+    print("WARN: expected names not found")
 else:
-    print("Damiano already present")
-
-# S. Lifa role
-for old in ("Director of Academic Affairs",):
-    if old in t:
-        t = t.replace(old, "Teacher & Academic Lead")
-        print("Lifa role aligned")
-
-# E. Muthipo same role as S. Lifa
-if "Teacher & Registrar" in t:
-    t = t.replace("Teacher & Registrar", "Teacher & Academic Lead")
-    print("Muthipo role = Lifa (Teacher & Academic Lead)")
+    print("Damiano present:", "P. Damiano" in t)
+    print("Muthipo/Lifa role Teacher & Academic Lead count:", t.count("Teacher & Academic Lead"))
+    print("Managing Director count:", t.count("Managing Director"))
 
 if "Pay and wait for admin approval" not in t:
     t = t.replace(
@@ -48,4 +60,4 @@ if t != orig:
     p.write_text(t, encoding="utf-8")
     print("wrote", p)
 else:
-    print("no cert changes")
+    print("no cert changes needed")
