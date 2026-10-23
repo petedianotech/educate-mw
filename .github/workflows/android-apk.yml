@@ -16,6 +16,7 @@ on:
       - ".github/workflows/android-apk.yml"
       - "scripts/apply_android_assets.py"
       - "scripts/fix_production_ux.py"
+      - "scripts/patch_emi_grounding.py"
       - "scripts/ensure_offline_assets.sh"
 
 jobs:
@@ -82,6 +83,9 @@ jobs:
       - name: Production UX (scroll lock + library PDF)
         run: python3 scripts/fix_production_ux.py || true
 
+      - name: Emi identity + Google Search grounding
+        run: python3 scripts/patch_emi_grounding.py || true
+
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
         env:
@@ -126,8 +130,10 @@ jobs:
           python3 scripts/apply_android_assets.py
           test -s android/app/src/main/res/drawable/splash.png
           test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          python3 -c "import sys; b=open('android/app/src/main/res/drawable/splash.png','rb').read(4); assert b==b'\\x89PNG', b; b2=open('android/app/src/main/res/mipmap-mdpi/ic_launcher.png','rb').read(4); assert b2==b'\\x89PNG', b2; print('PNG magic OK')"
+          python3 -c "b=open('android/app/src/main/res/drawable/splash.png','rb').read(4); assert b==b'\\x89PNG', b; b2=open('android/app/src/main/res/mipmap-mdpi/ic_launcher.png','rb').read(4); assert b2==b'\\x89PNG', b2; print('PNG magic OK')"
           ls -la android/app/src/main/res/drawable/splash.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          if [ -d android/app/src/main/res/mipmap-anydpi-v26 ]; then echo "::error::adaptive anydpi still present (robot risk)"; exit 1; fi
+          echo "Launcher icon is density PNG only (no Capacitor robot adaptive XML)"
 
       - name: Auto-bump APK versionCode and versionName
         run: |
