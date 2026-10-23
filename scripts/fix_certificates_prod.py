@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Certificate signatories (Damiano MD) + reliable paid download gates."""
+"""Certificate signatories: Damiano MD; Lifa & Muthipo same teacher role."""
 from pathlib import Path
 
 p = Path("src/components/CertificatesCleanView.tsx")
@@ -10,39 +10,24 @@ if not p.exists():
 t = p.read_text(encoding="utf-8")
 orig = t
 
-old1 = """                    <div className=\"text-[11px] font-bold font-serif italic text-indigo-900 leading-none mb-1.5 h-4 flex items-end\">
-                      {activeStatus.isUnlocked ? 'S. Liffa' : '••••••••••••'}
-                    </div>
-                    <div className=\"text-[7px] font-black uppercase tracking-widest text-indigo-950/60 leading-none\">
-                      S. Liffa
-                    </div>
-                    <div className=\"text-[5.5px] font-bold uppercase tracking-widest text-indigo-950/40 mt-1\">
-                      Teacher & Mentor
-                    </div>"""
-
-new1 = """                    <div className=\"text-[11px] font-bold font-serif italic text-indigo-900 leading-none mb-1.5 h-4 flex items-end\">
-                      {activeStatus.isUnlocked ? 'P. Damiano' : '••••••••••••'}
-                    </div>
-                    <div className=\"text-[7px] font-black uppercase tracking-widest text-indigo-950/60 leading-none\">
-                      P. Damiano
-                    </div>
-                    <div className=\"text-[5.5px] font-bold uppercase tracking-widest text-indigo-950/40 mt-1\">
-                      Managing Director
-                    </div>"""
-
-if old1 in t:
-    t = t.replace(old1, new1, 1)
-    print("Damiano MD set")
-elif "P. Damiano" in t:
-    print("Damiano already present")
-else:
+# Signature 1: P. Damiano — Managing Director (replace S. Liffa)
+if "P. Damiano" not in t:
     t = t.replace("S. Liffa", "P. Damiano")
     t = t.replace("Teacher & Mentor", "Managing Director", 1)
-    print("Damiano via loose replace")
+    print("Damiano set")
+else:
+    print("Damiano already present")
 
-if "Director of Academic Affairs" in t:
-    t = t.replace("Director of Academic Affairs", "Teacher & Academic Lead", 1)
-    print("Lifa role -> teacher")
+# S. Lifa role
+for old in ("Director of Academic Affairs",):
+    if old in t:
+        t = t.replace(old, "Teacher & Academic Lead")
+        print("Lifa role aligned")
+
+# E. Muthipo same role as S. Lifa
+if "Teacher & Registrar" in t:
+    t = t.replace("Teacher & Registrar", "Teacher & Academic Lead")
+    print("Muthipo role = Lifa (Teacher & Academic Lead)")
 
 if "Pay and wait for admin approval" not in t:
     t = t.replace(
