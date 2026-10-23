@@ -25,7 +25,25 @@
 
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://educatemw.app/" />
-    <!-- deploy-bust: 2026-10-23-no-zoom-offline-emi -->
+    <style>
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
+      }
+      #root {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        position: fixed;
+        inset: 0;
+      }
+    </style>
+    <!-- deploy-bust: 2026-10-23-scroll-pdf-icon -->
   </head>
   <body class="bg-slate-50 dark:bg-gray-950" style="touch-action: manipulation; -ms-touch-action: manipulation;">
     <div id="root"></div>
