@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """
 Build Android launcher + splash ONLY from public/app-icon.png.
-
-Critical: Capacitor's default template ships adaptive-icon VECTORS with the
-Android robot. Those win over PNG if left in place. We delete every default
-vector and anydpi adaptive XML, then write full composite PNG icons so the
-launcher always shows the real Educate MW logo.
+Deletes Capacitor robot adaptive icons and default white/X splash XMLs.
 """
 from __future__ import annotations
 
@@ -72,6 +68,20 @@ def wipe_default_robot(res_dir: str) -> None:
             if name.startswith("ic_launcher") and name.endswith(".webp"):
                 try:
                     os.remove(os.path.join(root, name))
+                except OSError:
+                    pass
+
+    # Remove Capacitor default splash layer-lists / vectors (white + X)
+    for root, _dirs, files in os.walk(res_dir):
+        for name in files:
+            if name in ("splash.xml", "splashscreen.xml", "launch_splash.xml"):
+                path = os.path.join(root, name)
+                try:
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                        body = f.read()
+                    if "capacitor" in body.lower() or "layer-list" in body or "vector" in body:
+                        os.remove(path)
+                        print("Deleted default splash XML:", path)
                 except OSError:
                     pass
 
@@ -182,6 +192,28 @@ def write_styles(res_dir: str) -> None:
             f.write(s)
 
 
+def write_styles_v31(res_dir: str) -> None:
+    """Android 12+ system splash — solid blue, app icon, no Capacitor white X."""
+    v31 = os.path.join(res_dir, "values-v31")
+    os.makedirs(v31, exist_ok=True)
+    styles = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:statusBarColor">#1e3a8a</item>
+        <item name="android:navigationBarColor">#1e3a8a</item>
+        <item name="android:windowSplashScreenBackground">#1e3a8a</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#1e3a8a</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>
+"""
+    with open(os.path.join(v31, "styles.xml"), "w", encoding="utf-8") as f:
+        f.write(styles)
+    print("Wrote values-v31/styles.xml (Android 12+ splash)")
+
+
 def patch_manifest() -> None:
     manifest = "android/app/src/main/AndroidManifest.xml"
     if not os.path.exists(manifest):
@@ -242,6 +274,7 @@ def apply_assets() -> None:
     write_mipmaps(res_dir, logo)
     write_splash(res_dir, logo)
     write_styles(res_dir)
+    write_styles_v31(res_dir)
     patch_manifest()
 
     mdpi = os.path.join(res_dir, "mipmap-mdpi", "ic_launcher.png")
@@ -255,7 +288,7 @@ def apply_assets() -> None:
     if os.path.isdir(os.path.join(res_dir, "mipmap-anydpi-v26")):
         print("Error: anydpi still present — robot may return", file=sys.stderr)
         sys.exit(1)
-    print("OK: launcher + splash from public/app-icon.png (no adaptive robot)")
+    print("OK: launcher + splash from public/app-icon.png (no adaptive robot / no Capacitor X)")
 
 
 if __name__ == "__main__":
