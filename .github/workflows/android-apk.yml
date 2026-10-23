@@ -17,6 +17,8 @@ on:
       - "scripts/apply_android_assets.py"
       - "scripts/fix_production_ux.py"
       - "scripts/patch_emi_grounding.py"
+      - "scripts/fix_certificates_prod.py"
+      - "scripts/fix_share_origin.py"
       - "scripts/ensure_offline_assets.sh"
 
 jobs:
@@ -85,6 +87,12 @@ jobs:
 
       - name: Emi identity + Google Search grounding
         run: python3 scripts/patch_emi_grounding.py || true
+
+      - name: Certificate signatories + download gates
+        run: python3 scripts/fix_certificates_prod.py || true
+
+      - name: Shareable invite URLs (no localhost)
+        run: python3 scripts/fix_share_origin.py || true
 
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
