@@ -89,17 +89,35 @@ export default defineConfig(({mode}) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,jpeg}'],
+          cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',
-              options: { cacheName: 'google-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+              options: {
+                cacheName: 'google-fonts-cache',
+                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              urlPattern: /\/(?:emiai|app-icon|favicon|splash|og-image)[^?]*\.(?:png|jpg|jpeg|svg|webp)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'local-images',
+                expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
             {
               urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
               handler: 'CacheFirst',
-              options: { cacheName: 'external-images', expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+              options: {
+                cacheName: 'external-images',
+                expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
           ],
         },
@@ -114,7 +132,6 @@ export default defineConfig(({mode}) => {
       sourcemap: false,
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
-        // Do NOT mark Capacitor packages as external (bare imports break APK WebView).
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
