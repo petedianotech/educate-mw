@@ -15,6 +15,7 @@ on:
       - "server.ts"
       - ".github/workflows/android-apk.yml"
       - "scripts/apply_android_assets.py"
+      - "scripts/ensure_offline_assets.sh"
 
 jobs:
   release-apk:
@@ -74,6 +75,9 @@ jobs:
             @capacitor/splash-screen@6.0.4
           npm install @capgo/capacitor-social-login@6.0.1 @capacitor-community/file-opener@6.0.1 --legacy-peer-deps || true
 
+      - name: Ensure offline assets (Emi logo)
+        run: bash scripts/ensure_offline_assets.sh || true
+
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
         env:
@@ -91,7 +95,6 @@ jobs:
       - name: Capacitor Android + icon + splash + mic
         run: |
           test -d dist || exit 1
-          # Repo has incomplete android/ (no gradlew) — always regenerate
           rm -rf android
           npx cap add android
           npx cap sync android
