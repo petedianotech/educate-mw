@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "prebuild": "bash scripts/ensure_offline_assets.sh || true; python3 scripts/fix_production_ux.py || true; python3 scripts/patch_emi_grounding.py || true; python3 scripts/fix_share_origin.py || true; python3 scripts/fix_certificates_prod.py || true",
+    "prebuild": "bash scripts/ensure_offline_assets.sh || true; python3 scripts/fix_production_ux.py || true; python3 scripts/patch_emi_grounding.py || true; python3 scripts/fix_share_origin.py || true; python3 scripts/fix_certificates_prod.py || true; python3 scripts/fix_prod_batch.py || true",
     "predev": "bash scripts/ensure_offline_assets.sh || true"
   },
   "dependencies": {
