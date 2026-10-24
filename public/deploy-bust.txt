@@ -1,1 +1,1 @@
-2026-10-24-fix-app-truncate
+2026-10-24-emi-live-layout-v2
