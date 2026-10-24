@@ -118,34 +118,97 @@ def patch_app() -> None:
         t = t.replace(old_active, new_active, 1)
         print("fresh chat + memory + welcome state")
 
+    # --- Quick suggestion chips (exact product labels) ---
     chip_start = t.find("{/* Quick Suggestion Chips */}")
-    if chip_start > 0 and "Crush this maths problem" not in t:
-        after = t.find("</button>", t.find("Explain photosynthesis", chip_start) if "Explain photosynthesis" in t[chip_start:chip_start+5000] else chip_start)
-        if "Explain photosynthesis" in t:
-            after = t.find("</button>", t.find("Explain photosynthesis")) + len("</button>")
-            grid_end = t.find("\n            </div>", after)
-            new_chips = """            {/* Quick Suggestion Chips */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full mt-2 text-left">
-              <button type="button" onClick={() => handleSend("Help me crush this maths problem step-by-step. I'll paste the question next.")} className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${theme === "dark" ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500" : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"}`}>
-                <Calculator size={16} className="text-indigo-500 shrink-0" />
-                <span className="line-clamp-2">Crush this maths problem</span>
+    if chip_start > 0 and "Solve a Maths Problem" not in t:
+        grid_end = -1
+        for anchor in (
+            "Explain photosynthesis",
+            "Crush this maths problem",
+            "Build my study guide",
+            "MSCE exam tips that work",
+            "Help with my homework",
+        ):
+            pos = t.find(anchor, chip_start)
+            if pos > 0:
+                after = t.find("</button>", pos)
+                if after > 0:
+                    grid_end = t.find("\n            </div>", after)
+                    break
+        if grid_end < 0:
+            grid_end = t.find("\n            </div>", chip_start + 40)
+
+        new_chips = """            {/* Quick Suggestion Chips */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-3 text-left">
+              <button
+                type="button"
+                onClick={() =>
+                  handleSend(
+                    "Help me solve a maths problem step by step. Explain each step in simple English using the Malawi school curriculum.",
+                  )
+                }
+                className={`min-h-[52px] p-3.5 rounded-2xl border text-sm font-semibold flex items-center gap-3 transition-all active:scale-[0.98] ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-100 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <Calculator size={18} className="text-indigo-500 shrink-0" />
+                <span className="line-clamp-2 leading-snug">Solve a Maths Problem</span>
               </button>
-              <button type="button" onClick={() => handleSend("Help me with my homework. Guide me step-by-step without just giving the final answer.")} className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${theme === "dark" ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500" : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"}`}>
-                <BookOpen size={16} className="text-sky-500 shrink-0" />
-                <span className="line-clamp-2">Help with my homework</span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleSend(
+                    "Help me answer my homework questions. Explain the answers clearly so I understand and learn.",
+                  )
+                }
+                className={`min-h-[52px] p-3.5 rounded-2xl border text-sm font-semibold flex items-center gap-3 transition-all active:scale-[0.98] ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-100 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <BookOpen size={18} className="text-sky-500 shrink-0" />
+                <span className="line-clamp-2 leading-snug">Help Me with Homework</span>
               </button>
-              <button type="button" onClick={() => handleSend("Give me practical MSCE exam tips I can use this week — focus, timing, and common traps.")} className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${theme === "dark" ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500" : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"}`}>
-                <Trophy size={16} className="text-amber-500 shrink-0" />
-                <span className="line-clamp-2">MSCE exam tips that work</span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleSend(
+                    "Help me prepare for my MSCE exams. Give me useful exam tips, revision strategies, and practice questions based on the Malawi curriculum.",
+                  )
+                }
+                className={`min-h-[52px] p-3.5 rounded-2xl border text-sm font-semibold flex items-center gap-3 transition-all active:scale-[0.98] ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-100 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <Trophy size={18} className="text-amber-500 shrink-0" />
+                <span className="line-clamp-2 leading-snug">Prepare for My MSCE</span>
               </button>
-              <button type="button" onClick={() => handleSend("Build me a simple study guide for my next test. Ask which subject and topic first.")} className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all ${theme === "dark" ? "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-indigo-500" : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"}`}>
-                <Sparkles size={16} className="text-violet-500 shrink-0" />
-                <span className="line-clamp-2">Build my study guide</span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleSend(
+                    "Help me create a personalised study plan based on my subjects, available study time, and exam goals. Ask me for any missing details.",
+                  )
+                }
+                className={`min-h-[52px] p-3.5 rounded-2xl border text-sm font-semibold flex items-center gap-3 transition-all active:scale-[0.98] ${
+                  theme === "dark"
+                    ? "bg-gray-900/80 border-gray-800 text-gray-100 hover:border-indigo-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-white hover:border-indigo-300 shadow-sm"
+                }`}
+              >
+                <Sparkles size={18} className="text-violet-500 shrink-0" />
+                <span className="line-clamp-2 leading-snug">Create My Study Plan</span>
               </button>
             </div>"""
-            if grid_end > chip_start:
-                t = t[:chip_start] + new_chips + t[grid_end + len("\n            </div>") :]
-                print("quick prompts replaced")
+
+        if grid_end > chip_start:
+            t = t[:chip_start] + new_chips + t[grid_end + len("\n            </div>") :]
+            print("quick prompts replaced")
 
     if "showWelcome" in t and "let&apos;s level up today" not in t and "level up today" not in t:
         marker = """  return (
