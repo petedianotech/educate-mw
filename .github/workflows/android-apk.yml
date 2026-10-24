@@ -20,6 +20,7 @@ on:
       - "scripts/fix_certificates_prod.py"
       - "scripts/fix_share_origin.py"
       - "scripts/fix_prod_batch.py"
+      - "scripts/fix_pull_to_refresh.py"
       - "scripts/ensure_offline_assets.sh"
 
 jobs:
@@ -97,6 +98,9 @@ jobs:
 
       - name: Production batch (library download, cert, Emi voices/identity, index splash)
         run: python3 scripts/fix_prod_batch.py || true
+
+      - name: Pull-to-refresh (real data reload)
+        run: python3 scripts/fix_pull_to_refresh.py || true
 
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
