@@ -23,6 +23,7 @@ on:
       - "scripts/fix_pull_to_refresh.py"
       - "scripts/fix_emi_live_ui.py"
       - "scripts/fix_emi_live_layout_v2.py"
+      - "scripts/fix_emi_ux_pack.py"
       - "scripts/ensure_offline_assets.sh"
 
 jobs:
@@ -109,6 +110,9 @@ jobs:
 
       - name: Emi Live layout v2 (spectrum card + horizontal controls)
         run: python3 scripts/fix_emi_live_layout_v2.py || true
+
+      - name: Emi UX pack (search, memory, start-call, welcome)
+        run: python3 scripts/fix_emi_ux_pack.py || true
 
       - name: Vite build (web assets for Capacitor)
         run: npx vite build
