@@ -9,20 +9,17 @@ type Props = {
   height?: number;
 };
 
-/**
- * Continuous Gemini-style spectrum wave (smooth curves, not bars).
- * idle → blue / white / navy; emi → +green; user → gold.
- */
+/** Gemini-style continuous spectrum: soft multi-layer sine waves, refined gradients. */
 export function EmiLiveWaveform({
   mode,
   analyser,
   className = "",
-  height = 72,
+  height = 56,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const phaseRef = useRef(0);
-  const ampRef = useRef(0.35);
+  const ampRef = useRef(0.32);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,31 +42,40 @@ export function EmiLiveWaveform({
 
     const data = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
 
-    const colors = () => {
+    const palette = () => {
       if (mode === "emi") {
         return {
-          a: "rgba(59, 130, 246, 0.95)",
-          b: "rgba(52, 211, 153, 0.95)",
-          c: "rgba(255, 255, 255, 0.9)",
-          d: "rgba(30, 27, 75, 0.85)",
-          glow: "rgba(52, 211, 153, 0.35)",
+          stops: [
+            [0, "rgba(56, 189, 248, 0.95)"],
+            [0.4, "rgba(52, 211, 153, 0.9)"],
+            [0.75, "rgba(167, 243, 208, 0.85)"],
+            [1, "rgba(255, 255, 255, 0.55)"],
+          ] as [number, string][],
+          glow: "rgba(52, 211, 153, 0.28)",
+          base: 0.55,
         };
       }
       if (mode === "user") {
         return {
-          a: "rgba(59, 130, 246, 0.95)",
-          b: "rgba(251, 191, 36, 0.95)",
-          c: "rgba(255, 255, 255, 0.9)",
-          d: "rgba(30, 27, 75, 0.85)",
-          glow: "rgba(251, 191, 36, 0.35)",
+          stops: [
+            [0, "rgba(96, 165, 250, 0.95)"],
+            [0.4, "rgba(251, 191, 36, 0.9)"],
+            [0.75, "rgba(253, 230, 138, 0.8)"],
+            [1, "rgba(255, 255, 255, 0.5)"],
+          ] as [number, string][],
+          glow: "rgba(251, 191, 36, 0.25)",
+          base: 0.55,
         };
       }
       return {
-        a: "rgba(96, 165, 250, 0.85)",
-        b: "rgba(255, 255, 255, 0.75)",
-        c: "rgba(129, 140, 248, 0.7)",
-        d: "rgba(15, 23, 42, 0.9)",
-        glow: "rgba(99, 102, 241, 0.25)",
+        stops: [
+          [0, "rgba(96, 165, 250, 0.75)"],
+          [0.35, "rgba(129, 140, 248, 0.7)"],
+          [0.65, "rgba(226, 232, 240, 0.55)"],
+          [1, "rgba(30, 41, 59, 0.5)"],
+        ] as [number, string][],
+        glow: "rgba(99, 102, 241, 0.18)",
+        base: 0.28,
       };
     };
 
@@ -79,62 +85,67 @@ export function EmiLiveWaveform({
       const h = height;
       ctx.clearRect(0, 0, w, h);
 
-      let target = mode === "idle" ? 0.28 : 0.55;
+      let target = palette().base;
       if (analyser && data) {
         try {
-          analyser.getByteTimeDomainData(data as any);
+          analyser.getByteTimeDomainData(data as Uint8Array);
           let sum = 0;
           for (let i = 0; i < data.length; i++) {
             const v = (data[i] - 128) / 128;
             sum += v * v;
           }
-          target = Math.min(0.95, 0.25 + Math.sqrt(sum / data.length) * 2.8);
+          target = Math.min(0.92, 0.22 + Math.sqrt(sum / data.length) * 2.6);
         } catch {}
       }
-      ampRef.current += (target - ampRef.current) * 0.12;
+      ampRef.current += (target - ampRef.current) * 0.1;
+      phaseRef.current += mode === "idle" ? 0.028 : 0.055;
 
-      phaseRef.current += mode === "idle" ? 0.035 : 0.07;
       const phase = phaseRef.current;
       const amp = ampRef.current;
-      const c = colors();
-
-      const g = ctx.createLinearGradient(0, 0, w, 0);
-      g.addColorStop(0, c.a);
-      g.addColorStop(0.35, c.b);
-      g.addColorStop(0.65, c.c);
-      g.addColorStop(1, c.d);
-
-      ctx.save();
-      ctx.shadowColor = c.glow;
-      ctx.shadowBlur = mode === "idle" ? 8 : 16;
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.strokeStyle = g;
-
       const mid = h / 2;
+      const p = palette();
+
+      const grad = ctx.createLinearGradient(0, 0, w, 0);
+      for (const [stop, color] of p.stops) grad.addColorStop(stop, color);
+
+      const glowGrad = ctx.createLinearGradient(0, mid - 12, 0, mid + 12);
+      glowGrad.addColorStop(0, "transparent");
+      glowGrad.addColorStop(0.5, p.glow);
+      glowGrad.addColorStop(1, "transparent");
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(0, mid - 14, w, 28);
+
       const layers = [
-        { scale: 1, alpha: 1, freq: 1.2 },
-        { scale: 0.55, alpha: 0.45, freq: 1.8 },
-        { scale: 0.3, alpha: 0.25, freq: 2.4 },
+        { scale: 1.0, alpha: 0.95, freq: 1.15, width: 2.2 },
+        { scale: 0.62, alpha: 0.45, freq: 1.7, width: 1.6 },
+        { scale: 0.35, alpha: 0.28, freq: 2.35, width: 1.2 },
+        { scale: 0.18, alpha: 0.15, freq: 3.1, width: 1.0 },
       ];
 
       for (const layer of layers) {
-        ctx.globalAlpha = layer.alpha;
         ctx.beginPath();
-        for (let x = 0; x <= w; x += 2) {
+        ctx.globalAlpha = layer.alpha;
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = layer.width;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.shadowColor = p.glow;
+        ctx.shadowBlur = mode === "idle" ? 6 : 12;
+
+        for (let x = 0; x <= w; x += 1.5) {
           const t = x / w;
           const y =
             mid +
-            Math.sin(t * Math.PI * 2 * layer.freq + phase) * amp * mid * 0.55 * layer.scale +
-            Math.sin(t * Math.PI * 4 + phase * 1.3) * amp * mid * 0.18 * layer.scale;
+            Math.sin(t * Math.PI * 2 * layer.freq + phase) * amp * mid * 0.48 * layer.scale +
+            Math.sin(t * Math.PI * 3.4 + phase * 1.25) * amp * mid * 0.14 * layer.scale;
           if (x === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.stroke();
       }
-      ctx.restore();
 
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       rafRef.current = requestAnimationFrame(draw);
     };
 
