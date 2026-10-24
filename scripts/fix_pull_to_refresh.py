@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Wire pull-to-refresh; never insert state inside multi-line useState initializers."""
+"""Wire pull-to-refresh. NEVER truncate App.tsx when closing the wrapper."""
 from pathlib import Path
 
 APP = Path("src/App.tsx")
-COMP = Path("src/components/PullToRefresh.tsx")
 
 HANDLER = """
   /** Pull-to-refresh: reload profile + clear caches + remount views */
@@ -41,6 +40,11 @@ def main() -> None:
         return
 
     t = APP.read_text(encoding="utf-8")
+    orig_len = len(t)
+    if orig_len < 100000 and "function CallingView" not in t and "function EmiChatView" not in t:
+        print("WARN: App.tsx looks truncated already; skip pull-to-refresh")
+        return
+
     orig = t
 
     seo = t.find("<SEO")
@@ -58,14 +62,11 @@ def main() -> None:
         if comment > 0:
             start = t.rfind("\n", 0, comment)
         t = t[: start + 1] + t[end:]
-        print("removed handleAppRefresh from inside JSX")
         seo = t.find("<SEO")
 
     if 'from "./components/PullToRefresh"' not in t:
         t = 'import { PullToRefresh } from "./components/PullToRefresh";\n' + t
-        print("import added")
 
-    # NEVER insert after theme useState line (multi-line initializer breaks React)
     if "const [refreshKey, setRefreshKey]" not in t:
         needle = "const [isOnline, setIsOnline] = useState(navigator.onLine);"
         if needle in t:
@@ -74,7 +75,6 @@ def main() -> None:
                 needle + "\n  const [refreshKey, setRefreshKey] = useState(0);",
                 1,
             )
-            print("refreshKey after isOnline")
         else:
             needle2 = "const [isSidebarOpen, setIsSidebarOpen] = useState(false);"
             if needle2 in t:
@@ -83,38 +83,34 @@ def main() -> None:
                     needle2 + "\n  const [refreshKey, setRefreshKey] = useState(0);",
                     1,
                 )
-                print("refreshKey after sidebar")
 
     if "const handleAppRefresh" not in t:
         auth = t.find("if (isAuthChecking && !userProfile)")
         if auth > 0:
             t = t[:auth] + HANDLER + t[auth:]
-            print("handleAppRefresh before auth check")
         else:
             seo = t.find("<SEO")
             ret = t.rfind("\n  return (", 0, seo) if seo > 0 else -1
             if ret > 0:
                 t = t[:ret] + "\n" + HANDLER + t[ret:]
-                print("handleAppRefresh before App return")
 
-    for old_scroll, label in [
-        (
-            """        {/* Scrollable Main Content */}
+    if "onRefresh={handleAppRefresh}" in t and "</PullToRefresh>" in t:
+        print("pull-to-refresh already wired")
+        if t != orig:
+            APP.write_text(t, encoding="utf-8")
+        return
+
+    openers = [
+        """        {/* Scrollable Main Content */}
         <div
           className={`flex-1 overflow-x-hidden overflow-y-auto hide-scrollbar ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"}`}
         >""",
-            "plain",
-        ),
-        (
-            """        {/* Scrollable Main Content */}
+        """        {/* Scrollable Main Content */}
         <div
           className={`flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain hide-scrollbar ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"}`}
         >""",
-            "min-h-0",
-        ),
-    ]:
-        if old_scroll in t and "onRefresh={handleAppRefresh}" not in t:
-            new_scroll = """        {/* Scrollable Main Content + pull-to-refresh */}
+    ]
+    new_open = """        {/* Scrollable Main Content + pull-to-refresh */}
         <PullToRefresh
           theme={theme}
           onRefresh={handleAppRefresh}
@@ -122,32 +118,46 @@ def main() -> None:
           className={`flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain hide-scrollbar ${theme === "dark" ? "bg-gray-950" : "bg-slate-50"}`}
         >
           <div key={refreshKey}>"""
-            t = t.replace(old_scroll, new_scroll, 1)
-            print("opened PullToRefresh", label)
+
+    opened = False
+    for old_scroll in openers:
+        if old_scroll in t:
+            t = t.replace(old_scroll, new_open, 1)
+            opened = True
+            print("opened PullToRefresh")
             break
 
-    if "onRefresh={handleAppRefresh}" in t and "</PullToRefresh>" not in t:
+    if opened and "</PullToRefresh>" not in t:
         idx = t.find("<PullToRefresh")
-        for close_pat in (
-            "\n        </div>\n\n        {/* Bottom",
-            "\n        </div>\n        <div className={`absolute bottom",
-            "\n        </div>\n      </div>",
-        ):
-            pos = t.find(close_pat, idx)
-            if pos > 0:
+        marker = "\n        {/* Bottom Navigation */}"
+        pos = t.find(marker, idx)
+        if pos > 0:
+            before = t.rfind("</div>", idx, pos)
+            if before > 0:
                 t = (
-                    t[:pos]
-                    + "\n          </div>\n        </PullToRefresh>"
-                    + close_pat.replace("\n        </div>", "", 1)
+                    t[:before]
+                    + "</div>\n        </PullToRefresh>"
+                    + t[before + len("</div>") :]
                 )
-                print("closed PullToRefresh")
-                break
+                print("closed PullToRefresh before Bottom Navigation")
+            else:
+                t = t[:pos] + "          </div>\n        </PullToRefresh>\n" + t[pos:]
+                print("closed PullToRefresh (insert before Bottom Nav)")
+        else:
+            print("WARN: Bottom Navigation marker not found; not closing (avoid truncate)")
+
+    if len(t) < orig_len * 0.5:
+        print("ERROR: refusing to write truncated App.tsx", len(t), "vs", orig_len)
+        return
+    if "function CallingView" not in t and "function CallingView" in orig:
+        print("ERROR: CallingView would be lost; abort write")
+        return
 
     if t != orig:
         APP.write_text(t, encoding="utf-8")
-        print("wrote App.tsx")
+        print("wrote App.tsx", len(t), "bytes")
     else:
-        print("pull-to-refresh unchanged")
+        print("unchanged")
 
 
 if __name__ == "__main__":
